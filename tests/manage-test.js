@@ -70,7 +70,8 @@ const B = 'http://localhost:8765/app/'; const SP = process.argv[2];
   check((await p.textContent('#invite-code')) === 'RIVER7', 'switch: Riverside invite code');
   const reqs = (await p.$$('#request-list .person')).length;
   check(reqs === 2 && (await p.textContent('#requests-title')) === 'Requests to join (2)', 'two demo requests');
-  check((await p.textContent('#app-nav a[href="volunteers.html"] .nav-count')) === '2', 'menu count of waiting requests: ' + await p.textContent('#app-nav'));
+  // 2 requests to join, 2 hours to approve, 1 certificate request (demo)
+  check((await p.textContent('#app-nav a[href="volunteers.html"] .nav-count')) === '5', 'menu count of everything waiting: ' + await p.textContent('#app-nav'));
   await p.click('button[aria-label="Approve Priya Nair"]');
   check((await p.textContent('#vol-status')).includes('Priya Nair is now a volunteer') && (await p.$$('#request-list .person')).length === 1, 'approve');
   check(await p.evaluate(() => document.activeElement.id) === 'requests-title', 'focus after approve');

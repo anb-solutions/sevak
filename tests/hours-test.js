@@ -60,7 +60,8 @@ const B = 'http://localhost:8765/app/'; const SP = process.argv[2];
   s = (await signups(p)).find(x => x.eventId === 'demo-ev-fair');
   check(s.hours.minutes === 330 && s.hours.method === 'times', 'times saved');
   check((await p.textContent('#hours-summary')).includes('8 h 17 min') && (await p.textContent('#hours-summary')).includes('2 shifts logged'), 'summary total');
-  check((await p.textContent(fair + ' .badge')) === 'Done', 'badge Done');
+  check((await p.textContent(fair + ' > .badges .badge')) === 'Done', 'badge Done');
+  check((await p.textContent(fair + ' .hours-row')).includes('Waiting for approval'), 'logged hours wait for approval');
 
   // ----- Edit: duration -----
   await p.click(fair + ' button[aria-label^="Edit hours"]');

@@ -82,11 +82,12 @@ const B = 'http://localhost:8765/'; const A = B + 'app/'; const SP = process.arg
   await as(ADA);
   await p.goto(A + 'volunteers.html');
   check((await p.$$eval('#app-nav .nav-manage a', a => a.map(x => x.firstChild.textContent).join('|'))) === 'Events|Volunteers|Dashboard|Organization', 'manage menu has Volunteers');
-  check((await p.textContent('#app-nav a[href="volunteers.html"] .nav-count')) === '3', 'count of waiting requests');
+  // 3 requests to join, plus the demo's 2 hours to approve and 1 certificate request
+  check((await p.textContent('#app-nav a[href="volunteers.html"] .nav-count')) === '6', 'count of everything waiting');
   check((await p.$$eval('#request-list .person strong', s => s.map(x => x.textContent))).join('|') === 'Priya Nair|Tom Becker|Vera Vol', 'requests listed');
   check((await p.textContent('#request-list .person:has-text("Vera Vol")')).includes('Love the park'), 'note shown');
   await p.click('#request-list button[aria-label="Approve Vera Vol"]');
-  check((await p.textContent('#vol-status')).includes('Vera Vol is now a volunteer') && (await p.textContent('#app-nav a[href="volunteers.html"] .nav-count')) === '2', 'approved; count 2');
+  check((await p.textContent('#vol-status')).includes('Vera Vol is now a volunteer') && (await p.textContent('#app-nav a[href="volunteers.html"] .nav-count')) === '5', 'approved; count 5');
   await p.click('#request-list button[aria-label="Decline Tom Becker"]');
   check(await p.isVisible('#declined-box') && (await p.textContent('#declined-summary')) === '1 declined request', 'declined list');
   check((await p.$$('#member-list .person')).length === 8 && await p.isVisible('#show-all-members'), 'long list starts short');

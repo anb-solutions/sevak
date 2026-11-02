@@ -12,7 +12,10 @@
   <script src="forms.js" defer></script>
   <script src="orgs-store.js" defer></script>
   <script src="events-store.js" defer></script>
+  <script src="signups-store.js" defer></script>
   <script src="members-store.js" defer></script>
+  <script src="documents.js" defer></script>
+  <script src="certificates.js" defer></script>
   <script src="nav.js" defer></script>
   <script src="volunteers.js" defer></script>
 </head>
@@ -41,8 +44,30 @@
     <section class="org-context" id="org-context" aria-label="Organization" hidden></section>
 
     <h1 class="page-title">Volunteers</h1>
-    <p class="page-intro">People join as volunteers by invitation, or by asking to. Approve requests here, invite people, and see who's on board.</p>
+    <p class="page-intro">Approve volunteers' hours and requests to join, issue certificates, invite people, and see who's on board.</p>
     <p class="status" id="vol-status" role="status" aria-live="polite"></p>
+
+    <!-- Hours volunteers logged, waiting for the event admin -->
+    <section class="section" id="hours-section" aria-labelledby="hours-title" hidden>
+      <h2 class="section-title" id="hours-title" tabindex="-1">Hours to approve</h2>
+      <p class="section-help">Hours volunteers logged after their shifts. Only approved hours go on certificates.</p>
+      <div class="fill-row" id="hours-bulk"><button type="button" class="btn btn-secondary btn-small" id="approve-all">Approve all</button></div>
+      <ul class="person-list" id="hours-list"></ul>
+      <p class="hint" id="hours-others" hidden></p>
+    </section>
+
+    <!-- Certificates volunteers asked for -->
+    <section class="section" id="cert-requests" aria-labelledby="certreq-title" hidden>
+      <h2 class="section-title" id="certreq-title" tabindex="-1">Certificate requests</h2>
+      <p class="section-help">A certificate covers the volunteer's approved hours for the period they chose. Issuing signs it with your name and signature (set them on <a href="profile.html">My profile</a>) and saves it in their Documents and each event's Documents.</p>
+      <ul class="person-list" id="certreq-list"></ul>
+      <p class="empty" id="certreq-empty" hidden>No certificate requests waiting.</p>
+      <p class="hint" id="certreq-hint" hidden>Only Admins issue certificates.</p>
+      <details class="declined-box" id="issued-box" hidden>
+        <summary id="issued-summary"></summary>
+        <ul class="person-list" id="issued-list"></ul>
+      </details>
+    </section>
 
     <section class="section" aria-labelledby="requests-title">
       <h2 class="section-title" id="requests-title">Requests to join</h2>

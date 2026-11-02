@@ -122,7 +122,9 @@ const BASE = 'http://localhost:8765/';
   await p.click('#tab-details');
   await p.click('#delete-profile');
   await p.click('#tab-documents');
-  await p.waitForSelector('#panel-documents >> text=No documents yet.');
+  // Documents belong to a person: with no profile there's nowhere to add them.
+  await p.waitForSelector('#panel-documents >> text=Save your profile first');
+  check(!(await p.evaluate(() => JSON.parse(localStorage.getItem('sevak.documents.v1')).some(d => d.owner.startsWith('profile')))), 'profile docs deleted with the profile');
 
   // Deleting the event removes its docs; removing demo org removes org docs; files swept.
   await p.evaluate(() => localStorage.setItem('sevak.profile.v1', JSON.stringify({ email: 'a@example.com', organizations: [{ name: 'Riverside Community Arts (demo)', role: 'admin' }] })));

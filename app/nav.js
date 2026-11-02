@@ -24,6 +24,7 @@
   var SEEN_KEY = "sevak.seenTeams.v1";
   var SEEN_MEMBERSHIPS_KEY = "sevak.seenMemberships.v1";
   var SEEN_VERIFICATION_KEY = "sevak.seenVerification.v1";
+  var SEEN_CERTS_KEY = "sevak.seenCertificates.v1";
   var M = window.SevakMembers;
   var BANNER_KEY = "sevak.bannerDismissed.v1";
   var MANAGE = { "events.html": "events", "event.html": "events", "main-event.html": "events", "volunteers.html": "volunteers", "dashboard.html": "dashboard", "organization.html": "organization" };
@@ -72,6 +73,33 @@
   }
 
   // How many upcoming events you've signed up for (still going ahead).
+  // Everything on Manage → Volunteers waiting for you: requests to join,
+  // hours to approve (events you're the admin of, or any if you're an Admin)
+  // and certificate requests (Admins).
+  function waitingCount() {
+    if (!F.session.signedIn()) return 0;
+    var teams = O.myTeams();
+    if (!teams.length) return 0;
+    var me = String((F.session.profile() || {}).email || "").toLowerCase();
+    var admin = {}, onTeam = {};
+    teams.forEach(function (t) { onTeam[t.org.id] = true; if (t.role === "admin") admin[t.org.id] = true; });
+    var n = M ? M.pendingForMyTeams().length : 0;
+    var E = window.SevakEvents;
+    if (E) {
+      var mine = {};
+      E.all().forEach(function (ev) {
+        if (onTeam[ev.organizationId] && (admin[ev.organizationId] || String(ev.eventAdmin || "").toLowerCase() === me)) mine[ev.id] = true;
+      });
+      var signups = F.load("sevak.signups.v1") || [];
+      n += signups.filter(function (su) {
+        return mine[su.eventId] && su.status !== "cancelled" && su.hours && su.hours.minutes && su.hours.status !== "approved" && su.hours.status !== "rejected";
+      }).length;
+    }
+    var certs = F.load("sevak.certificates.v1") || [];
+    n += certs.filter(function (c) { return c.status === "requested" && admin[c.orgId]; }).length;
+    return n;
+  }
+
   function upcomingCount() {
     var email = myEmail();
     if (!email || !F.session.signedIn()) return 0;
@@ -108,7 +136,7 @@
     var onTeam = signedIn && O.myTeams().length > 0;
     var showManage = signedIn ? onTeam : !!MANAGE[here];
     var count = upcomingCount();
-    var waiting = signedIn && M ? M.pendingForMyTeams().length : 0;
+    var waiting = signedIn ? waitingCount() : 0;
 
     nav.innerHTML = "";
     var main = el("span", "nav-group nav-main");
@@ -367,6 +395,45 @@
     if (banner) banner.insertAdjacentElement("afterend", box);
   }
 
+  // A volunteer sees once when a certificate they asked for is issued or
+  // declined (the email is in the outbox too).
+  function announceCertificates() {
+    if (!F.session.signedIn() || page() === "certificate.html") return;
+    var me = String((F.session.profile() || {}).email || "").toLowerCase();
+    var certs = (F.load("sevak.certificates.v1") || []).filter(function (c) {
+      return String(c.email).toLowerCase() === me && (c.status === "issued" || c.status === "declined");
+    });
+    var seen = F.load(SEEN_CERTS_KEY);
+    seen = seen && typeof seen === "object" ? seen : {};
+    var news = certs.filter(function (c) { return seen[c.id] !== c.status; });
+    if (!news.length) return;
+    news.forEach(function (c) { seen[c.id] = c.status; });
+    F.store(SEEN_CERTS_KEY, seen);
+    var box = el("div", "section notice team-notice");
+    box.setAttribute("role", "status");
+    news.forEach(function (c) {
+      var org = O.get(c.orgId);
+      var name = org ? org.name : "The organization";
+      var p = el("p");
+      if (c.status === "issued") {
+        p.appendChild(document.createTextNode("Your certificate from "));
+        p.appendChild(el("strong", null, name));
+        p.appendChild(document.createTextNode(" is ready. "));
+        p.appendChild(link("certificate.html?id=" + encodeURIComponent(c.id), "View your certificate", false));
+      } else {
+        p.appendChild(document.createTextNode(name + " didn't issue the certificate you asked for" + (c.reason ? ": " + c.reason : ".") + " "));
+        p.appendChild(link("signup.html?view=mine#certificates", "Your certificates", false));
+      }
+      box.appendChild(p);
+    });
+    var close = el("button", "btn btn-link", "Dismiss");
+    close.type = "button";
+    close.addEventListener("click", function () { box.remove(); });
+    box.appendChild(close);
+    var banner = document.querySelector("main .banner");
+    if (banner) banner.insertAdjacentElement("afterend", box);
+  }
+
   // ---------- Access to the Manage pages ----------
 
   // opts.org: the organization the page is about (for one event), if any.
@@ -455,6 +522,7 @@
   announceTeams();
   announceMemberships();
   announceVerification();
+  announceCertificates();
   if (M) render();   // invitations accepted just now change the counts
 
   window.SevakNav = { render: render, guard: guard };

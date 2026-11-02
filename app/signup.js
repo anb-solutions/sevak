@@ -406,8 +406,8 @@
     var minutes = Math.max(1, Math.round((out - new Date(su.checkInAt)) / 60000));
     saveHours(su, sh, {
       checkOutAt: out.toISOString(),
-      hours: { minutes: minutes, from: localHM(su.checkInAt), to: localHM(out.toISOString()), method: "check-in", loggedAt: out.toISOString() }
-    }, "Checked out. " + durationLabel(minutes) + " logged for " + (sh.role.name || "your shift") + ". Thank you!");
+      hours: { minutes: minutes, from: localHM(su.checkInAt), to: localHM(out.toISOString()), method: "check-in", loggedAt: out.toISOString(), status: "pending" }
+    }, "Checked out. " + durationLabel(minutes) + " logged for " + (sh.role.name || "your shift") + ". Thank you! It's waiting for the event admin's approval.");
   }
 
   function field(label, input) {
@@ -513,7 +513,8 @@
         record = { minutes: minutes, from: fromIn.value, to: toIn.value, method: "times" };
       }
       record.loggedAt = new Date().toISOString();
-      saveHours(su, sh, { hours: record }, durationLabel(minutes) + " logged for " + (sh.role.name || "your shift") + " on " + E.dayLabel(sh.date) + ".");
+      record.status = "pending";   // the event's admin approves them
+      saveHours(su, sh, { hours: record }, durationLabel(minutes) + " logged for " + (sh.role.name || "your shift") + " on " + E.dayLabel(sh.date) + ". It's waiting for the event admin's approval.");
     });
     return form;
   }
@@ -565,9 +566,22 @@
       text.appendChild(el("strong", null, "✓ " + durationLabel(h.minutes)));
       text.appendChild(document.createTextNode(h.from && h.to ? " · " + E.timeLabel(h.from) + "–" + E.timeLabel(h.to) : " · logged as a duration"));
       row.appendChild(text);
-      var edit = actionButton("Edit", "btn-link", function () { openForm(su, sh, li); });
+      // Approval by the event's admin
+      var st = S.hoursStatus(su);
+      row.appendChild(st === "approved"
+        ? E.badge(h.approvedMinutes != null ? "Approved as " + durationLabel(h.approvedMinutes) : "Approved", "published")
+        : st === "rejected" ? E.badge("Not approved", "inactive") : E.badge("Waiting for approval", "draft"));
+      var edit = actionButton("Edit", "btn-link", function () {
+        if (st === "approved" && !window.confirm("These hours are approved. If you change them, they'll need approving again.")) return;
+        openForm(su, sh, li);
+      });
       edit.setAttribute("aria-label", "Edit hours for " + shiftLabel(sh));
       row.appendChild(edit);
+      if (st === "rejected" && h.reason) {
+        li.appendChild(row);
+        li.appendChild(el("p", "hours-reason", "Not approved: " + h.reason + " You can edit your hours to send them again."));
+        return li;
+      }
     }
     li.appendChild(row);
     return li;
@@ -637,7 +651,7 @@
     });
     var today = todayString();
     var groups = { today: [], upcoming: [], past: [], cancelled: [] };
-    var logged = 0, loggedShifts = 0, toLog = 0;
+    var logged = 0, loggedShifts = 0, toLog = 0, approved = 0, waiting = 0;
     order.forEach(function (key) {
       var r = regs[key];
       r.confirmed = r.signups.filter(function (s) { return s.status !== "cancelled"; });
@@ -647,7 +661,11 @@
         var sh = byId[su.shiftId];
         if (!sh) return;
         var state = hoursState(su, sh);
-        if (state === "logged") { logged += su.hours.minutes; loggedShifts++; }
+        if (state === "logged") {
+          logged += su.hours.minutes; loggedShifts++;
+          approved += S.creditedMinutes(su);
+          if (S.hoursStatus(su) === "pending") waiting++;
+        }
         if (state === "to-log") toLog++;
       });
       var onToday = r.confirmed.some(function (su) { return byId[su.shiftId] && byId[su.shiftId].date === today; });
@@ -671,6 +689,8 @@
       summary.appendChild(total);
       var parts = [];
       if (loggedShifts) parts.push(E.plural(loggedShifts, "shift") + " logged");
+      if (loggedShifts) parts.push(durationLabel(approved) + " approved");
+      if (waiting) parts.push(E.plural(waiting, "shift") + " waiting for approval");
       if (toLog) parts.push(E.plural(toLog, "shift") + " waiting for hours");
       summary.appendChild(el("p", "hours-sub", parts.join(" · ")));
     }
@@ -685,6 +705,145 @@
       box.appendChild(ul);
     });
     $("mine-empty").hidden = order.length > 0;
+    renderCertificates();
+  }
+
+  // ---------- Certificates: ask an organization, for a period ----------
+
+  var C = window.SevakCerts;
+
+  function plainDay(date) { return E.dayLabel(date, { weekday: undefined, year: "numeric" }); }
+
+  function renderCertificates() {
+    if (!C) return;
+    var orgs = C.myOrgsWithHours();
+    var mine = C.mine();
+    var box = $("certificates");
+    box.hidden = !orgs.length && !mine.length;
+    if (box.hidden) return;
+    var list = $("cert-list");
+    list.innerHTML = "";
+    mine.forEach(function (c) {
+      var org = O.get(c.orgId);
+      var li = el("li", "cert-item");
+      var text = el("div");
+      text.appendChild(el("strong", null, org ? org.name : "An organization"));
+      text.appendChild(el("p", "event-meta", plainDay(c.from) + " – " + plainDay(c.to) + (c.status === "issued" && c.data ? " · " + C.durationLabel(c.data.minutes) : "")));
+      if (c.status === "declined" && c.reason) text.appendChild(el("p", "hours-reason", "Not issued: " + c.reason));
+      li.appendChild(text);
+      var side = el("div", "cert-actions");
+      if (c.status === "issued") {
+        side.appendChild(E.badge("Issued", "published"));
+        var view = el("a", "btn btn-secondary btn-small", "View certificate");
+        view.href = "certificate.html?id=" + encodeURIComponent(c.id);
+        side.appendChild(view);
+      } else if (c.status === "declined") {
+        side.appendChild(E.badge("Not issued", "inactive"));
+      } else {
+        side.appendChild(E.badge("Requested", "draft"));
+        var w = el("button", "btn-link", "Withdraw");
+        w.type = "button";
+        w.setAttribute("aria-label", "Withdraw the request to " + (org ? org.name : "the organization"));
+        w.addEventListener("click", function () {
+          if (!window.confirm("Withdraw this certificate request?")) return;
+          C.withdraw(c.id);
+          renderCertificates();
+          $("cert-status").textContent = "Request withdrawn.";
+          $("certs-title").focus();
+        });
+        side.appendChild(w);
+      }
+      li.appendChild(side);
+      list.appendChild(li);
+    });
+    $("cert-new").hidden = !orgs.length || !$("cert-form").hidden;
+  }
+
+  function certOrgInfo() {
+    var id = $("cert-org").value;
+    return C.myOrgsWithHours().filter(function (o) { return o.orgId === id; })[0] || null;
+  }
+
+  function setPeriod(from, to) {
+    $("cert-from").value = from;
+    $("cert-to").value = to;
+    updateCoverage();
+  }
+
+  function preset(kind) {
+    var t = todayString();
+    var y = Number(t.slice(0, 4));
+    var info = certOrgInfo();
+    if (kind === "all" && info) setPeriod(info.first, info.last > t ? info.last : t);
+    else if (kind === "year") setPeriod(y + "-01-01", t);
+    else if (kind === "last-year") setPeriod((y - 1) + "-01-01", (y - 1) + "-12-31");
+    else if (kind === "12m") setPeriod((y - 1) + t.slice(4), t);
+  }
+
+  function updateCoverage() {
+    var from = $("cert-from").value, to = $("cert-to").value;
+    var out = $("cert-coverage");
+    if (!from || !to || to < from) { out.textContent = ""; return null; }
+    var profile = F.session.profile();
+    var cov = C.coverage(profile.email, $("cert-org").value, from, to);
+    out.textContent = (cov.minutes
+      ? "Covers " + C.durationLabel(cov.minutes) + " of approved hours (" + E.plural(cov.approved.length, "shift") + ")."
+      : "No approved hours in this period yet.") +
+      (cov.pendingShifts ? " " + C.durationLabel(cov.pendingMinutes) + " (" + E.plural(cov.pendingShifts, "shift") + ") still waiting for approval won't be included." : "");
+    return cov;
+  }
+
+  function openCertForm() {
+    var sel = $("cert-org");
+    sel.innerHTML = "";
+    C.myOrgsWithHours().forEach(function (o) {
+      var opt = el("option", null, O.get(o.orgId).name);
+      opt.value = o.orgId;
+      sel.appendChild(opt);
+    });
+    $("cert-form").hidden = false;
+    $("cert-new").hidden = true;
+    $("cert-new").setAttribute("aria-expanded", "true");
+    $("cert-note").value = "";
+    $("cert-status").textContent = "";
+    preset("all");
+    sel.focus();
+  }
+
+  function closeCertForm() {
+    $("cert-form").hidden = true;
+    $("cert-new").setAttribute("aria-expanded", "false");
+    renderCertificates();
+  }
+
+  if (C) {
+    $("cert-new").addEventListener("click", openCertForm);
+    $("cert-cancel").addEventListener("click", function () { closeCertForm(); $("cert-new").focus(); });
+    $("cert-org").addEventListener("change", function () { preset("all"); });
+    $("cert-from").addEventListener("input", updateCoverage);
+    $("cert-to").addEventListener("input", updateCoverage);
+    document.querySelectorAll(".cert-presets [data-preset]").forEach(function (b) {
+      b.addEventListener("click", function () { preset(b.dataset.preset); });
+    });
+    $("cert-form").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var from = $("cert-from").value, to = $("cert-to").value;
+      F.setError($("cert-from"), from ? "" : "Choose the first day.");
+      F.setError($("cert-to"), !to ? "Choose the last day." : to < from ? "The last day must be on or after the first." : "");
+      if (!from) { $("cert-from").focus(); return; }
+      if (!to || to < from) { $("cert-to").focus(); return; }
+      var cov = updateCoverage();
+      if (!cov || !cov.minutes) {
+        $("cert-status").textContent = "There are no approved hours in that period. Choose another period, or wait for your hours to be approved.";
+        $("cert-from").focus();
+        return;
+      }
+      var rec = C.request($("cert-org").value, from, to, $("cert-note").value);
+      if (!rec) { $("cert-status").textContent = "Couldn't send the request in this browser."; return; }
+      closeCertForm();
+      $("cert-status").textContent = "Request sent to " + O.get(rec.orgId).name + ". Its Admin will issue your certificate; you'll get an email.";
+      $("certs-title").focus();
+    });
   }
 
   function renderOpportunities() {
@@ -701,6 +860,11 @@
     var on = F.session.signedIn();
     $("mine-signed-out").hidden = on;
     if (on) renderMine();
+    // Links from emails: signup.html?view=mine#certificates
+    if (on && location.hash === "#certificates" && !$("certificates").hidden) {
+      $("certificates").scrollIntoView();
+      $("certs-title").focus({ preventScroll: true });
+    }
   }
 
   // ---------- One event: step 1, pick shifts ----------

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Certificate · Sevak</title>
+  <meta name="robots" content="noindex">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230f766e'/%3E%3Cg fill='%23fff' transform='translate(12 12) scale(.78) translate(-12 -12.4)'%3E%3Crect x='8' y='9' width='8' height='8' transform='rotate(45 12 13)'/%3E%3Ccircle cx='9.17' cy='10.17' r='4'/%3E%3Ccircle cx='14.83' cy='10.17' r='4'/%3E%3C/g%3E%3C/svg%3E">
+  <link rel="stylesheet" href="app.css">
+  <script src="forms.js" defer></script>
+  <script src="orgs-store.js" defer></script>
+  <script src="events-store.js" defer></script>
+  <script src="signups-store.js" defer></script>
+  <script src="members-store.js" defer></script>
+  <script src="documents.js" defer></script>
+  <script src="certificates.js" defer></script>
+  <script src="nav.js" defer></script>
+  <script src="certificate.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-row">
+      <a class="brand" href="../">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect width="24" height="24" rx="6" fill="#0f766e"/>
+          <g fill="#fff" transform="translate(12 12) scale(.78) translate(-12 -12.4)">
+            <rect x="8" y="9" width="8" height="8" transform="rotate(45 12 13)"/>
+            <circle cx="9.17" cy="10.17" r="4"/>
+            <circle cx="14.83" cy="10.17" r="4"/>
+          </g>
+        </svg>
+        <span class="brand-text"><span class="brand-name">Sevak</span><span class="brand-subtitle">Volunteer Management System</span><span class="brand-tagline">A Service of The ANB Group</span></span>
+      </a>
+      <nav class="app-nav" id="app-nav" aria-label="Main"></nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <p class="banner"><strong>Prototype.</strong> Everything you enter stays in this browser.</p>
+
+    <a class="back-link" id="cert-back" href="signup.html?view=mine#certificates">‹ My sign-ups</a>
+    <h1 class="page-title" id="cert-title">Certificate</h1>
+    <p class="page-intro" id="cert-intro"></p>
+    <div class="fill-row cert-tools" id="cert-tools" hidden>
+      <button type="button" class="btn btn-primary btn-small" id="cert-download">Download PDF</button>
+      <button type="button" class="btn btn-secondary btn-small" id="cert-print">Print</button>
+      <button type="button" class="btn btn-primary btn-small" id="cert-issue" hidden>Issue this certificate</button>
+    </div>
+    <p class="status" id="cert-status" role="status" aria-live="polite"></p>
+    <div class="cert-pages" id="cert-pages"></div>
+
+    <details class="section cert-text" id="cert-text" hidden>
+      <summary>Text version</summary>
+      <div id="cert-text-body"></div>
+    </details>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <span>© 2026 The ANB Group. All rights reserved.</span>
+      <span><a href="../terms.html">Terms of Service</a> · <a href="../privacy.html">Privacy Policy</a></span>
+    </div>
+  </footer>
+</body>
+</html>

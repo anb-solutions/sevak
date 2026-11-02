@@ -394,6 +394,7 @@
           },
       roles: Array.prototype.map.call(roleList.children, readRole),
       visibility: visibility(),
+      eventAdmin: $("eventAdmin").value,
       status: status,
       active: active,
       inactiveAt: active ? undefined : (existing && existing.inactiveAt) || new Date().toISOString(),
@@ -402,8 +403,33 @@
     };
   }
 
+  // Who approves volunteers' hours: someone on the organization's team, or
+  // (by default) any of its Admins.
+  function fillEventAdmin(selected) {
+    var sel = $("eventAdmin");
+    sel.innerHTML = "";
+    var add = function (value, text) {
+      var o = document.createElement("option");
+      o.value = value;
+      o.textContent = text;
+      sel.appendChild(o);
+    };
+    add("", "Any Admin of " + ((org && org.name) || "the organization"));
+    var team = (org && org.team) || [];
+    var seen = {};
+    team.forEach(function (m) {
+      var key = String(m.email || "").toLowerCase();
+      if (!key || seen[key]) return;
+      seen[key] = true;
+      add(m.email, (m.name || m.email) + " (" + (m.role === "admin" ? "Admin" : "Coordinator") + ")");
+    });
+    if (selected && !seen[String(selected).toLowerCase()]) add(selected, selected + " (no longer on the team)");
+    sel.value = selected || "";
+  }
+
   function fill(event) {
     var set = function (id, value) { if (value != null) $(id).value = value; };
+    fillEventAdmin(event.eventAdmin);
     fillMainEvents(event.mainEventId);
     set("title", event.title);
     set("description", event.description);
@@ -564,6 +590,7 @@
   } else {
     fillMainEvents(params.get("main"));
     fillTimezones();
+    fillEventAdmin("");
     addRole();
   }
   applyBreadcrumb();

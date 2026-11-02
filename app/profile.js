@@ -178,6 +178,7 @@
     }
     renderTeams();
     renderVolunteerOrgs();
+    renderSignature();
     renderAccount();
     window.SevakNav.render();
     window.scrollTo(0, 0);
@@ -251,6 +252,7 @@
     var seen = F.load(SEEN_TEAMS_KEY);
     if (Array.isArray(seen)) F.store(SEEN_TEAMS_KEY, seen.filter(function (id) { return id !== org.id; }));
     renderTeams();
+    renderSignature();
     window.SevakNav.render();
     $("team-status").textContent = "You've left the team of " + name + ".";
   }
@@ -441,6 +443,12 @@
     var stored = F.store(STORAGE_KEY, readForm());
     // Saving your profile signs you in (see SevakForms.session).
     if (stored) F.session.signIn();
+    if (stored) {
+      // Your documents follow your email if you change it.
+      var nextOwner = window.SevakDocs.profileOwner(F.load(STORAGE_KEY).email);
+      window.SevakDocs.moveOwner(docsOwner, nextOwner);
+      if (nextOwner !== docsOwner) { docsOwner = nextOwner; docs.setOwner(docsOwner, DOCS_BLOCKED); }
+    }
     $("status").textContent = stored
       ? "Profile saved on this device."
       : "Couldn't save in this browser. Check that site storage is allowed.";
@@ -450,16 +458,20 @@
     }
     renderTeams();
     renderVolunteerOrgs();
+    renderSignature();
     renderAccount();
     window.SevakNav.render();
   });
 
   $("delete-profile").addEventListener("click", function () {
-    var docCount = window.SevakDocs.forOwner("profile").length;
+    var docCount = docsOwner ? window.SevakDocs.forOwner(docsOwner).length : 0;
     if (!window.confirm("Delete your profile" + (docCount ? " and your " + (docCount === 1 ? "document" : docCount + " documents") : "") +
       " from this device? This can't be undone.")) return;
     F.clear(STORAGE_KEY);
-    window.SevakDocs.removeFor(["profile"]).then(docs.render);
+    window.SevakDocs.removeFor(["profile", docsOwner].filter(Boolean)).then(function () {
+      docsOwner = null;
+      docs.setOwner(null, DOCS_BLOCKED);
+    });
     form.reset();
     $("role-volunteer").checked = true;
     $("country").value = F.defaultCountry();
@@ -473,10 +485,109 @@
     applyRoles();
     renderTeams();
     renderVolunteerOrgs();
+    renderSignature();
     renderAccount();
     renderJoinNotice();
     window.SevakNav.render();
     $("status").textContent = "Profile deleted.";
+  });
+
+  // ---------- Signature for certificates (Admins) ----------
+
+  var C = window.SevakCerts;
+  var pad = $("sig-pad");
+  var padCtx = pad.getContext("2d");
+  var hasInk = false;
+
+  function isAdminSomewhere() {
+    return F.session.signedIn() && window.SevakOrgs.myTeams().some(function (t) { return t.role === "admin"; });
+  }
+
+  function renderSignature() {
+    var on = !!C && isAdminSomewhere();
+    $("signature-section").hidden = !on;
+    if (!on) return;
+    var mine = C.signature(F.session.profile().email) || {};
+    $("sig-title").value = mine.title || "";
+    $("sig-saved").hidden = !mine.image;
+    $("sig-remove").hidden = !mine.image;
+    if (mine.image) $("sig-saved-img").src = mine.image;
+  }
+
+  function padPoint(e) {
+    var r = pad.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * pad.width / r.width, y: (e.clientY - r.top) * pad.height / r.height };
+  }
+
+  var last = null;
+  pad.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    pad.setPointerCapture(e.pointerId);
+    last = padPoint(e);
+    padCtx.beginPath();
+    padCtx.arc(last.x, last.y, 1.4, 0, Math.PI * 2);
+    padCtx.fillStyle = "#1f2a28";
+    padCtx.fill();
+    hasInk = true;
+  });
+  pad.addEventListener("pointermove", function (e) {
+    if (!last) return;
+    var p = padPoint(e);
+    padCtx.strokeStyle = "#1f2a28";
+    padCtx.lineWidth = 3;
+    padCtx.lineCap = "round";
+    padCtx.lineJoin = "round";
+    padCtx.beginPath();
+    padCtx.moveTo(last.x, last.y);
+    padCtx.lineTo(p.x, p.y);
+    padCtx.stroke();
+    last = p;
+  });
+  ["pointerup", "pointercancel", "pointerleave"].forEach(function (t) { pad.addEventListener(t, function () { last = null; }); });
+
+  // The drawing, cropped to the ink (transparent background).
+  function trimmedSignature() {
+    var w = pad.width, h = pad.height;
+    var data = padCtx.getImageData(0, 0, w, h).data;
+    var minX = w, minY = h, maxX = -1, maxY = -1;
+    for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
+      if (data[(y * w + x) * 4 + 3] > 10) {
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+      }
+    }
+    if (maxX < 0) return "";
+    var padPx = 6;
+    minX = Math.max(0, minX - padPx); minY = Math.max(0, minY - padPx);
+    maxX = Math.min(w - 1, maxX + padPx); maxY = Math.min(h - 1, maxY + padPx);
+    var out = document.createElement("canvas");
+    out.width = maxX - minX + 1; out.height = maxY - minY + 1;
+    out.getContext("2d").drawImage(pad, minX, minY, out.width, out.height, 0, 0, out.width, out.height);
+    return out.toDataURL("image/png");
+  }
+
+  function clearPad() { padCtx.clearRect(0, 0, pad.width, pad.height); hasInk = false; }
+
+  function saveSignature() {
+    var email = F.session.profile().email;
+    var fields = { title: $("sig-title").value.trim() };
+    var image = hasInk ? trimmedSignature() : "";
+    if (image) fields.image = image;
+    if (!C.setSignature(email, fields)) { $("sig-status").textContent = "Couldn't save in this browser."; return; }
+    clearPad();
+    renderSignature();
+    $("sig-status").textContent = image ? "Title and signature saved. Certificates you issue from now on carry them." : "Title saved." + (C.signature(email).image ? "" : " Draw your signature in the box to add it too.");
+  }
+
+  $("sig-save").addEventListener("click", saveSignature);
+  $("sig-title").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); saveSignature(); } });
+  $("sig-clear").addEventListener("click", function () { clearPad(); $("sig-status").textContent = "Box cleared."; });
+  $("sig-remove").addEventListener("click", function () {
+    if (!window.confirm("Remove your saved signature? Certificates you issue will show your name in a handwriting style instead.")) return;
+    C.setSignature(F.session.profile().email, { image: "" });
+    renderSignature();
+    $("sig-status").textContent = "Signature removed.";
+    $("sig-save").focus();
   });
 
   // ---------- Start ----------
@@ -496,10 +607,16 @@
   renderVolunteerOrgs();
   renderAccount();
   renderJoinNotice();
+  renderSignature();
 
+  // Your documents are yours (by email), so certificates an organization
+  // issues to you land here.
+  var DOCS_BLOCKED = "Save your profile first, then you can add documents.";
+  var docsOwner = existing ? window.SevakDocs.profileOwner(existing.email) : null;
   var docs = window.SevakDocs.mount($("panel-documents"), {
-    owner: "profile",
-    help: "Certificates, background checks, training records and anything else you want to keep handy. Only you can see these."
+    owner: docsOwner,
+    help: "Certificates, background checks, training records and anything else you want to keep handy. Only you can see these.",
+    blockedMessage: DOCS_BLOCKED
   });
   // Documents save on their own, so the profile's Save bar isn't shown there.
   var tabs = window.SevakDocs.pageTabs($("profile-tabs"), function (key) {

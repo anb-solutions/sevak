@@ -12,6 +12,8 @@
   var EVENTS_KEY = "sevak.events.v1";
   var MAIN_KEY = "sevak.mainEvents.v1";
   var SIGNUPS_KEY = "sevak.signups.v1";
+  var CERTS_KEY = "sevak.certificates.v1";
+  var DOCS_KEY = "sevak.documents.v1";
   var F = window.SevakForms;
   var O = window.SevakOrgs;
 
@@ -154,6 +156,9 @@
     F.store(MAIN_KEY, (F.load(MAIN_KEY) || []).filter(isDemo));
     F.store(SIGNUPS_KEY, (F.load(SIGNUPS_KEY) || []).filter(function (s) { return String(s.eventId || "").indexOf("demo-") !== 0; }));
     F.store(MEMBERS_KEY, (F.load(MEMBERS_KEY) || []).filter(function (m) { return String(m.orgId || "").indexOf("demo-") !== 0; }));
+    F.store(CERTS_KEY, (F.load(CERTS_KEY) || []).filter(function (c) { return String(c.orgId || "").indexOf("demo-") !== 0; }));
+    // Certificates saved in the demo events' Documents go with them.
+    F.store(DOCS_KEY, (F.load(DOCS_KEY) || []).filter(function (d) { return String(d.owner || "").indexOf("event:demo-") !== 0; }));
     if (O.get(ORG_ID)) O.remove(ORG_ID);
     if (O.get(ORG2_ID)) O.remove(ORG2_ID);
   }
@@ -233,6 +238,23 @@
         roles: roles, visibility: p.visibility || "public", status: p.status, createdAt: now, updatedAt: now
       });
     });
+    // Hours at the (past) Summer Fair: three volunteers' are approved, two
+    // are waiting for approval. The first asked for a certificate.
+    var fair = signups.filter(function (su) { return su.shiftId === "demo-ev-fair-shift-0-0"; });
+    var fairDay = day(-20);
+    fair.forEach(function (su, i) {
+      if (i < 3) su.hours = { minutes: 360, from: "10:00", to: "16:00", method: "times", loggedAt: now, status: "approved", decidedAt: now, decidedBy: "coordinator@example.org" };
+      else if (i === 3) su.hours = { minutes: 360, from: "10:00", to: "16:00", method: "times", loggedAt: now, status: "pending" };
+      else if (i === 4) su.hours = { minutes: 330, from: "10:05", to: "15:35", method: "check-in", loggedAt: now, status: "pending" };
+    });
+    if (fair[0]) {
+      var start = new Date(); start.setDate(start.getDate() - 90);
+      F.store(CERTS_KEY, (F.load(CERTS_KEY) || []).concat([{
+        id: "demo-cert-1", orgId: ORG_ID, email: fair[0].email, name: fair[0].name,
+        from: start.toISOString().slice(0, 10), to: fairDay > day(0) ? fairDay : day(0),
+        note: "For my school's community service record.", status: "requested", requestedAt: now
+      }]));
+    }
     signups = signups.concat(yourSignups());
     F.store(MEMBERS_KEY, (F.load(MEMBERS_KEY) || []).concat(memberships(signups, events, now)));
     F.store(MAIN_KEY, (F.load(MAIN_KEY) || []).concat(mains));

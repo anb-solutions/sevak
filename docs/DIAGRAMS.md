@@ -1,6 +1,6 @@
 # Sevak: UML Diagrams
 
-**For discussion** · **Updated:** 2026-10-31 · Based on [`REQUIREMENTS.md`](REQUIREMENTS.md) and the
+**For discussion** · **Updated:** 2026-11-02 · Based on [`REQUIREMENTS.md`](REQUIREMENTS.md) and the
 prototype in [`app/`](../app/)
 
 These diagrams are a starting point for discussion, not a final design. Each one says whether it
@@ -175,8 +175,12 @@ classDiagram
         hours_credited
     }
     class Certificate {
+        period_from
+        period_to
+        status : requested | issued | declined
         verification_code «unique»
         hours
+        signed_by
         pdf_url
     }
     class Document {
@@ -267,9 +271,11 @@ stateDiagram-v2
 
 ## 4. Life of a sign-up
 
-*Proposed back end.* One `Signup` is one volunteer on one shift. On the day the volunteer can
-check in and out, or log their hours afterwards (ATT-12); those are *reported* hours. Attendance
-and the hours *credited* are then confirmed by the host, after the shift (ATT-2, ATT-3, ATT-5).
+*Today (prototype) and planned.* One `Signup` is one volunteer on one shift. On the day the
+volunteer can check in and out, or log their hours afterwards (ATT-12); those are *reported* hours.
+The event admin approves them, possibly adjusted, or doesn't (ATT-3). Only approved hours count
+toward a certificate, which the volunteer requests for a period and an Admin issues (ATT-5).
+Marking attendance and no-shows on a roster (ATT-2) is planned.
 
 ```mermaid
 stateDiagram-v2
@@ -285,13 +291,12 @@ stateDiagram-v2
         CheckedIn --> HoursReported : Volunteer checks out
         Booked --> HoursReported : Volunteer logs hours<br/>(from–to or duration)
         HoursReported --> HoursReported : Volunteer edits hours
-        Booked --> Unmarked : Shift ends
-        HoursReported --> Unmarked : Waiting for the host
-        Unmarked --> Attended : Host marks attended<br/>(hours = reported hours,<br/>or the shift length)
-        Unmarked --> NoShow : Host marks no-show
-        Attended --> NoShow : Correction
-        NoShow --> Attended : Correction
-        Attended --> CertificateIssued : Issue certificates
+        HoursReported --> Approved : Event admin approves<br/>(or adjusts)
+        HoursReported --> NotApproved : Event admin doesn't approve<br/>(with a reason)
+        NotApproved --> HoursReported : Volunteer corrects hours
+        Approved --> HoursReported : Volunteer changes hours
+        Approved --> OnCertificate : An Admin issues a certificate<br/>for a period that includes it
+        Booked --> NoShow : Host marks no-show (planned)
     }
 ```
 

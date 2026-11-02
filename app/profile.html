@@ -12,7 +12,10 @@
   <script src="forms.js" defer></script>
   <script src="orgs-store.js" defer></script>
   <script src="members-store.js" defer></script>
+  <script src="events-store.js" defer></script>
+  <script src="signups-store.js" defer></script>
   <script src="documents.js" defer></script>
+  <script src="certificates.js" defer></script>
   <script src="photo.js" defer></script>
   <script src="nav.js" defer></script>
   <script src="profile.js" defer></script>
@@ -121,6 +124,31 @@
             <p class="hint" id="join-hint">To help run an existing organization, ask one of its Admins to add <strong id="join-email">your email</strong> on their Team tab.</p>
           </div>
           <p class="status" id="team-status" role="status" aria-live="polite"></p>
+        </fieldset>
+
+        <!-- Admins: how they sign certificates -->
+        <fieldset class="section" id="signature-section" hidden>
+          <legend>Certificates you sign</legend>
+          <p class="section-help">When you issue a volunteer's certificate as an Admin, it carries your name, this title and your signature. If you don't draw one, your name is printed in a handwriting style.</p>
+          <div class="field">
+            <label for="sig-title">Your title on certificates</label>
+            <input id="sig-title" type="text" maxlength="80" placeholder="e.g. Volunteer Coordinator">
+          </div>
+          <div class="field">
+            <label for="sig-pad" id="sig-pad-label">Your signature</label>
+            <canvas class="sig-pad" id="sig-pad" width="600" height="180" role="img" aria-labelledby="sig-pad-label" aria-describedby="sig-pad-hint"></canvas>
+            <p class="hint" id="sig-pad-hint">Sign in the box with your finger, a stylus or the mouse.</p>
+          </div>
+          <div class="sig-saved" id="sig-saved" hidden>
+            <span class="hint">Saved signature:</span>
+            <img id="sig-saved-img" alt="Your saved signature">
+          </div>
+          <div class="fill-row">
+            <button type="button" class="btn btn-primary btn-small" id="sig-save">Save title and signature</button>
+            <button type="button" class="btn btn-secondary btn-small" id="sig-clear">Clear the box</button>
+            <button type="button" class="btn btn-danger-link" id="sig-remove" hidden>Remove saved signature</button>
+          </div>
+          <p class="status" id="sig-status" role="status" aria-live="polite"></p>
         </fieldset>
 
         <!-- Services -->

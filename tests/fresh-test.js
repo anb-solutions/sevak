@@ -51,7 +51,7 @@ const B = 'http://localhost:8765/app/'; const SP = process.argv[2];
   await p.goto(B + 'outbox.html');
   await p.evaluate(() => localStorage.setItem('sevak.profile.v1', JSON.stringify({ firstName: 'Bala', lastName: 'A', email: 'bala@example.com', roles: { volunteer: true } })));
   await p.goto(B + 'dashboard.html?demo=1');
-  const pages = ['join.html', 'signin.html', 'profile.html', 'organization.html', 'events.html', 'event.html?id=demo-ev-park', 'main-event.html?id=demo-main-arudra', 'volunteers.html', 'dashboard.html', 'signup.html', 'signup.html?event=demo-ev-park', 'outbox.html', 'review.html'];
+  const pages = ['join.html', 'signin.html', 'profile.html', 'organization.html', 'events.html', 'event.html?id=demo-ev-park', 'main-event.html?id=demo-main-arudra', 'volunteers.html', 'dashboard.html', 'signup.html', 'signup.html?event=demo-ev-park', 'outbox.html', 'review.html', 'verify.html?code=SVK-NONE-0000'];
   for (const w of [360, 1100]) {
     await p.setViewportSize({ width: w, height: 900 });
     for (const pg of pages) {

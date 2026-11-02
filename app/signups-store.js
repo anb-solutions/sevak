@@ -53,6 +53,48 @@
     }));
   }
 
+  // ---------- Hours approval ----------
+  // A volunteer's logged hours ({ minutes, from, to, method, loggedAt }) wait
+  // for the event's admin: status "pending", then "approved" (possibly with
+  // approvedMinutes, if adjusted) or "rejected" (with a reason). Only
+  // approved hours count toward certificates.
+
+  function hoursStatus(s) {
+    if (!s || !s.hours || !s.hours.minutes) return null;
+    return s.hours.status === "approved" || s.hours.status === "rejected" ? s.hours.status : "pending";
+  }
+
+  // Minutes credited: the approved (or adjusted) hours, else 0.
+  function creditedMinutes(s) {
+    if (hoursStatus(s) !== "approved") return 0;
+    return s.hours.approvedMinutes != null ? s.hours.approvedMinutes : s.hours.minutes;
+  }
+
+  // decision: { status: "approved" | "rejected", minutes, reason, by }
+  function decideHours(id, decision) {
+    var found = null;
+    var ok = F.store(KEY, all().map(function (s) {
+      if (s.id !== id || !s.hours) return s;
+      var h = Object.assign({}, s.hours, {
+        status: decision.status,
+        approvedMinutes: decision.status === "approved" && decision.minutes != null && decision.minutes !== s.hours.minutes ? decision.minutes : undefined,
+        reason: decision.status === "rejected" ? String(decision.reason || "").trim().slice(0, 300) : undefined,
+        decidedAt: new Date().toISOString(),
+        decidedBy: decision.by || ""
+      });
+      found = Object.assign({}, s, { hours: h, updatedAt: new Date().toISOString() });
+      return found;
+    }));
+    return ok ? found : null;
+  }
+
+  // Confirmed sign-ups with hours waiting, for some events.
+  function pendingHours(eventIds) {
+    return all().filter(function (s) {
+      return s.status !== "cancelled" && hoursStatus(s) === "pending" && eventIds.indexOf(s.eventId) !== -1;
+    });
+  }
+
   function addMany(list) {
     return F.store(KEY, all().concat(list));
   }
@@ -75,6 +117,10 @@
     cancel: cancel,
     addMany: addMany,
     removeSamples: removeSamples,
-    hasSamples: hasSamples
+    hasSamples: hasSamples,
+    hoursStatus: hoursStatus,
+    creditedMinutes: creditedMinutes,
+    decideHours: decideHours,
+    pendingHours: pendingHours
   };
 })();

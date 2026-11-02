@@ -14,6 +14,7 @@
   <script src="events-store.js" defer></script>
   <script src="signups-store.js" defer></script>
   <script src="members-store.js" defer></script>
+  <script src="certificates.js" defer></script>
   <script src="nav.js" defer></script>
   <script src="signup.js" defer></script>
 </head>
@@ -70,6 +71,48 @@
       <h1 class="page-title">My sign-ups</h1>
       <div class="hours-summary" id="hours-summary" hidden></div>
       <p class="status" id="mine-status" role="status" aria-live="polite"></p>
+
+      <!-- Certificates: ask an organization for one, for a period -->
+      <section class="section certs" id="certificates" aria-labelledby="certs-title" hidden>
+        <h2 class="section-title" id="certs-title" tabindex="-1">Certificates</h2>
+        <p class="section-help">Ask an organization for a certificate of your approved hours, for any period. Its Admin issues it, and it's saved in your <a href="profile.html#documents">Documents</a>.</p>
+        <ul class="cert-list" id="cert-list"></ul>
+        <button type="button" class="btn btn-secondary btn-small" id="cert-new" aria-expanded="false" aria-controls="cert-form">Request a certificate</button>
+        <form class="cert-form" id="cert-form" novalidate hidden>
+          <div class="grid">
+            <div class="field span-2">
+              <label for="cert-org">Organization</label>
+              <select id="cert-org"></select>
+            </div>
+            <div class="field">
+              <label for="cert-from">From</label>
+              <input type="date" id="cert-from">
+              <p class="error" id="cert-from-error"></p>
+            </div>
+            <div class="field">
+              <label for="cert-to">To</label>
+              <input type="date" id="cert-to">
+              <p class="error" id="cert-to-error"></p>
+            </div>
+          </div>
+          <div class="cert-presets" role="group" aria-label="Quick periods">
+            <button type="button" class="chip-btn" data-preset="all">All my hours</button>
+            <button type="button" class="chip-btn" data-preset="year">This year</button>
+            <button type="button" class="chip-btn" data-preset="last-year">Last year</button>
+            <button type="button" class="chip-btn" data-preset="12m">Last 12 months</button>
+          </div>
+          <p class="cert-coverage" id="cert-coverage" aria-live="polite"></p>
+          <div class="field">
+            <label for="cert-note">A note for them <span class="optional">(optional)</span></label>
+            <textarea id="cert-note" rows="2" maxlength="300" placeholder="e.g. For my school's community service record"></textarea>
+          </div>
+          <div class="fill-row">
+            <button type="submit" class="btn btn-primary btn-small" id="cert-send">Send request</button>
+            <button type="button" class="btn btn-secondary btn-small" id="cert-cancel">Cancel</button>
+          </div>
+        </form>
+        <p class="status" id="cert-status" role="status" aria-live="polite"></p>
+      </section>
       <div id="mine-groups"></div>
       <div class="section empty-state" id="mine-empty" hidden>
         <p><strong>You haven't signed up for anything yet.</strong></p>

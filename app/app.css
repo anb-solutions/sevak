@@ -1052,3 +1052,63 @@ input[type="time"], input[type="number"] {
 @media (max-width: 350px) {
   .nav-label { display: none; }
 }
+
+/* ---------- Hours approval and certificates ---------- */
+.hours-row .badge { font-size: 0.78rem; }
+.hours-reason { margin: 4px 0 0; color: var(--danger); font-size: 0.9rem; overflow-wrap: anywhere; }
+.inline-form { flex-basis: 100%; margin-top: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+.inline-fields { display: flex; flex-wrap: wrap; gap: 8px 12px; }
+.inline-fields .field { flex: 1 1 120px; min-width: 0; }
+.inline-fields input[type="number"] { width: 100%; min-height: 44px; padding: 10px 12px; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--input-border); border-radius: 10px; }
+.inline-form .error { margin: 6px 0 0; }
+.inline-form .fill-row { margin-top: 10px; }
+.person .inline-form { grid-column: 1 / -1; }
+
+.certs { margin-top: 8px; }
+.cert-list { clear: both; list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
+.cert-item { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; }
+.cert-item .event-meta { margin: 2px 0 0; }
+.cert-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.cert-form { margin-top: 8px; }
+.cert-presets { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+.chip-btn { min-height: 36px; padding: 6px 12px; font: inherit; font-size: 0.88rem; font-weight: 600; color: var(--text); background: var(--surface); border: 1px solid var(--input-border); border-radius: 999px; cursor: pointer; }
+.chip-btn:hover { border-color: var(--primary); }
+.cert-coverage { margin: 10px 0; font-weight: 600; }
+.cert-coverage:empty { display: none; }
+
+.cert-tools { margin: 4px 0 16px; }
+.cert-pages { display: grid; gap: 16px; }
+.cert-page { display: block; width: 100%; max-width: 820px; height: auto; border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08); background: #fff; }
+.cert-text { margin-top: 20px; }
+.cert-text summary { cursor: pointer; font-weight: 600; }
+.cert-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+.cert-table th, .cert-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.cert-table td:last-child, .cert-total td { text-align: right; white-space: nowrap; }
+.cert-total th, .cert-total td { font-weight: 700; }
+@media (max-width: 600px) {
+  .cert-table { font-size: 0.84rem; }
+  .cert-table th:nth-child(4), .cert-table td:nth-child(4) { display: none; }
+}
+
+.verify-result.is-genuine { border-color: var(--primary); }
+.verify-result.is-genuine .section-title { color: var(--primary); }
+.verify-facts { clear: both; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0; }
+.verify-facts dt { font-weight: 600; color: var(--muted); }
+.verify-facts dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+  .verify-facts { grid-template-columns: minmax(0, 1fr); }
+  .verify-facts dd { margin-bottom: 6px; }
+}
+
+.sig-pad { display: block; width: 100%; max-width: 600px; aspect-ratio: 10 / 3; height: auto; background: #fff; border: 1px dashed var(--input-border); border-radius: 10px; touch-action: none; cursor: crosshair; }
+.sig-saved { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 4px 0 12px; }
+.sig-saved img { max-height: 64px; max-width: 100%; background: #fff; border-radius: 6px; padding: 4px; }
+
+/* Printing a certificate: just its pages */
+@media print {
+  body.printing-cert * { visibility: hidden; }
+  body.printing-cert .cert-pages, body.printing-cert .cert-pages * { visibility: visible; }
+  body.printing-cert .cert-pages { position: absolute; left: 0; top: 0; width: 100%; gap: 0; }
+  body.printing-cert .cert-page { max-width: none; border: 0; border-radius: 0; box-shadow: none; page-break-after: always; break-after: page; }
+  @page { size: A4; margin: 0; }
+}

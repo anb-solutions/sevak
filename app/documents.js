@@ -2,7 +2,10 @@
 // Each document's details are kept in localStorage; the file itself is kept
 // in IndexedDB, which has room for larger files. Nothing leaves the browser.
 //
-// A document belongs to an owner: "org:<id>", "event:<id>" or "profile".
+// A document belongs to an owner: "org:<id>", "event:<id>" or
+// "profile:<email>" (a person's own documents, such as their certificates).
+// Older profile documents were owned by "profile"; they move to the person
+// whose profile is saved in this browser.
 (function () {
   "use strict";
 
@@ -83,6 +86,53 @@
   function removeFor(owners) {
     F.store(KEY, all().filter(function (d) { return owners.indexOf(d.owner) === -1; }));
     return sweep();
+  }
+
+  // ---------- Owners ----------
+
+  function profileOwner(email) {
+    var e = String(email || "").trim().toLowerCase();
+    return e ? "profile:" + e : null;
+  }
+
+  function moveOwner(from, to) {
+    if (!from || !to || from === to) return;
+    var list = all();
+    if (!list.some(function (d) { return d.owner === from; })) return;
+    F.store(KEY, list.map(function (d) { return d.owner === from ? Object.assign({}, d, { owner: to }) : d; }));
+  }
+
+  // Documents saved before they belonged to a person: give them to the
+  // profile saved in this browser.
+  function migrate() {
+    var p = F.load(PROFILE_KEY);
+    var owner = p && profileOwner(p.email);
+    if (owner) moveOwner("profile", owner);
+  }
+
+  // Adds a file made by Sevak (for example a certificate) to an owner's
+  // documents. With meta.id, replaces that document's file and details.
+  function addFile(owner, blob, meta) {
+    meta = meta || {};
+    var existing = meta.id ? all().filter(function (d) { return d.id === meta.id; })[0] : null;
+    var now = new Date().toISOString();
+    var doc = Object.assign({}, existing || {}, {
+      id: (existing && existing.id) || "doc-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      owner: owner,
+      name: meta.name || "Document",
+      description: meta.description || "",
+      fileName: meta.fileName || "document",
+      type: blob.type || "",
+      size: blob.size,
+      uploadedAt: now,
+      uploadedBy: meta.uploadedBy || currentUser(),
+      source: meta.source || ""
+    });
+    if (existing) doc.updatedAt = now;
+    return putFile(doc.id, blob).then(function () {
+      if (!saveDoc(doc)) throw new Error("storage");
+      return doc;
+    });
   }
 
   // ---------- Formatting ----------
@@ -401,8 +451,14 @@
     return { setOwner: setOwner, render: render };
   }
 
+  migrate();
+
   window.SevakDocs = {
     mount: mount,
+    addFile: addFile,
+    getFile: getFile,
+    profileOwner: profileOwner,
+    moveOwner: moveOwner,
     pageTabs: function () { return F.pageTabs.apply(null, arguments); },
     all: all,
     forOwner: forOwner,

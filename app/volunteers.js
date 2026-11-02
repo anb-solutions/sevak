@@ -62,13 +62,14 @@
     actions.forEach(function (a) {
       var b = el("button", "btn " + a.cls, a.text);
       b.type = "button";
-      b.setAttribute("aria-label", a.text + " " + (m.name || m.email));
+      b.setAttribute("aria-label", a.label || a.text + " " + (m.name || m.email));
       b.addEventListener("click", a.onClick);
       act.appendChild(b);
     });
     li.appendChild(act);
     return li;
   }
+  var personItem = person;
 
   // After an action: redraw, update the menu count, say what happened, and
   // keep keyboard focus nearby (the item may have moved to another list).
@@ -81,8 +82,219 @@
   }
 
   var expanded = false;
+  var S = window.SevakSignups;
+  var E = window.SevakEvents;
+  var C = window.SevakCerts;
+
+  function duration(min) { return C.durationLabel(min); }
+  function plainDay(date) { return E.dayLabel(date, { weekday: undefined, year: "numeric" }); }
+
+  function shiftOf(ev, shiftId) {
+    var out = null;
+    (ev.roles || []).forEach(function (r) { (r.shifts || []).forEach(function (sh) { if (sh.id === shiftId) out = { shift: sh, role: r }; }); });
+    return out;
+  }
+
+  function photoFor(addr) {
+    var m = M.forOrg(org.id).filter(function (x) { return String(x.email).toLowerCase() === String(addr).toLowerCase(); })[0];
+    return m ? m.photo : "";
+  }
+
+  // A small form under an item: adjust hours, or give a reason.
+  function inlineForm(li, opts) {
+    var old = li.querySelector(".inline-form");
+    if (old) { old.remove(); return; }
+    var form = el("form", "inline-form");
+    form.noValidate = true;
+    var id = li.id + "-" + opts.kind;
+    var fieldsBox = el("div", "inline-fields");
+    var inputs = [];
+    opts.fields.forEach(function (f, i) {
+      var wrap = el("div", "field");
+      var label = el("label", null, f.label);
+      label.htmlFor = id + "-" + i;
+      var input = el(f.type === "textarea" ? "textarea" : "input");
+      input.id = id + "-" + i;
+      if (f.type !== "textarea") input.type = f.type;
+      Object.keys(f.attrs || {}).forEach(function (k) { input.setAttribute(k, f.attrs[k]); });
+      if (f.value != null) input.value = f.value;
+      wrap.appendChild(label);
+      wrap.appendChild(input);
+      fieldsBox.appendChild(wrap);
+      inputs.push(input);
+    });
+    form.appendChild(fieldsBox);
+    var err = el("p", "error");
+    err.id = id + "-error";
+    inputs.forEach(function (x) { x.setAttribute("aria-describedby", err.id); });
+    form.appendChild(err);
+    var row = el("div", "fill-row");
+    var ok = el("button", "btn " + (opts.danger ? "btn-danger" : "btn-primary") + " btn-small", opts.submit);
+    ok.type = "submit";
+    var cancel = el("button", "btn btn-secondary btn-small", "Cancel");
+    cancel.type = "button";
+    cancel.addEventListener("click", function () { form.remove(); });
+    row.appendChild(ok);
+    row.appendChild(cancel);
+    form.appendChild(row);
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var problem = opts.onSubmit(inputs.map(function (x) { return x.value; }));
+      if (problem) { err.textContent = problem; inputs[0].setAttribute("aria-invalid", "true"); inputs[0].focus(); }
+    });
+    li.appendChild(form);
+    inputs[0].focus();
+  }
+
+  function afterIn(titleId, message) {
+    render();
+    window.SevakNav.render();
+    $("vol-status").textContent = message;
+    $(titleId).focus();
+  }
+
+  // ---------- Hours to approve ----------
+
+  function renderHours() {
+    var events = E.forOrg(org.id);
+    var mineToApprove = events.filter(function (ev) { return C.canApprove(ev); }).map(function (ev) { return ev.id; });
+    var waiting = S.pendingHours(events.map(function (ev) { return ev.id; }));
+    var list = waiting.filter(function (su) { return mineToApprove.indexOf(su.eventId) !== -1; })
+      .map(function (su) {
+        var ev = E.get(su.eventId);
+        var found = shiftOf(ev, su.shiftId);
+        return found ? { su: su, ev: ev, shift: found.shift, role: found.role } : null;
+      }).filter(Boolean)
+      .sort(function (a, b) { return (a.shift.date + a.shift.start).localeCompare(b.shift.date + b.shift.start); });
+    $("hours-section").hidden = !waiting.length;
+    $("hours-title").textContent = list.length ? "Hours to approve (" + list.length + ")" : "Hours to approve";
+    $("hours-bulk").hidden = list.length < 2;
+    $("approve-all").textContent = "Approve all " + list.length;
+    var others = waiting.length - list.length;
+    $("hours-others").hidden = !others;
+    $("hours-others").textContent = others ? E.plural(others, "shift") + " more " + (others === 1 ? "is" : "are") + " waiting for their event admin." : "";
+    var ul = $("hours-list");
+    ul.innerHTML = "";
+    list.forEach(function (x) {
+      var h = x.su.hours;
+      var how = h.method === "check-in" ? "checked in and out" : h.method === "duration" ? "as a duration" : "";
+      var person = { id: "hours-" + x.su.id, name: x.su.name, email: x.su.email, photo: photoFor(x.su.email) };
+      var who = x.su.name || x.su.email;
+      var li = personItem(person, [
+        x.ev.title + " · " + (x.role.name || "Shift"),
+        E.dayLabel(x.shift.date, { year: "numeric" }) + " · shift " + E.timeLabel(x.shift.start) + "–" + E.timeLabel(x.shift.end),
+        "Logged " + duration(h.minutes) + " (" + [h.from && h.to ? E.timeLabel(h.from) + "–" + E.timeLabel(h.to) : "", how].filter(Boolean).join(", ") + ")"
+      ], [
+        { text: "Approve", cls: "btn-primary btn-small", label: "Approve " + duration(h.minutes) + " for " + who, onClick: function () {
+          S.decideHours(x.su.id, { status: "approved", by: me() });
+          afterIn("hours-title", "Approved " + duration(h.minutes) + " for " + who + ".");
+        } },
+        { text: "Adjust…", cls: "btn-secondary btn-small", label: "Adjust hours for " + who, onClick: function () {
+          inlineForm(li, { kind: "adjust", submit: "Approve these hours", fields: [
+            { label: "Hours", type: "number", value: Math.floor(h.minutes / 60), attrs: { min: "0", max: "24", step: "1", inputmode: "numeric" } },
+            { label: "Minutes", type: "number", value: h.minutes % 60, attrs: { min: "0", max: "59", step: "1", inputmode: "numeric" } }
+          ], onSubmit: function (v) {
+            var hh = Number(v[0] || 0), mm = Number(v[1] || 0);
+            if (!Number.isInteger(hh) || !Number.isInteger(mm) || hh < 0 || mm < 0 || mm > 59) return "Enter whole hours, and minutes from 0 to 59.";
+            var minutes = hh * 60 + mm;
+            if (!minutes || minutes > 24 * 60) return "Enter between 1 minute and 24 hours.";
+            S.decideHours(x.su.id, { status: "approved", minutes: minutes, by: me() });
+            afterIn("hours-title", "Approved " + duration(minutes) + " for " + who + " (logged " + duration(h.minutes) + ").");
+          } });
+        } },
+        { text: "Don't approve…", cls: "btn-danger-link", label: "Don't approve hours for " + who, onClick: function () {
+          inlineForm(li, { kind: "reject", submit: "Don't approve", danger: true, fields: [
+            { label: "Reason (the volunteer sees this)", type: "textarea", attrs: { rows: "2", maxlength: "300" } }
+          ], onSubmit: function (v) {
+            if (!v[0].trim()) return "Say why, so the volunteer can correct it.";
+            S.decideHours(x.su.id, { status: "rejected", reason: v[0], by: me() });
+            afterIn("hours-title", "Hours for " + who + " not approved. They'll see your reason.");
+          } });
+        } }
+      ]);
+      ul.appendChild(li);
+    });
+  }
+
+  function me() {
+    var p = F.session.signedIn() ? F.session.profile() : null;
+    return p ? p.email : "";
+  }
+
+  $("approve-all").addEventListener("click", function () {
+    var events = E.forOrg(org.id).filter(function (ev) { return C.canApprove(ev); }).map(function (ev) { return ev.id; });
+    var list = S.pendingHours(events);
+    if (!list.length || !window.confirm("Approve all " + list.length + " as logged?")) return;
+    list.forEach(function (su) { S.decideHours(su.id, { status: "approved", by: me() }); });
+    afterIn("hours-title", "Approved " + E.plural(list.length, "shift") + ".");
+  });
+
+  // ---------- Certificate requests ----------
+
+  function renderCertRequests() {
+    var all = C.forOrg(org.id);
+    var waiting = all.filter(function (c) { return c.status === "requested"; });
+    var issued = all.filter(function (c) { return c.status === "issued"; }).reverse();
+    var canIssue = C.canIssue(org);
+    $("cert-requests").hidden = !all.length;
+    $("certreq-title").textContent = waiting.length ? "Certificate requests (" + waiting.length + ")" : "Certificate requests";
+    $("certreq-empty").hidden = waiting.length > 0;
+    $("certreq-hint").hidden = canIssue || !waiting.length;
+    var ul = $("certreq-list");
+    ul.innerHTML = "";
+    waiting.forEach(function (c) {
+      var cov = C.coverage(c.email, c.orgId, c.from, c.to);
+      var who = c.name || c.email;
+      var person = { id: "certreq-" + c.id, name: c.name, email: c.email, photo: photoFor(c.email) };
+      var actions = [];
+      actions.push({ text: "Preview", cls: "btn-secondary btn-small", label: "Preview the certificate for " + who, onClick: function () { location.href = "certificate.html?id=" + encodeURIComponent(c.id); } });
+      if (canIssue) {
+        actions.push({ text: "Issue", cls: "btn-primary btn-small", label: "Issue the certificate for " + who, onClick: function (e) {
+          if (!cov.minutes) { $("vol-status").textContent = "There are no approved hours in that period yet. Approve their hours first."; return; }
+          e.target.disabled = true;
+          C.issue(c.id).then(function () {
+            afterIn("certreq-title", "Certificate issued to " + who + ": " + duration(cov.minutes) + ". Saved in their Documents and the event's Documents. (Email in the outbox.)");
+          }, function () {
+            e.target.disabled = false;
+            $("vol-status").textContent = "Couldn't issue the certificate in this browser.";
+          });
+        } });
+        actions.push({ text: "Decline…", cls: "btn-danger-link", label: "Decline the certificate request from " + who, onClick: function () {
+          inlineForm(li, { kind: "decline", submit: "Decline request", danger: true, fields: [
+            { label: "Reason (the volunteer sees this)", type: "textarea", attrs: { rows: "2", maxlength: "300" } }
+          ], onSubmit: function (v) {
+            if (!v[0].trim()) return "Say why, so the volunteer knows what to do.";
+            C.decline(c.id, v[0]);
+            afterIn("certreq-title", "Certificate request from " + who + " declined.");
+          } });
+        } });
+      }
+      var li = personItem(person, [
+        "Period: " + plainDay(c.from) + " – " + plainDay(c.to),
+        cov.minutes ? "Approved hours in this period: " + duration(cov.minutes) + " (" + E.plural(cov.approved.length, "shift") + ")" : "No approved hours in this period yet",
+        cov.pendingShifts ? E.plural(cov.pendingShifts, "shift") + " (" + duration(cov.pendingMinutes) + ") still waiting for approval, not included" : "",
+        c.note ? "“" + c.note + "”" : "",
+        "Asked " + when(c.requestedAt)
+      ], actions);
+      ul.appendChild(li);
+    });
+    var il = $("issued-list");
+    il.innerHTML = "";
+    issued.forEach(function (c) {
+      var person = { id: "issued-" + c.id, name: c.name, email: c.email, photo: photoFor(c.email) };
+      var li = personItem(person, [
+        plainDay(c.from) + " – " + plainDay(c.to) + " · " + duration((c.data || {}).minutes || 0),
+        "Issued " + when(c.issuedAt) + " · No. " + c.code
+      ], [{ text: "View", cls: "btn-secondary btn-small", label: "View the certificate for " + (c.name || c.email), onClick: function () { location.href = "certificate.html?id=" + encodeURIComponent(c.id); } }]);
+      il.appendChild(li);
+    });
+    $("issued-box").hidden = !issued.length;
+    $("issued-summary").textContent = issued.length === 1 ? "1 certificate issued" : issued.length + " certificates issued";
+  }
 
   function render() {
+    renderHours();
+    renderCertRequests();
     var list = M.forOrg(org.id);
     var by = function (status) { return list.filter(function (m) { return m.status === status; }); };
 
