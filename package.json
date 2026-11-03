@@ -1,0 +1,18 @@
+{
+  "name": "sevak",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @sevak/web dev",
+    "build": "pnpm --filter @sevak/web build",
+    "start": "pnpm --filter @sevak/web start",
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "db:generate": "pnpm --filter @sevak/db generate",
+    "db:migrate": "pnpm --filter @sevak/db migrate",
+    "db:seed": "pnpm --filter @sevak/core seed"
+  }
+}

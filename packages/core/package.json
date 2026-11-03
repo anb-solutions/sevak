@@ -1,0 +1,26 @@
+{
+  "name": "@sevak/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "seed": "tsx src/cli-seed.ts"
+  },
+  "dependencies": {
+    "@sevak/db": "workspace:*",
+    "drizzle-orm": "^0.45.4",
+    "tsx": "^4.23.15",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.14",
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

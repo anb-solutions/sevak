@@ -1,0 +1,10 @@
+# Changes to these paths need a code owner's approval (docs/ARCHITECTURE.md §4.1).
+/packages/db/            @anbbala
+/packages/core/          @anbbala
+/apps/web/src/lib/       @anbbala
+/apps/web/next.config.ts @anbbala
+/.github/                @anbbala
+/.claude/                @anbbala
+/railway.json            @anbbala
+/package.json            @anbbala
+/pnpm-lock.yaml          @anbbala

@@ -1,0 +1,52 @@
+# Checks every pull request and every push to main. A pull request can merge
+# only when these pass (set as required checks on the main branch).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Typecheck, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: Schema and migrations match
+        run: |
+          pnpm db:generate
+          git diff --exit-code -- packages/db/migrations || {
+            echo "::error::packages/db/src/schema.ts changed without a migration. Run 'pnpm db:generate' and commit the result."
+            exit 1
+          }
+      - name: No known critical vulnerabilities
+        run: pnpm audit --prod --audit-level critical
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest detect --source /repo --no-banner --redact --verbose

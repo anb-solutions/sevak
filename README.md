@@ -5,7 +5,25 @@
 A simple web app for organizations to publish volunteer events and shifts, and for volunteers to
 sign up in seconds.
 
-**Status:** pre-MVP. The landing page welcomes volunteers with Sign in and Sign up.
+**Status:** pre-MVP. The clickable prototype is live; the real app (database, API, sign-in) is being
+built for its first beta event on November 14, 2026.
+
+## The live app (in progress)
+
+A monorepo: [`apps/web`](apps/web) (Next.js: pages and the `/api/v1` API), [`packages/db`](packages/db)
+(PostgreSQL schema and migrations) and [`packages/core`](packages/core) (rules such as "never
+overbook a shift"). It's hosted on Railway, with a live preview for every pull request.
+
+```sh
+corepack enable && pnpm install
+pnpm dev     # http://localhost:3000, with an in-memory database and demo data
+pnpm test
+```
+
+No accounts or Docker needed. How to contribute: [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+## Documents and the prototype
+
 
 - MVP requirements: [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md)
 - Architecture, back end and hosting plan: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)

@@ -1,0 +1,11 @@
+node_modules/
+.next/
+dist/
+coverage/
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+# The web app's copy of the prototype, made by apps/web/scripts/copy-prototype.mjs
+apps/web/public/

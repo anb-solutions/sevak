@@ -1,282 +1,294 @@
-# Sevak: Architecture and Hosting Plan
+# Sevak: Architecture, Delivery and Security
 
-**Status:** Proposal for Phase 2 (back end and email) · **Updated:** 2026-10-06
+**Status:** Agreed direction for the live app · **Updated:** 2026-11-03
 
-This document explains how Sevak runs today, the back end we plan to build for the MVP, and where
-to host it. The requirements it serves are in [`REQUIREMENTS.md`](REQUIREMENTS.md). IDs such as
-SGN-5 and NFR-10 refer to that document.
+This document describes the long-term architecture for Sevak, how contributors build and ship
+changes, how we keep it secure, and what it costs. The requirements it serves are in
+[`REQUIREMENTS.md`](REQUIREMENTS.md); IDs such as SGN-5 refer to that document. Diagrams are in
+[`DIAGRAMS.md`](DIAGRAMS.md).
 
----
+**Goals**
 
-## 1. Today: a static prototype
-
-```
-Browser ──> GitHub Pages (index.html, privacy.html, terms.html, app/*)
-               │
-               └── app/*-store.js read and write localStorage (no server, no shared data)
-```
-
-- There is no build step. The files are served as they are.
-- Each page's data lives in the visitor's own browser, behind small modules called stores:
-  `orgs-store.js`, `events-store.js` and `signups-store.js`. These stores are what the back end
-  replaces (§6).
-- Deployment uses [`.github/workflows/pages.yml`](../.github/workflows/pages.yml): on every push to
-  `main` it checks that local links exist and the JavaScript parses, then publishes the site. It
-  can also be run by hand from **Actions → Deploy to GitHub Pages → Run workflow**.
+1. **One long-term architecture from day one.** The first beta is the first slice of the real
+   system, not a throwaway.
+2. **Continuous contribution.** Several people, and their Claude sessions, work in one monorepo
+   without stepping on each other.
+3. **Fast, safe delivery.** Every change is checked automatically, every pull request gets a live
+   preview, and a merge to `main` is live within minutes.
+4. **Security and privacy first.** Volunteers' data is protected by design, not added later.
+5. **Cost-conscious.** A known monthly budget, with no per-user fees.
 
 ---
 
-## 2. Design goals
-
-Taken from the requirements, roughly in order of importance:
-
-1. **Never overbook a shift**, even with 500 sign-ups in 10 minutes (SGN-5, NFR-2).
-2. **Email is the product**: sign-in links, confirmations, updates, reminders and certificates must
-   arrive, and failed sends are retried (COM-*, NFR-3, NFR-15).
-3. **Public pages are fast and searchable**: they are rendered on the server, with Open Graph and
-   schema.org data (EVT-7, EVT-8, NFR-1, NFR-10).
-4. **Strict data separation**: an organization only ever sees its own data, and private events
-   never leak (§5 of the requirements, NFR-5).
-5. **Small and cheap to run.** About 200 organizations and 20,000 volunteers fit comfortably on one
-   Postgres database and one or two small servers. No microservices, no Kubernetes.
-6. **Typed, tested, one-command local setup** (NFR-13).
-
----
-
-## 3. Target architecture
-
-One codebase and one database, with two processes: a **web app** and a **worker**.
+## 1. The system
 
 ```
-                       ┌──────────────── Cloudflare (DNS, TLS, CDN cache, Turnstile) ───────────────┐
-                       │                                                                            │
-Volunteers & hosts ──> │  sevak.<domain>                                                            │
-                       └──────────────┬─────────────────────────────────────────────────────────────┘
-                                      │
-                    ┌─────────────────▼──────────────────┐
-                    │  Web app (Next.js, TypeScript)      │
-                    │  • Server-rendered public pages     │  /, /discover, /o/{slug}, /e/{slug}, /verify/{code}
-                    │  • Host and volunteer screens       │  /app/...
-                    │  • JSON API                         │  /api/v1/...
-                    └───────┬─────────────────┬──────────┘
-                            │                 │ enqueue jobs
-                            │                 ▼
-                            │      ┌────────────────────────────┐
-                            │      │ Worker (Node, TypeScript)  │  emails, reminders, certificate PDFs,
-                            │      │ jobs via pg-boss           │  website import (ORG-10), cleanups
-                            │      └───────┬───────────┬────────┘
-                            ▼              ▼           ▼
-                  ┌──────────────────┐  ┌────────┐  ┌────────────────────────┐
-                  │ PostgreSQL       │  │ Email  │  │ Object storage (R2/S3) │
-                  │ data + job queue │  │Postmark│  │ logos, covers, PDFs    │
-                  └──────────────────┘  └────────┘  └────────────────────────┘
+Volunteers & hosts (phones first)
+        │ HTTPS
+        ▼
+Cloudflare: DNS, TLS, caching, bot protection (Turnstile)
+        │
+        ▼
+Railway project ──────────────────────────────────────────────────────────┐
+│  App service (Next.js, TypeScript)                                       │
+│   • Public pages, rendered on the server (SEO, link previews)            │
+│   • Host and volunteer screens                                           │
+│   • JSON API at /api/v1                                                  │
+│   • Background jobs (pg-boss): emails, reminders, certificates           │
+│                                                                          │
+│  PostgreSQL: all data, plus the job queue                                │
+└──────────────────────────────────────────────────────────────────────────┘
+        │                    │                       │
+   Resend (email)    Cloudflare R2 (files)    Sentry (errors)
 ```
 
-### 3.1 Technology choices
+One app service and one database. No microservices, no Kubernetes. Everything is plain Node and
+plain Postgres, so it can move to another host (Render, Fly.io, AWS, Google Cloud) by changing
+configuration, not code.
+
+### 1.1 Technology choices
 
 | Concern | Choice | Why |
 |---|---|---|
-| Language | **TypeScript** everywhere | One language for front end, back end and shared validation (NFR-13). |
-| Web framework | **Next.js** (App Router) | Server rendering for public pages (NFR-10), React for the host screens, and route handlers for the API, all in one deployable. Runs on any Node host, not only Vercel. |
-| API style | REST + JSON under `/api/v1`, request and response shapes defined with **Zod** | Keeps the front end and back end separated by an API (NFR-13), and a future mobile app can use the same API. |
-| Database | **PostgreSQL 16** | Transactions and row locks give us capacity checks we can trust (SGN-5). `timestamptz` handles time zones (NFR-11). Managed Postgres is available everywhere. |
-| ORM and migrations | **Drizzle ORM** + `drizzle-kit` migrations | Typed queries, plain SQL when needed, and migrations that live in the repo. |
-| Background jobs | **pg-boss** (a queue stored in Postgres) | Retries, scheduling (reminders 24 hours before a shift) and cron jobs, without running Redis. |
-| Email | **Postmark** (or Amazon SES to save money later) | Good deliverability for transactional email, plus bounce and complaint webhooks (NFR-15). |
-| Email templates | **React Email** | The same components as the web app, each with a plain-text version (COM-8). |
-| Certificate PDFs | HTML template rendered by **Playwright/Chromium** in the worker | Branded certificates (ATT-5) from the same HTML and CSS as the web pages. |
-| File storage | **Cloudflare R2** (S3-compatible) | No fees for downloads. Logos and covers are public; certificate PDFs are served through short-lived signed URLs. |
-| Bot protection | **Cloudflare Turnstile** + per-IP and per-email rate limits | SGN-8, NFR-6. |
-| Sign-in | Passwordless email links that we build ourselves (or Auth.js email provider), **TOTP 2FA** for platform admins | NFR-4. It's a small amount of code, and we control the emails. |
-| Errors and logs | **Sentry** + the host's log viewer | Enough for a pilot. |
-| Tests | **Vitest** (unit and database tests against a real Postgres) + **Playwright** (end-to-end) | Covers the core flows NFR-13 names: sign-up, capacity, attendance and certificates. |
+| Language | **TypeScript** everywhere | One language for pages, API and database code (NFR-13) |
+| App framework | **Next.js** | Server-rendered public pages (NFR-10), React screens, and the API in one service |
+| API | REST + JSON at `/api/v1`, inputs and outputs checked with **Zod** | A future mobile app uses the same API |
+| Database | **PostgreSQL** on Railway | Transactions make "never overbook" reliable (SGN-5); no per-user fees; portable |
+| Database code | **Drizzle ORM**, migrations kept in the repo | Typed queries; every schema change is reviewed like code |
+| Local database | **PGlite** (Postgres compiled to run inside Node) | `pnpm dev` and `pnpm test` work on any laptop or Claude session with no Docker and no account |
+| Background jobs | **pg-boss** (a queue stored in Postgres) | Retries and scheduled reminders without Redis |
+| Sign-in | Our own email **link and 6-digit code**; sessions stored in Postgres | No vendor lock-in; the code also works in the iPhone home-screen app |
+| Email | **Resend** to start; Amazon SES if volume makes it cheaper | Every shift email carries a calendar invite (COM-10) |
+| Files | **Cloudflare R2** | Documents, photos, certificate PDFs; no download fees |
+| Errors | **Sentry** (free tier) | Alerts when something breaks |
+| Tests | **Vitest** (logic and database, on PGlite) + **Playwright** (phone-sized browser tests) | Covers sign-up, capacity, attendance and privacy rules |
 
-### 3.2 Repository layout (monorepo, pnpm workspaces)
+### 1.2 Repository layout (monorepo, pnpm workspaces)
 
 ```
 sevak/
 ├── apps/
-│   ├── web/              Next.js: public pages, host and volunteer screens, /api/v1 routes
-│   └── worker/           pg-boss consumers: email, reminders, PDFs, website import
+│   └── web/                 Next.js: pages, /api/v1, background jobs
 ├── packages/
-│   ├── core/             Domain logic in plain TypeScript: sign-up and capacity, permissions,
-│   │                     attendance, certificates. Has no web or framework code, so it's easy to test.
-│   ├── db/               Drizzle schema, migrations, seed and demo data
-│   ├── email/            React Email templates
-│   └── shared/           Zod schemas, types, phone (E.164) and address helpers, countries
-├── prototype/            Today's static app (index.html, app/*), still published to GitHub Pages
-├── docker-compose.yml    Postgres + Mailpit (catches outgoing email) for local development
-└── .github/workflows/    CI (lint, typecheck, test, migrate) and deploys
+│   ├── db/                  Drizzle schema, migrations, seed and demo data
+│   └── core/                Rules in plain TypeScript: sign-up and capacity,
+│                            permissions, hours, certificates. No web code.
+├── app/, index.html, …      The clickable prototype, still published to GitHub Pages
+├── docs/                    Requirements, architecture, diagrams
+├── .github/workflows/       CI checks and the prototype deploy
+├── CLAUDE.md                Instructions every contributor's Claude reads
+└── CONTRIBUTING.md          How to contribute
 ```
 
-The web app and the worker both call into `packages/core`. Route handlers only check input, check
-the session and call core functions.
+The prototype stays where it is, so people working on it are not disrupted. The web app serves a
+copy of the prototype's pages during the beta (see §6), and screens move into proper React
+components one at a time after launch.
 
 ---
 
-## 4. Key design details
+## 2. How contributors work
 
-### 4.1 Capacity checks that never overbook (SGN-5)
+The flow is the same for a person or for their Claude session:
 
-Each shift row keeps a `filled` counter. A sign-up takes a seat with one atomic statement, inside
-the same transaction that inserts the sign-up rows:
+```
+Branch ─► Build and try it locally ─► Pull request ─► CI checks + live preview ─► Review ─► Merge ─► Live
+```
+
+1. **Start a branch** from `main`. Never commit to `main` directly (it's protected, §4.1).
+2. **Run it locally.** `pnpm install`, then `pnpm dev`. The app starts with an in-process database
+   (PGlite) loaded with fake demo data. No accounts, keys or Docker needed. `pnpm test` runs the
+   checks. Claude Code sessions in the cloud get this set up automatically by a start-up hook.
+3. **Open a pull request.** Small and focused: one feature or fix.
+4. **Automatic checks (CI)** run on every push: type checks, tests, a build, a scan for leaked
+   secrets, and a check that database migrations apply cleanly. A pull request can't merge until
+   they pass.
+5. **Live preview.** Railway builds a **temporary copy of the whole app for the pull request**,
+   with its own database of fake demo data, and posts the link on the pull request. Anyone can try
+   the change on a phone before it merges. Previews never see real data or real secrets, and
+   emails there are caught and shown in an on-screen outbox instead of being sent. The preview is
+   deleted when the pull request closes. This also works for pull requests opened by Claude Code.
+6. **Review.** At least one approval from a code owner (§4.1).
+7. **Merge.** Railway deploys `main` to production once CI has passed, usually within a few minutes.
+   Database migrations run first. A bad deploy is rolled back in one click in Railway.
+
+**Rapid prototyping** still has a fast lane: the static prototype (`app/`) keeps deploying to
+GitHub Pages on every merge, and needs no back end. Ideas can be tried there first, then built into
+the real app.
+
+### Environments
+
+| Environment | Where | Data | Email |
+|---|---|---|---|
+| Local | Your laptop or Claude session (`pnpm dev`) | Fake demo data in PGlite | Shown in the console |
+| Preview | Railway, one per pull request | Fake demo data | Caught, shown in the outbox, never sent |
+| Production | Railway, `sevak.theanbgroup.com` | Real data | Sent through Resend |
+
+There's no separate staging environment at first: previews do that job. We'll add one when there
+are more contributors.
+
+---
+
+## 3. Key design details
+
+### 3.1 Capacity checks that never overbook (SGN-5)
+
+Each shift keeps a `filled` count. A sign-up takes a spot with one statement that only succeeds if
+a spot is left, inside the same transaction that saves the sign-up:
 
 ```sql
-UPDATE shifts
-   SET filled = filled + 1
- WHERE id = $1 AND filled < capacity AND status = 'open'
+UPDATE shifts SET filled = filled + 1
+ WHERE id = $1 AND filled < capacity
 RETURNING id;
 ```
 
-If no row comes back, the shift is full. For a form that picks several shifts, all seats are taken
-in one transaction, in shift-id order (to avoid deadlocks), and the whole form either succeeds or
-reports which shift filled up. A cancellation lowers `filled` in the same transaction that marks
-the sign-up cancelled. A database `CHECK (filled <= capacity)` constraint is a final safety net,
-and a nightly job checks that each counter matches its confirmed sign-ups. A load test (500
-sign-ups in 10 minutes against one event) is part of the Phase 2 exit criteria (NFR-2).
+No row back means the shift is full, and the whole form is rolled back with a clear message. A
+cancellation gives the spot back in the same transaction. A database rule
+(`CHECK (filled <= capacity)`) is the final safety net.
 
-### 4.2 Sign-in, sessions and secure links (VOL-1, NFR-4, NFR-6)
+### 3.2 Sign-in and secure links (VOL-1, NFR-4, NFR-6)
 
-- **Sign-in link:** 32 random bytes, emailed, and **only a SHA-256 hash is stored**. It expires
-  after 15 minutes and works once. Requests are rate-limited by email address and by IP.
-- **Session:** an opaque id in an `HttpOnly; Secure; SameSite=Lax` cookie, stored in a `sessions`
-  table so it can be revoked. Lasts 30 days and is renewed while in use.
-- **Manage-my-sign-up and private-event links:** long random tokens, stored hashed (PRV-4 rotates
-  them). A manage link only gives access to its own registration.
-- **Platform admins** must also pass a TOTP code. 2FA for hosts is optional (Should).
+- **Sign-in:** the email contains a link and a 6-digit code. Both expire after 15 minutes and work
+  once. Only a hash is stored. Requests are rate-limited by email and by IP.
+- **Session:** a random id in a `Secure; HttpOnly; SameSite=Lax` cookie, stored in the database so
+  it can be revoked. Lasts 30 days.
+- **Manage-my-sign-up links:** long random tokens, stored hashed. A link opens only its own
+  sign-up.
+- **Platform admins** also use an authenticator app code (TOTP).
 
-### 4.3 Who can see what (§5 of the requirements, NFR-5)
+### 3.3 Who can see what (§5 of the requirements)
 
-- Every host API call goes through one helper, `requireOrgRole(session, orgId, minRole)`, which
-  reads `org_members`. Every query on organization data filters by `org_id`.
-- Public queries only read published events from public, verified organizations
-  (ORG-3, ORG-6, PRV-1). Private pages send `noindex` and never appear in the sitemap (DSC-6).
+- Every host API call checks the person's role in that organization (Admin or Coordinator) through
+  one shared function, and every query on organization data is limited to that organization.
 - Public pages show counts ("4 of 6 spots left"), never names.
-- Later, Postgres row-level security can enforce the `org_id` rule a second time.
+- Automated tests check these rules on every pull request: for example, a volunteer can't read
+  another volunteer's sign-up, and a Coordinator of one organization can't see another's roster.
 
-### 4.4 Time zones (NFR-11)
+### 3.4 Time zones (NFR-11)
 
-Each event stores an IANA time zone (for example `Asia/Kolkata`). Shift start and end times are
-stored as `timestamptz` (UTC) and converted from the event's local time when the host saves. Pages
-show times in the event's time zone. The prototype's `day + HH:MM` fields map straight onto this.
+Each event stores its time zone (for example `America/Chicago`). Shift times are stored in UTC and
+shown in the event's time.
 
-### 4.5 Email pipeline (COM-*, NFR-3, NFR-15)
+### 3.5 Email and calendars (COM-*, COM-10)
 
-1. The app writes a `messages` row (and one `message_deliveries` row per recipient) and enqueues a
-   job, in the same transaction as the change that caused it. An email is never sent for a
-   sign-up that rolled back.
-2. The worker renders the template and sends it through Postmark. Failures are retried with
-   back-off.
-3. Postmark webhooks (`/api/v1/webhooks/postmark`) record deliveries, bounces and complaints.
-   Bounced addresses are suppressed.
-4. Emails are sent as *"{Organization} via Sevak" &lt;notify@mail.&lt;domain&gt;&gt;*, with
-   `Reply-To` set to the organization's contact (COM-7). SPF, DKIM and DMARC are set up on
-   `mail.<domain>`.
-5. Reminders (COM-6) are scheduled jobs created when someone signs up, and moved or cancelled if
-   the shift changes.
-
-### 4.6 Server-side fetching (ORG-10)
-
-"Fill in from website" moves to the worker. It allows only `http`/`https`, resolves DNS and
-**blocks private, loopback and link-local addresses** (to prevent server-side request forgery),
-times out after 5 seconds, reads at most 1 MB, and follows at most 3 redirects, checking each one.
-
-### 4.7 SEO for public pages (EVT-7, EVT-8, NFR-10)
-
-`/e/{slug}` and `/o/{slug}` are server-rendered with `<title>`, a canonical URL, Open Graph tags
-and schema.org `Event` / `Organization` JSON-LD. They are cached at Cloudflare for a short time
-(about 60 seconds, so spots-left counts stay fresh) and generated again on publish. The app serves
-`sitemap.xml` and `robots.txt`.
+The app records each email and queues it in the same transaction as the change that caused it, so
+an email is never sent for a sign-up that failed. The background job sends it and retries on
+failure. Shift emails carry a calendar invite with a stable id per shift, so a change updates the
+volunteer's calendar entry and a cancellation removes it.
 
 ---
 
-## 5. Hosting
+## 4. Security
 
-### 5.1 Recommendation: Render + Cloudflare
+### 4.1 The repository and contributors
 
-| Piece | Service | Notes |
-|---|---|---|
-| Web app | Render **Web Service** (Node) | Deploys automatically from `main`. Each pull request gets a preview environment. |
-| Worker | Render **Background Worker** | Same repo, different start command. |
-| Database | Render **Managed PostgreSQL** with daily backups and point-in-time recovery | Or **Neon** if you want database branches for each preview. |
-| DNS, TLS, CDN, Turnstile | **Cloudflare** (free plan) | Put the domain on Cloudflare and point it at Render. |
-| Files | **Cloudflare R2** | |
-| Email | **Postmark** | Authenticate the sending domain before the pilot. |
-| Errors | **Sentry** (free tier) | |
-| Prototype | **GitHub Pages** (what we use now) | Keep it for design reviews. |
+- **`main` is protected:** changes arrive only through pull requests, with passing checks and one
+  approval. No force-pushes, no deleting the branch.
+- **Code owners** (`.github/CODEOWNERS`) must approve changes to sensitive areas: the database
+  schema and migrations, sign-in and permissions, CI and deploy settings.
+- **Least access:** contributors get *Write* access, not *Admin*. Only the owner (and one backup)
+  can change repository settings or production.
+- **Two-factor sign-in** is required for everyone with access, on GitHub and on Railway.
+- **Dependencies:** Dependabot opens pull requests for security updates; CI fails on known
+  critical vulnerabilities.
+- **Secret scanning:** CI scans every pull request for leaked keys (gitleaks).
+- **Going private:** the repository can be made private once the app is hosted on Railway. Two
+  things to plan for: GitHub Pages for a private repository needs a paid GitHub plan (or the
+  prototype moves into the app), and GitHub's built-in code scanning is free only for public
+  repositories. The gitleaks and Dependabot checks above keep working either way.
 
-**Why Render:** it's one dashboard for the web app, the worker, cron jobs and Postgres. You deploy
-with `git push`, nobody has to manage servers, it's cheap at pilot scale, and the app is an
-ordinary Node service with no lock-in. Moving to Fly.io, Railway, AWS or Google Cloud Run later is
-a change of configuration, not a rewrite.
+### 4.2 Secrets
 
-**Rough monthly cost for the pilot:** about US$25–60, made up of two small instances, a small
-Postgres database and the entry Postmark plan. Cloudflare, R2 (at this volume) and the Sentry
-free tier cost nothing. Check current prices before you commit.
+- No secrets in the repository, ever. `.env.example` lists names only.
+- Production secrets live in Railway's production environment, visible only to the owner and the
+  backup.
+- **Previews get no production secrets and no real data.** They run with a test email setting that
+  sends nothing, and their own database of fake demo data. Real data is never copied into a
+  preview or onto a laptop.
 
-### 5.2 Alternatives considered
+### 4.3 The app
 
-| Option | Good | Watch out for |
-|---|---|---|
-| **Vercel + Neon + a job service** (Inngest or Upstash QStash) | The best Next.js experience, serverless, generous free tiers | Background jobs, PDF rendering (Chromium) and long tasks need extra services; three or more vendors to manage. |
-| **Fly.io** | Close to users worldwide, cheap small machines | More do-it-yourself: you look after Postgres operations and more networking yourself. |
-| **Supabase** (Postgres + auth + storage) | Many building blocks included | Pulls the design toward its own auth and row-level-security model. Fine, but a different architecture from this one. |
-| **AWS / GCP directly** (ECS or Cloud Run + RDS or Cloud SQL) | Scales anywhere, enterprise-friendly | Much more setup and running work than a pilot needs. |
+- HTTPS everywhere, strict security headers (including a Content Security Policy).
+- Every input is checked on the server (Zod), whatever the page already checked.
+- Cloudflare Turnstile and rate limits on public forms (SGN-8).
+- Protection against cross-site request forgery: `SameSite` cookies plus an origin check on every
+  change.
+- "Fill in from website" (ORG-10) runs on the server with protections against requests to internal
+  addresses.
 
-### 5.3 Environments and delivery
+### 4.4 Data and privacy
 
-| Environment | Where | Data |
-|---|---|---|
-| Local | `docker compose up` (Postgres + Mailpit) + `pnpm dev` | Seed and demo data (port `app/demo-data.js`) |
-| Preview | Render preview for each pull request | Seeded data, emails caught and never delivered |
-| Staging | `staging.<domain>` | Copy of production structure, made-up data |
-| Production | `<domain>` | Real data |
-
-CI (GitHub Actions) on every pull request: lint, typecheck, unit and database tests against a
-Postgres service container, Playwright tests on the core flows, and a check that migrations apply
-cleanly. Merging to `main` deploys to staging, and promoting deploys to production. Migrations run
-as a pre-deploy step and must be backward-compatible for one release (add first, remove later).
-
-### 5.4 Secrets and configuration
-
-All secrets (`DATABASE_URL`, `POSTMARK_TOKEN`, `R2_*`, `TURNSTILE_SECRET`, `SESSION_SECRET`,
-`SENTRY_DSN`) live in the host's environment settings, never in the repository (NFR-5). There is
-a `.env.example` file listing names only.
+- Collect as little as possible. No date of birth (NFR-8). Phone is optional.
+- Organizations see a volunteer's details only for their own events.
+- Data is stored in a **US region** to start (the first events are in Texas). Organizations in
+  India would later get an India region, in line with India's data protection law (DPDP Act 2023).
+- Nightly encrypted database backups to R2, and a test restore every month.
+- An audit log of sensitive actions: who changed roles, approved hours, exported a roster.
+- Data export and deletion on request (VOL-6). The privacy policy is updated before the beta.
 
 ---
 
-## 6. Moving from the prototype to the real app
+## 5. Cost
 
-The prototype's stores map directly onto API resources, so screens can be ported one at a time:
+Estimates per month. Check current prices before committing.
 
-| Prototype module | API resources |
+| Item | Service | Cost |
+|---|---|---|
+| App, database and previews | Railway **Hobby** plan (one owner) | **$5–15** (the $5 plan includes $5 of usage) |
+| | Railway **Pro** plan (if several people need the Railway dashboard) | **$20–30** |
+| Email | Resend free tier to start | **$0**, then about $20 |
+| DNS, TLS, bot protection, files | Cloudflare (free) and R2 (free at this size) | **$0** |
+| Errors | Sentry free tier | **$0** |
+| Code and CI | GitHub Free (public) | **$0**; private with Pages: about $4 per person on GitHub Pro or Team |
+| **Total** | | **about $5–15** on Hobby; **$25–50** with a team plan and paid email |
+
+Previews cost a little while a pull request is open and nothing once it closes. Railway's
+"focused" previews only rebuild what changed, which keeps them cheap. Set a **spending limit** in
+Railway so a bug can't run up a bill.
+
+---
+
+## 6. First beta: Flute Mali Centenary Celebration (Sat, Nov 14, 2026)
+
+The first real event: volunteers sign up on their phones, and the host team checks them in on the
+day.
+
+| | |
 |---|---|
-| `orgs-store.js` | `GET/POST /orgs`, `GET/PATCH/DELETE /orgs/{id}`, `/orgs/{id}/members`, `/orgs/{id}/verification` |
-| `events-store.js` (events, roles, shifts) | `/orgs/{id}/events`, `/events/{id}` (roles and shifts saved with the event), `/events/{id}/publish` |
-| `events-store.js` (main events) | `/orgs/{id}/main-events`, `/main-events/{id}` |
-| `signups-store.js` | `POST /events/{id}/registrations` (public, Turnstile), `GET/PATCH /registrations/{manageToken}`, `/events/{id}/roster` |
-| `profile.js` | `GET/PATCH /me`, `/me/affiliations`, `/me/volunteering` |
-| `website-import.js` | `POST /orgs/{id}/import-website` (runs in the worker) |
-| `demo-data.js` | `packages/db` seed script |
+| Event | Flute Mali Centenary Celebration, hosted by Roopa Arts Cultural Center |
+| When | Saturday, November 14, 2026, 10:00 AM – 1:00 PM Central |
+| Where | Sugar Land, TX (venue shared by email with registrants) |
+| Public RSVP | Zeffy (stays as is); Sevak handles **volunteers** only |
 
-The data model in §8 of the requirements becomes the Drizzle schema almost table for table, with
-these additions: `sessions`, `login_tokens`, a `shifts.filled` counter, `message_deliveries` and
-the pg-boss tables.
+**In the beta:** the organization and event (loaded by us, with the exact wording from Zeffy);
+volunteer sign-up on phones with live spots-left; confirmation email with Google Calendar and
+.ics; email sign-in; My sign-ups and cancel; host roster, check-in and hours; CSV export.
 
----
+**After the beta:** organization and event editors on the live database, public discovery, search
+listing, reminders, certificate PDFs, documents and photos, corporate features.
 
-## 7. Phase 2 build plan
+**How the beta reuses the prototype:** the web app serves the prototype's pages, and the
+prototype's storage files (`orgs-store.js`, `events-store.js`, `signups-store.js` and the ones the
+roster uses) get a version that talks to `/api/v1` instead of the browser. That keeps the screens
+people have already reviewed, and is replaced screen by screen with React after launch.
 
-| Step | Scope | Done when |
-|---|---|---|
-| **2a. Foundation** (about 1–2 weeks) | Monorepo, Docker Compose, Drizzle schema and migrations, CI, Render staging, Cloudflare domain, Postmark domain authentication, email sign-in and sessions | A person can sign in on staging and the CI pipeline passes |
-| **2b. Host core** | Organizations, members and invitations, events, roles, shifts, main events, publish and unpublish; host screens ported from the prototype | The prototype's host flows work against the API |
-| **2c. Volunteer core** | Server-rendered `/e/{slug}` and `/o/{slug}`, sign-up with capacity checks, Turnstile, confirmation email, manage link, Add to calendar | 500-sign-up load test passes with no overbooking |
-| **2d. Run the event** | Roster, attendance and hours, CSV export, event updates and message history, reminders, certificates (PDF) and `/verify/{code}` | One whole event runs end to end on staging |
-| **2e. Trust and launch** | Verification queue, moderation, Discover with city and date filters, sitemap, data export and deletion, backups restore-tested, Sentry, privacy review | Ready for the Phase 3 pilot |
+| Date | Milestone |
+|---|---|
+| Tue, Nov 3 | Plan agreed; repo foundation, database schema, CI |
+| Wed, Nov 4 | Sign-up API with capacity checks; volunteer pages on the API |
+| Thu, Nov 5 | Email sign-in; host roster, check-in and hours |
+| Fri, Nov 6 | Emails with calendar invites; CSV; privacy tests; first Railway deploy |
+| Sat–Sun, Nov 7–8 | Phone testing; dry run with 3–5 volunteers |
+| Mon, Nov 9 | Fixes, then freeze |
+| **Tue, Nov 10** | **Volunteer sign-up opens** (shared on WhatsApp) |
+| **Sat, Nov 14** | **Event day:** check-in from phones |
+| After | Export hours; thank-you emails; review what to keep, fix and build next |
 
-### Decisions needed
+**Fallback:** if the beta isn't solid by Sunday, Nov 8, volunteers for this event sign up through a
+Google Form, and the build carries on for the next event.
 
-1. **Domain** (Q1 in the requirements). Email authentication and the hosting setup depend on it.
-2. Accept the stack above (Next.js + Postgres + Render), or pick an alternative from §5.2.
-3. Choose the email provider (Postmark recommended) and who owns the vendor accounts (The ANB Group).
+### Domains
+
+- `sevak.theanbgroup.com` points at the prototype on GitHub Pages today. On launch day it moves to
+  Railway (the live app).
+- The prototype then moves to its own address, for example `prototype.sevak.theanbgroup.com`, so
+  design reviews carry on.
