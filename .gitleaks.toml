@@ -1,0 +1,10 @@
+# Secret scan settings for CI (.github/workflows/ci.yml). Uses gitleaks's
+# default rules, with one narrow exception below. Keep exceptions exact:
+# never allow a whole file or rule.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Prototype browser-storage names such as sevak.organization.v1 (not secrets)"
+regexTarget = "secret"
+regexes = ['''^sevak\.[A-Za-z]+\.v[0-9]+$''']

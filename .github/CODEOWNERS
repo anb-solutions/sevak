@@ -6,5 +6,6 @@
 /.github/                @anbbala
 /.claude/                @anbbala
 /railway.json            @anbbala
+/.gitleaks.toml          @anbbala
 /package.json            @anbbala
 /pnpm-lock.yaml          @anbbala
