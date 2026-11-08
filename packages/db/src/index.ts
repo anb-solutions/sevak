@@ -29,10 +29,11 @@ export async function createMemoryDb(): Promise<Db> {
   return db;
 }
 
-// Connects to the Postgres at `url`. Migrations are applied separately, by
-// `pnpm db:migrate` as a deploy step.
+// Connects to the Postgres at `url`: on Vercel, Neon's pooled connection
+// string. The pooler (PgBouncer in transaction mode) can't keep prepared
+// statements, so they're off. Migrations run separately (`pnpm db:migrate`).
 export function connect(url: string): Db {
-  const client = postgres(url, { max: 10 });
+  const client = postgres(url, { max: 5, prepare: false });
   return drizzlePostgres(client, { schema });
 }
 
