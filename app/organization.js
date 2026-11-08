@@ -58,8 +58,27 @@
     return [$("contactEmail")].concat(Array.prototype.slice.call(form.querySelectorAll('[data-key="email"]')));
   }
 
+  // An address or a phone number is enough: either one, or both. A street
+  // address needs its city, and the other way round.
+  var ADDRESS_IDS = ["addressLine1", "city"];
+
+  function syncAddressOrPhone() {
+    var hasAddress = ADDRESS_IDS.some(function (id) { return $(id).value.trim(); });
+    var hasPhone = !!$("contactPhone").value.trim();
+    ADDRESS_IDS.forEach(function (id) { $(id).required = hasAddress || !hasPhone; });
+    $("contactPhone").required = !hasAddress;
+  }
+
   function messageFor(input) {
     var v = input.value.trim();
+    syncAddressOrPhone();
+    var eitherOr = input.required && !v && (ADDRESS_IDS.indexOf(input.id) !== -1 || input.id === "contactPhone");
+    var neither = !$("contactPhone").value.trim() && ADDRESS_IDS.every(function (id) { return !$(id).value.trim(); });
+    if (eitherOr && neither) {
+      return input.id === "contactPhone"
+        ? "Add a phone number, or the organization's address on the Address tab. One is enough."
+        : "Add the organization's address, or a phone number on the Contact tab. One is enough.";
+    }
     var basic = F.basicMessage(input);
     if (basic) return basic;
 
@@ -604,13 +623,18 @@
         ". Sevak usually replies within two working days; you'll get an email. Until then, public events stay private.";
       if (v.evidence) body.appendChild(evidenceList(v.evidence));
       if (v.note) body.appendChild(vEl("p", "verify-note", "Your note: “" + v.note + "”"));
-      var proto = vEl("p", "hint verify-proto");
-      proto.appendChild(document.createTextNode("Prototype: there are no Sevak staff here, so you can "));
-      var r = vEl("a", null, "review the request yourself");
-      r.href = "review.html";
-      proto.appendChild(r);
-      proto.appendChild(document.createTextNode("."));
-      body.appendChild(proto);
+      // Who reviews it: Sevak's staff (in the prototype, anyone).
+      var server = window.SevakServer;
+      var staff = server && server.user && server.user.isPlatformAdmin;
+      if (!server || staff) {
+        var proto = vEl("p", "hint verify-proto");
+        proto.appendChild(document.createTextNode(staff ? "You're Sevak staff: " : "Prototype: there are no Sevak staff here, so you can "));
+        var r = vEl("a", null, staff ? "review it on the Review page" : "review the request yourself");
+        r.href = "review.html";
+        proto.appendChild(r);
+        proto.appendChild(document.createTextNode("."));
+        body.appendChild(proto);
+      }
       if (canAct) {
         var row = vEl("div", "fill-row");
         row.appendChild(button("Withdraw request", "btn-secondary btn-small", function () {

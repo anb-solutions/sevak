@@ -239,6 +239,19 @@
     var on = F.session.signedIn();
     $("account-line").hidden = !on;
     if (on) $("account-email").textContent = F.session.profile().email;
+    // Sevak staff: a way to the verification requests.
+    if (on && server && server.user && server.user.isPlatformAdmin && !$("staff-line")) {
+      var line = document.createElement("p");
+      line.className = "account-line";
+      line.id = "staff-line";
+      var waiting = window.SevakVerify ? window.SevakVerify.queue().length : 0;
+      line.appendChild(document.createTextNode("You're Sevak staff. "));
+      var a = document.createElement("a");
+      a.href = "review.html";
+      a.textContent = "Review verification requests" + (waiting ? " (" + waiting + " waiting)" : "");
+      line.appendChild(a);
+      $("account-line").insertAdjacentElement("afterend", line);
+    }
   }
 
   $("sign-out").addEventListener("click", function () {
