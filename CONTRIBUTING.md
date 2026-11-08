@@ -43,10 +43,22 @@ and the tests. Review what Claude changes the same way you'd review anyone's wor
 
 ## Database changes
 
-- Change the schema in `packages/db/src/schema.ts`, then run `pnpm db:generate` to create a
-  migration. Commit both.
+Schema changes go through GitHub like any other change:
+
+1. Change the schema in `packages/db/src/schema.ts`, then run `pnpm db:generate` to create a
+   migration. Commit both.
+2. **Pull request:** CI checks the migration matches the schema, runs the tests, and applies every
+   migration to a real PostgreSQL 18 (the same version as Cloud SQL).
+3. **Merge into `staging`:** the deploy runs the migration on staging's database **before** the new
+   version gets any users, then checks the new version can read the database. If either fails,
+   users stay on the previous version.
+4. **Release to production** (the owner merges `staging` into `main`): the same migration runs on
+   production's database.
+
+Rules:
+
 - Migrations must work while the previous version of the app is still running: add things first,
-  remove them in a later release.
+  remove them in a later release. Never rename or drop something the running version still uses.
 - Never edit a migration that has already been merged.
 
 ## Security rules

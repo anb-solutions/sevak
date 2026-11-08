@@ -14,8 +14,9 @@ deploys from its own branch. Each deploy:
 
 1. Builds the container image ([`Dockerfile`](../../Dockerfile)) and stores it in the project.
 2. Runs database migrations as a Cloud Run job. On staging, it also loads demo data.
-3. Starts the new version **without traffic**, checks its health, and only then switches users to
-   it. A broken version never reaches anyone.
+3. Starts the new version **without traffic**, checks its health and, on staging, that it reads
+   the demo event from the database. Only then are users switched to it. A broken version never
+   reaches anyone.
 
 ## Cost
 

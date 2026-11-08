@@ -59,6 +59,36 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker build -t sevak:ci .
 
+  migrations:
+    name: Migrations on PostgreSQL 18
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # The same PostgreSQL version as Cloud SQL. Applies every migration to an
+    # empty database, then the demo data, then migrations again (a no-op).
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres # throwaway CI database
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate
+      - run: pnpm db:seed
+        env:
+          SEVAK_ENV: staging
+      - run: pnpm db:migrate
+
   secrets:
     name: Secret scan
     runs-on: ubuntu-latest

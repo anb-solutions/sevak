@@ -92,12 +92,32 @@ jobs:
 
       - name: Check the new version is healthy
         run: |
+          healthy=""
           for i in 1 2 3 4 5 6; do
-            if curl -fsS "${{ steps.deploy.outputs.next }}/api/v1/health"; then exit 0; fi
+            if curl -fsS "${{ steps.deploy.outputs.next }}/api/v1/health"; then healthy=1; break; fi
             sleep 10
           done
-          echo "::error::The new version didn't answer its health check, so users stay on the previous version."
-          exit 1
+          if [ -z "$healthy" ]; then
+            echo "::error::The new version didn't answer its health check, so users stay on the previous version."
+            exit 1
+          fi
+
+      # Reads real data from the database through the new version, before any
+      # user is sent to it. Staging has demo data to read; production doesn't.
+      - name: Check the new version reads the database
+        if: env.SEVAK_ENV == 'staging'
+        run: |
+          curl -fsS "${{ steps.deploy.outputs.next }}/api/v1/events/flute-mali-centenary-celebration" -o event.json
+          python3 - <<'PY'
+          import json, sys
+          event = json.load(open("event.json"))
+          shifts = [s for r in event["roles"] for s in r["shifts"]]
+          print(f'Read "{event["title"]}" from the database: {len(event["roles"])} roles, {len(shifts)} shifts, '
+                f'{sum(s["spotsLeft"] for s in shifts)} spots left.')
+          if not event["roles"] or not shifts:
+              print("::error::The demo event came back without roles or shifts.")
+              sys.exit(1)
+          PY
 
       - name: Switch users to the new version
         run: gcloud run services update-traffic sevak-web --project "$PROJECT" --region "$REGION" --to-latest
