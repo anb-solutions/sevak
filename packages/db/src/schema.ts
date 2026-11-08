@@ -7,6 +7,7 @@ import {
   date,
   index,
   integer,
+  jsonb,
   numeric,
   pgEnum,
   pgTable,
@@ -31,6 +32,9 @@ export const users = pgTable(
     lastName: text("last_name").notNull().default(""),
     phone: text("phone"), // E.164 (NFR-16)
     isPlatformAdmin: boolean("is_platform_admin").notNull().default(false),
+    // The rest of the profile (photo, address, affiliations, "get to know me"),
+    // as the screens save it.
+    profile: jsonb("profile").$type<Record<string, unknown>>(),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("users_email_key").on(t.email)],
@@ -228,4 +232,26 @@ export const emails = pgTable(
     sentAt: timestamp("sent_at", { withTimezone: true }),
   },
   (t) => [index("emails_status_idx").on(t.status)],
+);
+
+// ---------- Screen records ----------
+
+// What the current screens save (organizations, events, sign-ups…), in the
+// shape they use, keyed by the screen's own id. The server decides who may
+// read or change each record (packages/core/src/records.ts). As screens
+// move to React, their data moves into the tables above.
+export const records = pgTable(
+  "records",
+  {
+    collection: text("collection").notNull(), // "organizations", "events", ...
+    id: text("id").notNull(),
+    // The organization a record belongs to (its own id for an organization),
+    // used for access checks.
+    orgId: text("org_id"),
+    data: jsonb("data").$type<Record<string, unknown>>().notNull(),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+  },
+  (t) => [primaryKey({ columns: [t.collection, t.id] }), index("records_org_idx").on(t.collection, t.orgId)],
 );

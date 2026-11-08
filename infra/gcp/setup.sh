@@ -20,6 +20,10 @@
 #     and only from this repository's branch for this environment
 #     (staging branch → staging, main branch → production)
 #   - Optional monthly budget alert (--budget <US dollars>)
+#   - Places in Secret Manager for the app's keys ("resend-api-key" for
+#     email, "google-client-secret" for Continue with Google). Their values
+#     come from GitHub: each deploy copies them in from the environment's
+#     secrets. Only the app can read them, and only the deploy can update them.
 set -euo pipefail
 
 REGION="us-central1"
@@ -32,6 +36,8 @@ while [ $# -gt 0 ]; do
     --region) REGION="$2"; shift 2 ;;
     --database) DATABASE="$2"; shift 2 ;;
     --budget) BUDGET="$2"; shift 2 ;;
+    --email) shift 2 ;; # no longer needed: keys come from GitHub (README step 5)
+    --google) shift ;;
     *) echo "Unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -158,6 +164,18 @@ else
   echo "Saved."
 fi
 
+say "Places for the app's keys (filled in from GitHub by each deploy)"
+for name in resend-api-key google-client-secret; do
+  exists gcloud secrets describe "$name" || gcloud secrets create "$name" --replication-policy automatic
+  gcloud secrets add-iam-policy-binding "$name" --member "serviceAccount:$RUNTIME_SA" \
+    --role roles/secretmanager.secretAccessor >/dev/null
+  # The deploy stores new values, turns off old ones, and reads the current
+  # one to see whether it changed. (It can already deploy code that reads it.)
+  for role in roles/secretmanager.secretVersionManager roles/secretmanager.secretAccessor; do
+    gcloud secrets add-iam-policy-binding "$name" --member "serviceAccount:$DEPLOY_SA" --role "$role" >/dev/null
+  done
+done
+
 if [ -n "$BUDGET" ]; then
   say "Budget alert: emails billing admins at 50%, 90% and 100% of \$$BUDGET a month"
   gcloud services enable billingbudgets.googleapis.com
@@ -185,3 +203,4 @@ echo "  GCP_RUNTIME_SA         $RUNTIME_SA"
 if [ -n "$CONNECTION" ]; then echo "  GCP_CLOUDSQL_INSTANCE  $CONNECTION"; fi
 echo
 echo "None of these are secrets. No keys were created."
+echo "Keys for email and Google sign-in go in the GitHub environment's secrets (infra/gcp/README.md)."

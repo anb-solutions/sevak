@@ -1,4 +1,5 @@
-// User profile (prototype). Data is kept in this browser only.
+// User profile (prototype). Data is kept in this browser, or on Sevak's
+// server when the web app serves this page (window.SevakServer, sync.js).
 // A person can volunteer, be on one or more organizations' teams, or both.
 // Teams aren't chosen here: you're on a team when you set up an
 // organization or one of its Admins adds you (see SevakOrgs.roleFor).
@@ -12,6 +13,15 @@
   var form = document.getElementById("profile-form");
   var $ = function (id) { return document.getElementById(id); };
   var F = window.SevakForms;
+  var server = window.SevakServer;
+
+  // With the server, you sign in (by email code) before making a profile,
+  // and the profile's email is the one you signed in with.
+  if (server && !server.offline && !server.user) {
+    location.replace("signin.html?next=profile.html");
+    return;
+  }
+  var SAVED_WHERE = server ? "" : " on this device";
 
   // ---------- User types ----------
 
@@ -450,7 +460,7 @@
       if (nextOwner !== docsOwner) { docsOwner = nextOwner; docs.setOwner(docsOwner, DOCS_BLOCKED); }
     }
     $("status").textContent = stored
-      ? "Profile saved on this device."
+      ? "Profile saved" + SAVED_WHERE + "."
       : "Couldn't save in this browser. Check that site storage is allowed.";
     if (stored) {
       M.acceptInvites();
@@ -466,13 +476,14 @@
   $("delete-profile").addEventListener("click", function () {
     var docCount = docsOwner ? window.SevakDocs.forOwner(docsOwner).length : 0;
     if (!window.confirm("Delete your profile" + (docCount ? " and your " + (docCount === 1 ? "document" : docCount + " documents") : "") +
-      " from this device? This can't be undone.")) return;
+      " from " + (server ? "Sevak" : "this device") + "? This can't be undone.")) return;
     F.clear(STORAGE_KEY);
     window.SevakDocs.removeFor(["profile", docsOwner].filter(Boolean)).then(function () {
       docsOwner = null;
       docs.setOwner(null, DOCS_BLOCKED);
     });
     form.reset();
+    if (server && server.user) $("email").value = server.user.email;
     $("role-volunteer").checked = true;
     $("country").value = F.defaultCountry();
     F.resetPhone($("phone"));
@@ -599,6 +610,11 @@
   var existing = F.load(STORAGE_KEY);
   if (existing) fill(existing);
   else $("role-volunteer").checked = true;
+  if (server && server.user) {
+    $("email").value = server.user.email;
+    $("email").readOnly = true;
+    $("email").nextElementSibling.textContent = "The email you signed in with. Confirmations and certificates go here.";
+  }
   refreshServices();
   updateCounters();
   updateAffiliationButton();

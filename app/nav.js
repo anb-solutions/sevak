@@ -260,6 +260,10 @@
   function setupBanner() {
     var banner = document.querySelector("main .banner");
     if (!banner) return;
+    // With Sevak's server (sync.js), some data is saved there already.
+    if (window.SevakServer && /stays in this browser\.$/.test(banner.textContent.trim())) {
+      banner.innerHTML = "<strong>Beta.</strong> Your profile and organizations are saved to Sevak. Events, sign-ups and documents still stay in this browser for now.";
+    }
     var dismissed = false;
     try { dismissed = localStorage.getItem(BANNER_KEY) === "true"; } catch (e) { /* ignore */ }
     banner.hidden = dismissed;

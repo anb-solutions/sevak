@@ -37,6 +37,9 @@ jobs:
       RUNTIME_SA: ${{ vars.GCP_RUNTIME_SA }}
       CLOUDSQL: ${{ vars.GCP_CLOUDSQL_INSTANCE }} # only if the database is Cloud SQL
       DOMAIN: ${{ vars.GCP_DOMAIN }} # e.g. staging.sevak.theanbgroup.com; optional
+      EMAIL_FROM: ${{ vars.EMAIL_FROM }} # optional; the app has a default
+      PLATFORM_ADMINS: ${{ vars.SEVAK_PLATFORM_ADMINS }} # Sevak staff emails, comma-separated; optional
+      GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }} # "Continue with Google"; optional, with the GOOGLE_CLIENT_SECRET secret
       IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/sevak/web:${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
@@ -71,6 +74,32 @@ jobs:
               --args tasks/tasks.mjs,seed
           fi
 
+      # The app's keys live in GitHub as environment secrets (RESEND_API_KEY,
+      # GOOGLE_CLIENT_SECRET). The app reads them from Secret Manager, so a
+      # changed key is copied there and the old copy turned off. GitHub hides
+      # the values in logs.
+      - name: Copy the app's keys from GitHub to Google Cloud
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+        run: |
+          store() { # store <secret in Secret Manager> <value from GitHub>
+            local name="$1" value="$2" current
+            [ -n "$value" ] || { echo "$name: not set in GitHub, left as it is."; return 0; }
+            current="$(gcloud secrets versions access latest --secret "$name" --project "$PROJECT" 2>/dev/null || true)"
+            if [ "$current" = "$value" ]; then echo "$name: up to date."; return 0; fi
+            if ! printf '%s' "$value" | gcloud secrets versions add "$name" --project "$PROJECT" --data-file=- >/dev/null; then
+              echo "::warning::Couldn't store $name in Google Cloud. Run infra/gcp/setup.sh once more (infra/gcp/README.md, step 5)."
+              return 0
+            fi
+            gcloud secrets versions list "$name" --project "$PROJECT" --filter state=ENABLED \
+              --sort-by ~createTime --format 'value(name.basename())' | tail -n +2 |
+              while read -r old; do gcloud secrets versions disable "$old" --secret "$name" --project "$PROJECT" --quiet >/dev/null; done
+            echo "$name: stored the new value."
+          }
+          store resend-api-key "$RESEND_API_KEY"
+          store google-client-secret "$GOOGLE_CLIENT_SECRET"
+
       - name: Deploy the new version (no traffic yet)
         id: deploy
         run: |
@@ -81,9 +110,26 @@ jobs:
           if gcloud run services describe sevak-web --project "$PROJECT" --region "$REGION" >/dev/null 2>&1; then
             traffic_flag=(--no-traffic)
           fi
+          # Settings for the app. "|" separates them, since emails contain "@" and ",".
+          env_vars="SEVAK_ENV=$SEVAK_ENV"
+          secrets="DATABASE_URL=database-url:latest"
+          if [ -n "$DOMAIN" ]; then env_vars+="|APP_URL=https://$DOMAIN"; fi
+          if [ -n "$PLATFORM_ADMINS" ]; then env_vars+="|SEVAK_PLATFORM_ADMINS=$PLATFORM_ADMINS"; fi
+          if [ -n "$EMAIL_FROM" ]; then env_vars+="|EMAIL_FROM=$EMAIL_FROM"; fi
+          has_key() { [ -n "$(gcloud secrets versions list "$1" --project "$PROJECT" --filter state=ENABLED --format 'value(name)' --limit 1 2>/dev/null)" ]; }
+          if has_key resend-api-key; then
+            env_vars+="|EMAIL_MODE=resend"
+            secrets+=",RESEND_API_KEY=resend-api-key:latest"
+          else
+            env_vars+="|EMAIL_MODE=log"
+          fi
+          if [ -n "$GOOGLE_CLIENT_ID" ] && has_key google-client-secret; then
+            env_vars+="|GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID"
+            secrets+=",GOOGLE_CLIENT_SECRET=google-client-secret:latest"
+          fi
           gcloud run deploy sevak-web --project "$PROJECT" --region "$REGION" --image "$IMAGE" \
-            --service-account "$RUNTIME_SA" --set-secrets DATABASE_URL=database-url:latest \
-            --set-env-vars SEVAK_ENV="$SEVAK_ENV" --port 8080 --no-invoker-iam-check \
+            --service-account "$RUNTIME_SA" --set-secrets "$secrets" \
+            --set-env-vars "^|^$env_vars" --port 8080 --no-invoker-iam-check \
             --min-instances 0 --max-instances 3 --memory 512Mi --cpu 1 \
             --tag next "${traffic_flag[@]}" "${sql_flag[@]}"
           describe() { gcloud run services describe sevak-web --project "$PROJECT" --region "$REGION" --format json; }
