@@ -5,6 +5,8 @@ import { POST as requestCode } from "./auth/request/route";
 import { POST as signOutRoute } from "./auth/signout/route";
 import { POST as verify } from "./auth/verify/route";
 import { POST as save } from "./sync/[key]/route";
+import { POST as joinRoute } from "./memberships/join/route";
+import { GET as byCode } from "./organizations/by-code/[code]/route";
 import { GET as load } from "./sync/route";
 
 const BASE = "http://localhost:3000";
@@ -85,6 +87,31 @@ describe("API", () => {
     expect((await takeover.json()).value[0].name).toBe("Temple Volunteers");
     const removal = await save(req(`/api/v1/sync/${ORGS}`, { body: { delete: ["org-temple"] }, cookie: mei }), params(ORGS));
     expect(removal.status).toBe(403);
+  });
+
+  it("lets people join with an invite code, and keeps the code itself private", async () => {
+    await save(req(`/api/v1/sync/${ORGS}`, { body: { upsert: [{ id: "org-pantry", name: "Pantry", inviteCode: "PANTRY", team: [] }] }, cookie: asha }), params(ORGS));
+    const found = await byCode(req("/api/v1/organizations/by-code/pantry", { method: "GET" }), { params: Promise.resolve({ code: "pantry" }) });
+    expect(found.status).toBe(200);
+    const text = JSON.stringify(await found.json());
+    expect(text).toContain("Pantry");
+    expect(text).not.toContain("PANTRY");
+    expect((await byCode(req("/api/v1/organizations/by-code/NOPE", { method: "GET" }), { params: Promise.resolve({ code: "NOPE" }) })).status).toBe(404);
+
+    expect((await joinRoute(req("/api/v1/memberships/join", { body: { code: "PANTRY" } }))).status).toBe(401);
+    expect((await joinRoute(req("/api/v1/memberships/join", { body: { code: "PANTRY" }, cookie: mei, site: "cross-site" }))).status).toBe(403);
+    const joined = await joinRoute(req("/api/v1/memberships/join", { body: { code: "PANTRY" }, cookie: mei }));
+    expect(joined.status).toBe(200);
+    expect((await joined.json()).value).toMatchObject([{ orgId: "org-pantry", status: "active" }]);
+  });
+
+  it("refuses membership changes from people outside the organization", async () => {
+    const MEM = "sevak.memberships.v1";
+    const asked = await save(req(`/api/v1/sync/${MEM}`, { body: { upsert: [{ id: "mem-q", orgId: "org-temple", email: "mei@example.com", status: "requested" }] }, cookie: mei }), params(MEM));
+    expect(asked.status).toBe(200);
+    const selfApprove = await save(req(`/api/v1/sync/${MEM}`, { body: { upsert: [{ id: "mem-q", orgId: "org-temple", email: "mei@example.com", status: "active" }] }, cookie: mei }), params(MEM));
+    expect(selfApprove.status).toBe(403);
+    expect((await selfApprove.json()).value.find((m: { id: string }) => m.id === "mem-q").status).toBe("requested");
   });
 
   it("refuses data it doesn't know and bodies that aren't JSON", async () => {

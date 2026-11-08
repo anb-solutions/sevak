@@ -820,6 +820,7 @@ input[type="time"], input[type="number"] {
 .org-pick-item:has(input:focus-visible) { box-shadow: 0 0 0 3px var(--focus); }
 .org-pick-item input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--primary); }
 .org-pick-text { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
+.join-switch { margin: 4px 0 0; }
 .join-alt { margin: 16px 0 0; font-size: 0.92rem; color: var(--muted); }
 .join-alt a, .join-notice a, .team-doors-line a, .browse-hint a, .member-strip a { color: var(--primary); font-weight: 600; text-underline-offset: 3px; }
 .join-notice { margin-bottom: 16px; }

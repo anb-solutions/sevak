@@ -29,8 +29,8 @@ const B = 'http://localhost:8765/'; const A = B + 'app/'; const SP = process.arg
   // ----- Join with an invitation code -----
   await p.goto(A + 'join.html');
   await p.click('#join-continue');
-  check((await p.textContent('#way-error')).includes('Choose how'), 'must choose a way');
-  await p.check('#way-invite', { force: true });
+  check((await p.textContent('#org-error')).includes('Choose the organization'), 'must pick an organization');
+  await p.click('#switch-way');
   await p.fill('#code', 'nope99'); await p.click('#join-continue');
   check((await p.textContent('#code-error')).includes("don't recognise"), 'bad code');
   await p.fill('#code', 'https://example.org/app/join.html?code=pantry');
@@ -153,10 +153,14 @@ const B = 'http://localhost:8765/'; const A = B + 'app/'; const SP = process.arg
   await p.click('#join-gate button:has-text("Request to join")');
   check((await p.textContent('#status')).includes("You're in!") && await p.isVisible('#submit'), 'auto-approved: confirm straight away');
 
+  // ----- An invite link says who's inviting -----
+  await p.goto(A + 'join.html?code=PANTRY');
+  check((await p.textContent('#join-title')) === 'Join Eastside Food Pantry (demo)' && (await p.textContent('#join-continue')) === 'Join Eastside Food Pantry (demo)', 'invite link: Join <organization>');
+  check(await p.isVisible('#code') && !(await p.isVisible('#org-search')), 'invite link: no search');
+
   // ----- Join page when signed in; withdraw and leave on Profile -----
   await p.goto(A + 'join.html');
   check((await p.textContent('#join-title')) === 'Join an organization', 'signed in: join another');
-  await p.check('#way-request', { force: true });
   check(await p.isDisabled('.org-pick-item:has-text("Riverside") input'), 'already a member: disabled');
   await p.fill('#org-search', 'pantry');
   check((await p.$$('.org-pick-item')).length === 1, 'search');

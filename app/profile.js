@@ -179,7 +179,7 @@
     }
     var org = window.SevakOrgs.get(i.orgId);
     if (!org) return false;
-    var rec = M.isMember(org.id) ? { status: "active" } : M.request(org.id, i.note, i.way === "invite");
+    var rec = M.isMember(org.id) ? { status: "active" } : M.request(org.id, i.note, i.way === "invite", i.code);
     var next = i.returnTo || "signup.html#my-orgs";
     if (rec && rec.status === "active") {
       showJoinNotice(["Welcome! You're now a volunteer with " + org.name + ". ", noticeLink(next, i.returnTo ? "Back to the event" : "See its opportunities")]);

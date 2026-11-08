@@ -35,7 +35,7 @@
 
     <div class="narrow">
       <h1 class="page-title" id="join-title">Join Sevak</h1>
-      <p class="page-intro" id="join-intro">To volunteer on Sevak you need an invitation from an organization, or to ask one to have you. Choose how you're joining.</p>
+      <p class="page-intro" id="join-intro">Find the organization you want to volunteer with and ask to join. If they sent you an invitation, you can join straight away.</p>
 
       <div class="section notice demo-offer" id="demo-offer" hidden>
         <p><strong>This browser has no organizations yet.</strong> The prototype keeps everything in the browser it was entered in, so a new or private window starts empty.</p>
@@ -44,30 +44,12 @@
       <p class="section notice" id="demo-loaded" tabindex="-1" hidden>Loaded two demo organizations: <strong>Riverside Community Arts</strong> (invite code RIVER7) and <strong>Eastside Food Pantry</strong> (invite code PANTRY).</p>
 
       <form id="join-form" novalidate>
-        <fieldset class="section join-ways">
-          <legend>How are you joining?</legend>
-          <div class="choices choices-wide">
-            <label class="choice"><input type="radio" name="way" value="invite" id="way-invite"><span><strong>I have an invitation</strong><small>An organization sent you a link or a code.</small></span></label>
-            <label class="choice"><input type="radio" name="way" value="request" id="way-request"><span><strong>Request to join an organization</strong><small>Choose the organization you want to volunteer with. It approves you.</small></span></label>
-          </div>
-          <p class="error" id="way-error"></p>
-        </fieldset>
-
-        <section class="section" id="invite-section" hidden aria-labelledby="invite-title">
-          <h2 class="section-title" id="invite-title">Your invitation</h2>
+        <!-- Find your organization (the usual way), or use an invitation. -->
+        <section class="section" id="request-section" aria-labelledby="request-title">
+          <h2 class="section-title" id="request-title">Find your organization</h2>
           <div class="field">
-            <label for="code">Invitation link or code</label>
-            <input id="code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="300" placeholder="e.g. 7KQ2RM">
-            <p class="error" id="code-error"></p>
-          </div>
-          <p class="notice" id="code-found" hidden></p>
-        </section>
-
-        <section class="section" id="request-section" hidden aria-labelledby="request-title">
-          <h2 class="section-title" id="request-title">Which organization?</h2>
-          <div class="field">
-            <label for="org-search">Find an organization</label>
-            <input id="org-search" type="search" autocomplete="off" placeholder="Name or city">
+            <label for="org-search">Search by name or city</label>
+            <input id="org-search" type="search" autocomplete="off" placeholder="e.g. temple, Houston">
           </div>
           <ul class="org-pick" id="org-pick" aria-label="Organizations"></ul>
           <p class="empty" id="org-pick-empty" hidden>No organizations match.</p>
@@ -78,9 +60,22 @@
           </div>
         </section>
 
+        <section class="section" id="invite-section" hidden aria-labelledby="invite-title">
+          <h2 class="section-title" id="invite-title">Your invitation</h2>
+          <div class="field">
+            <label for="code">Invitation link or code</label>
+            <input id="code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="300" placeholder="e.g. 7KQ2RM">
+            <p class="hint">The organization sent you a link or a 6-letter code.</p>
+            <p class="error" id="code-error"></p>
+          </div>
+          <p class="notice" id="code-found" hidden></p>
+        </section>
+
+        <p class="join-switch"><button type="button" class="btn btn-link" id="switch-way">Have an invitation code?</button></p>
+
         <div class="action-bar">
           <p class="status" id="join-status" role="status" aria-live="polite"></p>
-          <button type="submit" class="btn btn-primary" id="join-continue">Continue</button>
+          <button type="submit" class="btn btn-primary" id="join-continue">Ask to join</button>
         </div>
       </form>
 

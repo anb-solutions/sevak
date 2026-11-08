@@ -17,7 +17,7 @@
 (function () {
   "use strict";
 
-  var SYNCED = { "sevak.profile.v1": "object", "sevak.organizations.v1": "list" };
+  var SYNCED = { "sevak.profile.v1": "object", "sevak.organizations.v1": "list", "sevak.memberships.v1": "list" };
   var SIGNED_OUT_KEY = "sevak.signedOut.v1";
 
   var storage = window.localStorage;
@@ -165,6 +165,14 @@
     }
     throw new Error("Not saved");
   }
+
+  // For pages that call the API directly (members-store.js): a request, and
+  // a way to store what the server answered without sending it back.
+  server.call = function (method, url, body) { return request(method, url, body); };
+  server.replace = function (key, value) {
+    var demo = SYNCED[key] === "list" ? (parse(getItem.call(storage, key)) || []).filter(isDemo) : [];
+    put(key, SYNCED[key] === "list" ? (value || []).concat(demo) : value);
+  };
 
   function signOut() {
     request("POST", "/api/v1/auth/signout", {});
