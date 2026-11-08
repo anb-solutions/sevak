@@ -75,7 +75,7 @@ sevak/
 │   ├── db/                  Drizzle schema, migrations, seed and demo data
 │   └── core/                Rules in plain TypeScript: sign-up and capacity,
 │                            permissions, hours, certificates. No web code.
-├── app/, index.html, …      The clickable prototype, still published to GitHub Pages
+├── app/, index.html, …      The clickable prototype, served by the app on staging
 ├── docs/                    Requirements, architecture, diagrams
 ├── infra/gcp/               Google Cloud setup script and deploy guide
 ├── Dockerfile               The app's container image
@@ -119,9 +119,9 @@ its health, and only then switches users to it. A broken version never reaches a
 previous version can be restored in one click. The full guide is in
 [`infra/gcp/README.md`](../infra/gcp/README.md).
 
-**Rapid prototyping** still has a fast lane: the static prototype (`app/`) keeps deploying to
-GitHub Pages on every merge, and needs no back end. Ideas can be tried there first, then built into
-the real app.
+**Rapid prototyping** still has a fast lane: the static prototype (`app/`) needs no back end, runs
+locally with any static file server, and is served by the app on staging after every merge. Ideas
+can be tried there first, then built into the real app.
 
 ### Environments
 
@@ -200,8 +200,7 @@ volunteer's calendar entry and a cancellation removes it.
 - **Dependencies:** Dependabot opens pull requests for security updates; CI fails on known
   critical vulnerabilities.
 - **Secret scanning:** CI scans every pull request for leaked keys (gitleaks).
-- **Going private:** the repository can be made private. Things to plan for: GitHub Pages,
-  rulesets and environment reviewers on a private repository need a paid GitHub plan, and GitHub's
+- **Going private:** the repository can be made private. Things to plan for: rulesets and environment reviewers on a private repository need a paid GitHub plan, and GitHub's
   built-in code scanning is free only for public repositories. The gitleaks and Dependabot checks
   keep working, and the Google side still only accepts production deploys from `main`.
 
@@ -288,6 +287,6 @@ already reviewed, and they move into React components one at a time.
 
 - `staging.sevak.theanbgroup.com`: staging, on Google Cloud (set up in
   [`infra/gcp/README.md`](../infra/gcp/README.md)).
-- `sevak.theanbgroup.com` points at the prototype on GitHub Pages today. At launch it moves to
-  production on Google Cloud, and the prototype moves to its own address, for example
-  `prototype.sevak.theanbgroup.com`, so design reviews carry on.
+- `sevak.theanbgroup.com` still shows the last prototype published on GitHub Pages (Pages is no
+  longer deployed). At launch, Pages is turned off and the address moves to production on Google
+  Cloud. The prototype stays reachable on staging for design reviews.

@@ -64,16 +64,9 @@ Browser tests (Playwright) live in [`tests/`](tests/). With Node and Playwright 
 tests/run.sh /tmp/sevak-shots   # serves the site on :8765, runs every tests/*-test.js, saves screenshots
 ```
 
-## Publish with GitHub Pages
+## Where the prototype is published
 
-The site is deployed by the [`Deploy to GitHub Pages`](.github/workflows/pages.yml) workflow on
-every push to `staging`. It checks that local links and scripts exist, then publishes the files as
-they are (no build step). One-time setup:
-
-1. Go to **Settings → Pages**.
-2. Under **Build and deployment**, set **Source** to **GitHub Actions**.
-
-To redeploy without a new commit, open **Actions → Deploy to GitHub Pages → Run workflow**.
-
-The site is published at <https://anbbala.github.io/sevak/>. If the repository is renamed, this
-address changes to match the new name, and the old address does not redirect.
+The real app serves a copy of the prototype, so it's on **staging** (`staging.sevak.theanbgroup.com`)
+after every merge to `staging`. GitHub Pages is no longer deployed; `sevak.theanbgroup.com` keeps
+showing the last published prototype until production launches there. CI checks on every pull
+request that the prototype's local links and scripts are intact.

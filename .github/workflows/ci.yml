@@ -26,6 +26,17 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+      - name: Prototype links and scripts are intact
+        run: |
+          status=0
+          for page in *.html app/*.html; do
+            dir=$(dirname "$page")
+            for ref in $(grep -oE '(href|src)="[^"#?]+' "$page" | sed -E 's/^(href|src)="//' | grep -vE '^(https?:|mailto:|tel:|data:|//)'); do
+              if [ ! -e "$dir/$ref" ]; then echo "::error file=$page::missing $ref"; status=1; fi
+            done
+          done
+          for js in app/*.js; do node --check "$js" || status=1; done
+          exit $status
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test

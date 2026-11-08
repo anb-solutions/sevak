@@ -10,7 +10,7 @@ confirm hours. Read `docs/REQUIREMENTS.md` (what to build, with IDs such as SGN-
 Two things live in this repo: the **clickable prototype** and the **real app** that replaces it.
 
 - `index.html`, `app/`: the prototype. Plain HTML, CSS and JavaScript, no build step; data lives in
-  the browser's localStorage. Deployed to GitHub Pages on every merge. Its browser tests are in
+  the browser's localStorage. Served by the app on staging after every merge. Its browser tests are in
   `tests/` (Playwright; `tests/run.sh <screenshot-dir>`).
 - `apps/web`: the real app. Next.js: pages, the `/api/v1` API. During the pilot it serves a copy
   of the prototype's pages (`scripts/copy-prototype.mjs`), which move to React one at a time.
