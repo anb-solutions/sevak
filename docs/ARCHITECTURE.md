@@ -186,8 +186,10 @@ shown in the event's time.
 
 **Provider: Resend**, behind one small function (`apps/web/src/lib/mail.ts`), so moving to another
 provider means changing that file. Why Resend: its key can only send email, it's free up to 3,000
-emails a month (100 a day; $20 a month for 50,000), and it sends from `sevak.theanbgroup.com`, so
-Sevak's sending reputation is separate from the company's own email. Sending through Google
+emails a month (100 a day; $20 a month for 50,000), and it sends from Sevak's own subdomains, so
+Sevak's sending reputation is separate from the company's own email. Staging and production are
+separate here too: staging sends from `staging.sevak.theanbgroup.com` (subjects start with
+"[Staging]") and production from `sevak.theanbgroup.com`, each from its own Resend team and key. Sending through Google
 Workspace would need either a key that can send as anyone in the company (domain-wide delegation)
 or another licensed mailbox; Amazon SES would need an AWS account. Without a key (local
 development, or staging before email is set up) emails, including sign-in codes, are written to

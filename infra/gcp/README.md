@@ -109,18 +109,25 @@ code to its log instead: **Cloud Run → sevak-web → Logs**, search for `sign-
 for a first look; set up email before others test.
 
 Sevak sends through [Resend](https://resend.com) (why: [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md)
-§3.5). About 10 minutes:
+§3.5). **Staging and production are kept apart:** staging sends from
+`notify@staging.sevak.theanbgroup.com` with "[Staging]" at the start of each subject, production
+from `notify@sevak.theanbgroup.com`, each from its own Resend team with its own key. A test email
+can never come from the real address, and a problem with one doesn't affect the other. About 10
+minutes:
 
-1. **Sign up** at resend.com with `ops@theanbgroup.com`. The free plan is enough for the pilot.
-2. **Add the domain** `sevak.theanbgroup.com` (**Domains → Add domain**). Resend lists 3 or 4 DNS
-   records (an MX and TXT records for sending, and a DKIM TXT record). Add them at your DNS
-   provider exactly as shown. They only cover `sevak.theanbgroup.com`, so your own email at
-   theanbgroup.com is unaffected. Click **Verify** once they're in.
+1. **Sign up** at resend.com with `ops@theanbgroup.com`, and name the team **Sevak Staging**. The
+   free plan is enough.
+2. **Add the domain** `staging.sevak.theanbgroup.com` (**Domains → Add domain**). Resend lists 3
+   or 4 DNS records (an MX and TXT records on names like `send.staging.sevak`, and a DKIM TXT
+   record on `resend._domainkey.staging.sevak`). Add them at your DNS provider exactly as shown;
+   if it adds `.theanbgroup.com` itself, leave that part off. They sit beside the `staging.sevak`
+   CNAME without touching it, and your own email at theanbgroup.com is unaffected. Click
+   **Verify** once they're in.
 3. **Create an API key** (**API Keys → Create**) with **Sending access** only, for that domain.
    Copy it (it starts with `re_`); Resend shows it once.
-4. **Store it in Google Cloud.** In Cloud Shell, in the repository folder, run the setup script
-   again with `--email resend` (the rest is left as it is) and paste the key when asked. It
-   isn't shown and never goes into GitHub:
+4. **Store it in staging's Google Cloud project.** In Cloud Shell, in the repository folder, run
+   the setup script again with `--email resend` (the rest is left as it is) and paste the key when
+   asked. It isn't shown and never goes into GitHub:
    ```sh
    bash infra/gcp/setup.sh --project YOUR-STAGING-PROJECT-ID --env staging --repo anb-solutions/sevak --email resend
    ```
@@ -131,14 +138,16 @@ Optional variables on the environment:
 
 - `SEVAK_PLATFORM_ADMINS`: emails of Sevak staff, separated by commas. They can verify
   organizations (the Review page).
-- `EMAIL_FROM`: the sender, if not `Sevak <notify@sevak.theanbgroup.com>`.
+- `EMAIL_FROM`: a different sender than the default for that environment.
 
 ## Set up production (later)
 
 1. Create a second Google Cloud project for production, and run the script with
-   `--env production --email resend` and the new project's ID (production won't start without
-   email; use a separate Resend key). Production's database gets nightly backups and deletion
-   protection.
+   `--env production --email resend` and the new project's ID. Production's database gets nightly
+   backups and deletion protection.
+   Production won't start without email. Set it up as in staging's step 5, but in a separate
+   Resend team, **Sevak Production** (or a second Resend account if your plan allows only one
+   domain), with the domain `sevak.theanbgroup.com` and its own key.
 2. In GitHub, **Settings → Rules → Rulesets → New branch ruleset** for `main`: restrict who can
    update it to yourself, and require a pull request.
 3. Add a `production` environment in GitHub with **Deployment branches** set to `main`, the

@@ -3,6 +3,16 @@
 // key: local development, or before email is set up) writes them to the
 // server log instead, so sign-in still works there. Production refuses to
 // log. To use another provider, change send() only.
+//
+// Staging and production send from different addresses, each a domain of
+// its own in Resend with its own key, so test emails never share anything
+// with real ones. Staging's subjects also start with "[Staging]".
+const staging = () => process.env.SEVAK_ENV !== "production";
+
+function from(): string {
+  if (process.env.EMAIL_FROM) return process.env.EMAIL_FROM;
+  return staging() ? "Sevak Staging <notify@staging.sevak.theanbgroup.com>" : "Sevak <notify@sevak.theanbgroup.com>";
+}
 export interface Email {
   to: string;
   subject: string;
@@ -27,9 +37,9 @@ export async function send(email: Email): Promise<void> {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from: process.env.EMAIL_FROM || "Sevak <notify@sevak.theanbgroup.com>",
+      from: from(),
       to: [email.to],
-      subject: email.subject,
+      subject: staging() ? `[Staging] ${email.subject}` : email.subject,
       text: email.text,
     }),
     signal: AbortSignal.timeout(10_000),
