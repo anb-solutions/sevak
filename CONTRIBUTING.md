@@ -29,11 +29,11 @@ python3 -m http.server 8000   # then open http://localhost:8000
 2. **Keep it small:** one feature or fix per pull request.
 3. **Run `pnpm test`** before you push.
 4. **Open a pull request** and fill in the template. Say what changed, why, and how you checked it.
-5. **Try the preview.** A live copy of the app for your pull request is built automatically, with
-   fake data, and its link appears on the pull request. Check it on a phone.
-6. **Get a review.** Changes to sensitive areas (database schema, sign-in and permissions, CI and
+5. **Get a review.** Changes to sensitive areas (database schema, sign-in and permissions, CI and
    deploy settings) need approval from a code owner.
-7. **Merge.** Production updates automatically a few minutes later.
+6. **Merge.** Staging (`staging.sevak.theanbgroup.com`) updates a few minutes later, with demo
+   data. Check your change there on a phone.
+7. **Production** is released by the owner only, from staging, when it's ready.
 
 ### Working with Claude
 
@@ -53,7 +53,7 @@ and the tests. Review what Claude changes the same way you'd review anyone's wor
 
 - **Never commit secrets** (keys, passwords, tokens) or real people's data. Use `.env.local`, which
   is ignored by git. CI scans every pull request for leaked secrets.
-- **Never copy production data** to your laptop, a Claude session or a preview. Use the demo data.
+- **Never copy production data** to your laptop, a Claude session or staging. Use the demo data.
 - **Check permissions on the server.** Every API route that reads or changes organization data
   must check the person's role. Add a test that someone without access is refused.
 - **Check inputs on the server** with Zod, even if the page already checks them.

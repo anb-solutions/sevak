@@ -1,6 +1,6 @@
 # Sevak: Architecture, Delivery and Security
 
-**Status:** Agreed direction for the live app · **Updated:** 2026-11-03
+**Status:** Agreed direction for the live app · **Updated:** 2026-11-08
 
 This document describes the long-term architecture for Sevak, how contributors build and ship
 changes, how we keep it secure, and what it costs. The requirements it serves are in
@@ -13,10 +13,10 @@ changes, how we keep it secure, and what it costs. The requirements it serves ar
    system, not a throwaway.
 2. **Continuous contribution.** Several people, and their Claude sessions, work in one monorepo
    without stepping on each other.
-3. **Fast, safe delivery.** Every change is checked automatically, every pull request gets a live
-   preview, and a merge to `main` is live within minutes.
+3. **Fast, safe delivery.** Every change is checked automatically, every merge to `main` is live on
+   staging within minutes, and only the owner can release to production.
 4. **Security and privacy first.** Volunteers' data is protected by design, not added later.
-5. **Cost-conscious.** A known monthly budget, with no per-user fees.
+5. **Cost-conscious.** A known monthly budget (about $10–20), with no per-user fees.
 
 ---
 
@@ -26,25 +26,26 @@ changes, how we keep it secure, and what it costs. The requirements it serves ar
 Volunteers & hosts (phones first)
         │ HTTPS
         ▼
-Cloudflare: DNS, TLS, caching, bot protection (Turnstile)
+sevak.theanbgroup.com · staging.sevak.theanbgroup.com
         │
         ▼
-Railway project ──────────────────────────────────────────────────────────┐
-│  App service (Next.js, TypeScript)                                       │
-│   • Public pages, rendered on the server (SEO, link previews)            │
-│   • Host and volunteer screens                                           │
-│   • JSON API at /api/v1                                                  │
-│   • Background jobs (pg-boss): emails, reminders, certificates           │
-│                                                                          │
-│  PostgreSQL: all data, plus the job queue                                │
-└──────────────────────────────────────────────────────────────────────────┘
+Google Cloud project (one for staging, one for production) ───────────────┐
+│  Cloud Run service "sevak-web" (Next.js container, scales to zero)      │
+│   • Public pages, rendered on the server (SEO, link previews)           │
+│   • Host and volunteer screens                                          │
+│   • JSON API at /api/v1                                                 │
+│  Cloud Run job "sevak-tasks": database migrations before each deploy    │
+│  Cloud SQL: PostgreSQL 18 (all data)                                    │
+│  Secret Manager: the database connection                                │
+│  Artifact Registry: container images                                    │
+└─────────────────────────────────────────────────────────────────────────┘
         │                    │                       │
    Resend (email)    Cloudflare R2 (files)    Sentry (errors)
 ```
 
-One app service and one database. No microservices, no Kubernetes. Everything is plain Node and
-plain Postgres, so it can move to another host (Render, Fly.io, AWS, Google Cloud) by changing
-configuration, not code.
+One app service and one database per environment. No microservices, no Kubernetes, no servers to
+patch. The app is a plain Node container and the database is plain PostgreSQL, so either can move
+to another provider (AWS, Neon, Render) by changing configuration, not code.
 
 ### 1.1 Technology choices
 
@@ -53,10 +54,11 @@ configuration, not code.
 | Language | **TypeScript** everywhere | One language for pages, API and database code (NFR-13) |
 | App framework | **Next.js** | Server-rendered public pages (NFR-10), React screens, and the API in one service |
 | API | REST + JSON at `/api/v1`, inputs and outputs checked with **Zod** | A future mobile app uses the same API |
-| Database | **PostgreSQL** on Railway | Transactions make "never overbook" reliable (SGN-5); no per-user fees; portable |
+| Hosting | **Google Cloud Run** (serverless containers) | Scales to zero, so it costs nearly nothing when idle; Google patches the servers |
+| Database | **PostgreSQL 18** on **Cloud SQL** (smallest size to start) | Transactions make "never overbook" reliable (SGN-5); fixed, predictable cost; no per-user fees; portable |
 | Database code | **Drizzle ORM**, migrations kept in the repo | Typed queries; every schema change is reviewed like code |
 | Local database | **PGlite** (Postgres compiled to run inside Node) | `pnpm dev` and `pnpm test` work on any laptop or Claude session with no Docker and no account |
-| Background jobs | **pg-boss** (a queue stored in Postgres) | Retries and scheduled reminders without Redis |
+| Background work | **Cloud Run jobs** (migrations now; reminders and email retries later, on Cloud Scheduler) | Runs only when needed, nothing idle to pay for |
 | Sign-in | Our own email **link and 6-digit code**; sessions stored in Postgres | No vendor lock-in; the code also works in the iPhone home-screen app |
 | Email | **Resend** to start; Amazon SES if volume makes it cheaper | Every shift email carries a calendar invite (COM-10) |
 | Files | **Cloudflare R2** | Documents, photos, certificate PDFs; no download fees |
@@ -75,13 +77,15 @@ sevak/
 │                            permissions, hours, certificates. No web code.
 ├── app/, index.html, …      The clickable prototype, still published to GitHub Pages
 ├── docs/                    Requirements, architecture, diagrams
-├── .github/workflows/       CI checks and the prototype deploy
+├── infra/gcp/               Google Cloud setup script and deploy guide
+├── Dockerfile               The app's container image
+├── .github/workflows/       CI checks, the Google Cloud deploy, the prototype deploy
 ├── CLAUDE.md                Instructions every contributor's Claude reads
 └── CONTRIBUTING.md          How to contribute
 ```
 
 The prototype stays where it is, so people working on it are not disrupted. The web app serves a
-copy of the prototype's pages during the beta (see §6), and screens move into proper React
+copy of the prototype's pages during the pilot (see §6), and screens move into proper React
 components one at a time after launch.
 
 ---
@@ -91,7 +95,7 @@ components one at a time after launch.
 The flow is the same for a person or for their Claude session:
 
 ```
-Branch ─► Build and try it locally ─► Pull request ─► CI checks + live preview ─► Review ─► Merge ─► Live
+Branch ─► Build and try it locally ─► Pull request ─► CI checks ─► Review ─► Merge ─► Staging ─► (owner) ─► Production
 ```
 
 1. **Start a branch** from `main`. Never commit to `main` directly (it's protected, §4.1).
@@ -102,14 +106,17 @@ Branch ─► Build and try it locally ─► Pull request ─► CI checks + li
 4. **Automatic checks (CI)** run on every push: type checks, tests, a build, a scan for leaked
    secrets, and a check that database migrations apply cleanly. A pull request can't merge until
    they pass.
-5. **Live preview.** Railway builds a **temporary copy of the whole app for the pull request**,
-   with its own database of fake demo data, and posts the link on the pull request. Anyone can try
-   the change on a phone before it merges. Previews never see real data or real secrets, and
-   emails there are caught and shown in an on-screen outbox instead of being sent. The preview is
-   deleted when the pull request closes. This also works for pull requests opened by Claude Code.
-6. **Review.** At least one approval from a code owner (§4.1).
-7. **Merge.** Railway deploys `main` to production once CI has passed, usually within a few minutes.
-   Database migrations run first. A bad deploy is rolled back in one click in Railway.
+5. **Review.** At least one approval, and a code owner's for sensitive areas (§4.1).
+6. **Merge → staging.** Merging to `main` deploys to **staging** (`staging.sevak.theanbgroup.com`)
+   within minutes. Try it there on a phone. Staging holds only demo data.
+7. **Staging → production, by the owner only.** The owner opens a pull request from `main` into the
+   `production` branch, merges it and approves the deploy. Nobody else can update `production`,
+   and the production Google Cloud project only accepts deploys from that branch.
+
+Every deploy runs database migrations first, then starts the new version without traffic, checks
+its health, and only then switches users to it. A broken version never reaches anyone, and the
+previous version can be restored in one click. The full guide is in
+[`infra/gcp/README.md`](../infra/gcp/README.md).
 
 **Rapid prototyping** still has a fast lane: the static prototype (`app/`) keeps deploying to
 GitHub Pages on every merge, and needs no back end. Ideas can be tried there first, then built into
@@ -120,11 +127,10 @@ the real app.
 | Environment | Where | Data | Email |
 |---|---|---|---|
 | Local | Your laptop or Claude session (`pnpm dev`) | Fake demo data in PGlite | Shown in the console |
-| Preview | Railway, one per pull request | Fake demo data | Caught, shown in the outbox, never sent |
-| Production | Railway, `sevak.theanbgroup.com` | Real data | Sent through Resend |
+| Staging | Google Cloud project for staging, from `main` | Demo data only | Caught, shown in the outbox, never sent |
+| Production | Separate Google Cloud project, from `production` | Real data | Sent through Resend |
 
-There's no separate staging environment at first: previews do that job. We'll add one when there
-are more contributors.
+There are no per-pull-request previews: staging is where changes are tried before production.
 
 ---
 
@@ -185,25 +191,31 @@ volunteer's calendar entry and a cancellation removes it.
   approval. No force-pushes, no deleting the branch.
 - **Code owners** (`.github/CODEOWNERS`) must approve changes to sensitive areas: the database
   schema and migrations, sign-in and permissions, CI and deploy settings.
+- **Only the owner releases to production:** a ruleset lets only the owner update the
+  `production` branch, and the production deploy waits for the owner's approval.
 - **Least access:** contributors get *Write* access, not *Admin*. Only the owner (and one backup)
-  can change repository settings or production.
-- **Two-factor sign-in** is required for everyone with access, on GitHub and on Railway.
+  can change repository settings, Google Cloud or production.
+- **Two-factor sign-in** is required for everyone with access, on GitHub and on Google Cloud.
 - **Dependencies:** Dependabot opens pull requests for security updates; CI fails on known
   critical vulnerabilities.
 - **Secret scanning:** CI scans every pull request for leaked keys (gitleaks).
-- **Going private:** the repository can be made private once the app is hosted on Railway. Two
-  things to plan for: GitHub Pages for a private repository needs a paid GitHub plan (or the
-  prototype moves into the app), and GitHub's built-in code scanning is free only for public
-  repositories. The gitleaks and Dependabot checks above keep working either way.
+- **Going private:** the repository can be made private. Things to plan for: GitHub Pages,
+  rulesets and environment reviewers on a private repository need a paid GitHub plan, and GitHub's
+  built-in code scanning is free only for public repositories. The gitleaks and Dependabot checks
+  keep working, and the Google side still only accepts production deploys from `production`.
 
 ### 4.2 Secrets
 
 - No secrets in the repository, ever. `.env.example` lists names only.
-- Production secrets live in Railway's production environment, visible only to the owner and the
-  backup.
-- **Previews get no production secrets and no real data.** They run with a test email setting that
-  sends nothing, and their own database of fake demo data. Real data is never copied into a
-  preview or onto a laptop.
+- **No stored keys for deploys.** GitHub Actions signs in to Google Cloud with short-lived
+  credentials (Workload Identity Federation). Each Google Cloud project accepts sign-ins only from
+  this repository's own branch for that environment.
+- The database connection lives in **Secret Manager**. Only the app's own service account can read
+  it; GitHub never sees it. For Cloud SQL, the password is generated by the setup script and never
+  shown to anyone.
+- **Staging and production are separate Google Cloud projects.** Staging has no production
+  secrets and only demo data. Real data is never copied into staging or onto a laptop.
+- The app runs as a non-root user in a minimal container, and has only the permissions it needs.
 
 ### 4.3 The app
 
@@ -219,11 +231,14 @@ volunteer's calendar entry and a cancellation removes it.
 
 - Collect as little as possible. No date of birth (NFR-8). Phone is optional.
 - Organizations see a volunteer's details only for their own events.
-- Data is stored in a **US region** to start (the first events are in Texas). Organizations in
-  India would later get an India region, in line with India's data protection law (DPDP Act 2023).
-- Nightly encrypted database backups to R2, and a test restore every month.
+- Data is stored in a **US region** (us-central1) to start; the first organizations are in Texas.
+  Organizations in India would later get an India region, in line with India's data protection law
+  (DPDP Act 2023).
+- Data is encrypted at rest and in transit (the database accepts only encrypted connections).
+- Production's database has nightly backups and deletion protection; restoring a backup is tested
+  every month.
 - An audit log of sensitive actions: who changed roles, approved hours, exported a roster.
-- Data export and deletion on request (VOL-6). The privacy policy is updated before the beta.
+- Data export and deletion on request (VOL-6). The privacy policy is updated before the pilot.
 
 ---
 
@@ -233,62 +248,45 @@ Estimates per month. Check current prices before committing.
 
 | Item | Service | Cost |
 |---|---|---|
-| App, database and previews | Railway **Hobby** plan (one owner) | **$5–15** (the $5 plan includes $5 of usage) |
-| | Railway **Pro** plan (if several people need the Railway dashboard) | **$20–30** |
+| Database | Cloud SQL PostgreSQL, smallest size (`db-f1-micro`, 10 GB) | **About $9–10 per environment** |
+| App and migration jobs | Cloud Run | **Usually $0** within the free tier at this size |
+| Images, secrets | Artifact Registry (recent images only), Secret Manager | **Under $1** |
 | Email | Resend free tier to start | **$0**, then about $20 |
-| DNS, TLS, bot protection, files | Cloudflare (free) and R2 (free at this size) | **$0** |
-| Errors | Sentry free tier | **$0** |
-| Code and CI | GitHub Free (public) | **$0**; private with Pages: about $4 per person on GitHub Pro or Team |
-| **Total** | | **about $5–15** on Hobby; **$25–50** with a team plan and paid email |
+| Files, errors | Cloudflare R2 and Sentry free tiers | **$0** |
+| Code and CI | GitHub Free (public) | **$0**; a private repository with rulesets needs a paid plan, about $4 per person |
+| **Total** | | **About $10 for staging, about $20 with production** |
 
-Previews cost a little while a pull request is open and nothing once it closes. Railway's
-"focused" previews only rebuild what changed, which keeps them cheap. Set a **spending limit** in
-Railway so a bug can't run up a bill.
+Google Cloud's $300 free trial covers this at first; a Google for Startups application is in
+progress. Each project has a **budget alert** that counts real usage even while credits pay for
+it. Staging's database can be stopped when nobody is testing, to save most of its cost.
 
 ---
 
-## 6. First beta: Flute Mali Centenary Celebration (Sat, Nov 14, 2026)
+## 6. First pilot: January 2027
 
-The first real event: volunteers sign up on their phones, and the host team checks them in on the
-day.
+Two organizations in Houston (a temple and a cultural center) plan to start using Sevak in
+January 2027. The Flute Mali Centenary Celebration on November 14, 2026 uses a Google Form for
+volunteers, and the real app is built properly for the pilot.
 
-| | |
+**Approach:** staging goes live first, so the team can use real shared data early, and features
+arrive about weekly. Production goes live once the owner approves it.
+
+| When | Milestone |
 |---|---|
-| Event | Flute Mali Centenary Celebration, hosted by Roopa Arts Cultural Center |
-| When | Saturday, November 14, 2026, 10:00 AM – 1:00 PM Central |
-| Where | Sugar Land, TX (venue shared by email with registrants) |
-| Public RSVP | Zeffy (stays as is); Sevak handles **volunteers** only |
+| Week of Nov 9 | Staging live on Google Cloud (Cloud Run + Cloud SQL) with the foundation |
+| Nov–Dec, about weekly | Sign-in; organization and event editing on the database; volunteer sign-up with emails and calendar invites; roster and check-in; hours approval; certificates |
+| Mid-December | Production project set up; privacy policy updated; dry run with the pilot organizations |
+| **January 2027** | **Pilot starts** on `sevak.theanbgroup.com` |
 
-**In the beta:** the organization and event (loaded by us, with the exact wording from Zeffy);
-volunteer sign-up on phones with live spots-left; confirmation email with Google Calendar and
-.ics; email sign-in; My sign-ups and cancel; host roster, check-in and hours; CSV export.
-
-**After the beta:** organization and event editors on the live database, public discovery, search
-listing, reminders, certificate PDFs, documents and photos, corporate features.
-
-**How the beta reuses the prototype:** the web app serves the prototype's pages, and the
-prototype's storage files (`orgs-store.js`, `events-store.js`, `signups-store.js` and the ones the
-roster uses) get a version that talks to `/api/v1` instead of the browser. That keeps the screens
-people have already reviewed, and is replaced screen by screen with React after launch.
-
-| Date | Milestone |
-|---|---|
-| Tue, Nov 3 | Plan agreed; repo foundation, database schema, CI |
-| Wed, Nov 4 | Sign-up API with capacity checks; volunteer pages on the API |
-| Thu, Nov 5 | Email sign-in; host roster, check-in and hours |
-| Fri, Nov 6 | Emails with calendar invites; CSV; privacy tests; first Railway deploy |
-| Sat–Sun, Nov 7–8 | Phone testing; dry run with 3–5 volunteers |
-| Mon, Nov 9 | Fixes, then freeze |
-| **Tue, Nov 10** | **Volunteer sign-up opens** (shared on WhatsApp) |
-| **Sat, Nov 14** | **Event day:** check-in from phones |
-| After | Export hours; thank-you emails; review what to keep, fix and build next |
-
-**Fallback:** if the beta isn't solid by Sunday, Nov 8, volunteers for this event sign up through a
-Google Form, and the build carries on for the next event.
+**How the app reuses the prototype:** the web app serves the prototype's pages, and the
+prototype's storage files (`orgs-store.js`, `events-store.js`, `signups-store.js` and others) get
+a version that talks to `/api/v1` instead of the browser. That keeps the screens people have
+already reviewed, and they move into React components one at a time.
 
 ### Domains
 
-- `sevak.theanbgroup.com` points at the prototype on GitHub Pages today. On launch day it moves to
-  Railway (the live app).
-- The prototype then moves to its own address, for example `prototype.sevak.theanbgroup.com`, so
-  design reviews carry on.
+- `staging.sevak.theanbgroup.com`: staging, on Google Cloud (set up in
+  [`infra/gcp/README.md`](../infra/gcp/README.md)).
+- `sevak.theanbgroup.com` points at the prototype on GitHub Pages today. At launch it moves to
+  production on Google Cloud, and the prototype moves to its own address, for example
+  `prototype.sevak.theanbgroup.com`, so design reviews carry on.

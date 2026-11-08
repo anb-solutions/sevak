@@ -1,11 +1,9 @@
-// Database access for Sevak. With DATABASE_URL set it connects to Postgres;
-// without it, it runs PGlite (Postgres inside Node) in memory, which is what
-// local development, tests and Claude sessions use.
+// Database access for Sevak: PostgreSQL through Drizzle. Production and
+// staging connect with DATABASE_URL. Local development and tests use an
+// in-memory database instead, from "@sevak/db/memory", which production code
+// never loads.
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { PGlite } from "@electric-sql/pglite";
-import { drizzle as drizzlePglite } from "drizzle-orm/pglite";
-import { migrate as migratePglite } from "drizzle-orm/pglite/migrator";
 import { drizzle as drizzlePostgres } from "drizzle-orm/postgres-js";
 import { migrate as migratePostgres } from "drizzle-orm/postgres-js/migrator";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
@@ -15,23 +13,16 @@ import * as schema from "./schema";
 export * from "./schema";
 export { schema };
 
-export const migrationsFolder = join(dirname(fileURLToPath(import.meta.url)), "..", "migrations");
+// Where the SQL migrations are. The deploy image sets SEVAK_MIGRATIONS_DIR,
+// because there the code is bundled into one file.
+export const migrationsFolder =
+  process.env.SEVAK_MIGRATIONS_DIR ?? join(dirname(fileURLToPath(import.meta.url)), "..", "migrations");
 
-// Works for both drivers, so the same code runs in tests and production.
+// Works for every driver, so the same code runs in tests and production.
 export type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
 
-// A fresh in-memory database with every migration applied. Used by tests and
-// by local development when there's no DATABASE_URL.
-export async function createMemoryDb(): Promise<Db> {
-  const client = new PGlite();
-  const db = drizzlePglite(client, { schema });
-  await migratePglite(db, { migrationsFolder });
-  return db;
-}
-
-// Connects to the Postgres at `url`: on Vercel, Neon's pooled connection
-// string. The pooler (PgBouncer in transaction mode) can't keep prepared
-// statements, so they're off. Migrations run separately (`pnpm db:migrate`).
+// Connects to the Postgres at `url`. Prepared statements are off so the same
+// code works through a connection pooler (such as Neon's) as well as directly.
 export function connect(url: string): Db {
   const client = postgres(url, { max: 5, prepare: false });
   return drizzlePostgres(client, { schema });

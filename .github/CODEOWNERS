@@ -5,8 +5,8 @@
 /apps/web/next.config.ts @anbbala
 /.github/                @anbbala
 /.claude/                @anbbala
-/apps/web/vercel.json    @anbbala
-/scripts/                @anbbala
+/Dockerfile              @anbbala
+/infra/                  @anbbala
 /.gitleaks.toml          @anbbala
 /package.json            @anbbala
 /pnpm-lock.yaml          @anbbala

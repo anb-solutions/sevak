@@ -1,0 +1,100 @@
+# Deploys Sevak to Google Cloud Run.
+#   main        → staging    (every reviewed merge)
+#   production  → production (only the repository owner can merge into it)
+# Each environment is its own Google Cloud project, and each project only
+# accepts sign-ins from its own branch (infra/gcp/setup.sh), so nothing else
+# can deploy there. There are no stored keys: GitHub Actions signs in to
+# Google with short-lived credentials (Workload Identity Federation).
+name: Deploy
+
+on:
+  push:
+    branches: [main, production]
+  workflow_dispatch: # redeploy the branch's latest commit by hand
+
+permissions:
+  contents: read
+  id-token: write # to sign in to Google Cloud
+
+# One deploy per environment at a time; a newer one waits, never cancels a deploy halfway.
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy ${{ github.ref_name == 'production' && 'production' || 'staging' }}
+    if: github.ref_name == 'main' || github.ref_name == 'production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: ${{ github.ref_name == 'production' && 'production' || 'staging' }}
+      url: ${{ steps.deploy.outputs.url }}
+    env:
+      SEVAK_ENV: ${{ github.ref_name == 'production' && 'production' || 'staging' }}
+      PROJECT: ${{ vars.GCP_PROJECT_ID }}
+      REGION: ${{ vars.GCP_REGION }}
+      RUNTIME_SA: ${{ vars.GCP_RUNTIME_SA }}
+      CLOUDSQL: ${{ vars.GCP_CLOUDSQL_INSTANCE }} # only if the database is Cloud SQL
+      IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/sevak/web:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sign in to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build and push the image
+        run: |
+          gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+
+      - name: Update the database (and add demo data on staging)
+        run: |
+          sql_flag=()
+          if [ -n "$CLOUDSQL" ]; then sql_flag=(--set-cloudsql-instances "$CLOUDSQL"); fi
+          gcloud run jobs deploy sevak-tasks --project "$PROJECT" --region "$REGION" --image "$IMAGE" \
+            --service-account "$RUNTIME_SA" --set-secrets DATABASE_URL=database-url:latest \
+            --set-env-vars SEVAK_ENV="$SEVAK_ENV" --command node --args tasks/tasks.mjs,migrate \
+            --max-retries 0 --task-timeout 300s "${sql_flag[@]}"
+          gcloud run jobs execute sevak-tasks --project "$PROJECT" --region "$REGION" --wait
+          if [ "$SEVAK_ENV" = "staging" ]; then
+            gcloud run jobs execute sevak-tasks --project "$PROJECT" --region "$REGION" --wait \
+              --args tasks/tasks.mjs,seed
+          fi
+
+      - name: Deploy the new version (no traffic yet)
+        id: deploy
+        run: |
+          sql_flag=()
+          if [ -n "$CLOUDSQL" ]; then sql_flag=(--set-cloudsql-instances "$CLOUDSQL"); fi
+          # The very first deploy creates the service, which can't be done without traffic.
+          traffic_flag=()
+          if gcloud run services describe sevak-web --project "$PROJECT" --region "$REGION" >/dev/null 2>&1; then
+            traffic_flag=(--no-traffic)
+          fi
+          gcloud run deploy sevak-web --project "$PROJECT" --region "$REGION" --image "$IMAGE" \
+            --service-account "$RUNTIME_SA" --set-secrets DATABASE_URL=database-url:latest \
+            --set-env-vars SEVAK_ENV="$SEVAK_ENV" --port 8080 --no-invoker-iam-check \
+            --min-instances 0 --max-instances 3 --memory 512Mi --cpu 1 \
+            --tag next "${traffic_flag[@]}" "${sql_flag[@]}"
+          describe() { gcloud run services describe sevak-web --project "$PROJECT" --region "$REGION" --format json; }
+          echo "next=$(describe | python3 -c 'import json,sys; print(next(t["url"] for t in json.load(sys.stdin)["status"]["traffic"] if t.get("tag") == "next"))')" >> "$GITHUB_OUTPUT"
+          echo "url=$(describe | python3 -c 'import json,sys; print(json.load(sys.stdin)["status"]["url"])')" >> "$GITHUB_OUTPUT"
+
+      - name: Check the new version is healthy
+        run: |
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS "${{ steps.deploy.outputs.next }}/api/v1/health"; then exit 0; fi
+            sleep 10
+          done
+          echo "::error::The new version didn't answer its health check, so users stay on the previous version."
+          exit 1
+
+      - name: Switch users to the new version
+        run: gcloud run services update-traffic sevak-web --project "$PROJECT" --region "$REGION" --to-latest

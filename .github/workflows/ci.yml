@@ -40,6 +40,14 @@ jobs:
       - name: No known critical vulnerabilities
         run: pnpm audit --prod --audit-level critical
 
+  image:
+    name: Container image builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t sevak:ci .
+
   secrets:
     name: Secret scan
     runs-on: ubuntu-latest

@@ -6,13 +6,15 @@ A simple web app for organizations to publish volunteer events and shifts, and f
 sign up in seconds.
 
 **Status:** pre-MVP. The clickable prototype is live; the real app (database, API, sign-in) is being
-built for its first beta event on November 14, 2026.
+built for its first pilot organizations in January 2027.
 
 ## The live app (in progress)
 
 A monorepo: [`apps/web`](apps/web) (Next.js: pages and the `/api/v1` API), [`packages/db`](packages/db)
 (PostgreSQL schema and migrations) and [`packages/core`](packages/core) (rules such as "never
-overbook a shift"). It's hosted on Railway, with a live preview for every pull request.
+overbook a shift"). It runs on Google Cloud (Cloud Run and Cloud SQL PostgreSQL): every merge to
+`main` goes to staging, and the owner releases to production. Deploy guide:
+[`infra/gcp/README.md`](infra/gcp/README.md).
 
 ```sh
 corepack enable && pnpm install

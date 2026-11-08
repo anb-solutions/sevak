@@ -10,3 +10,4 @@ coverage/
 # The web app's copy of the prototype, made by apps/web/scripts/copy-prototype.mjs
 apps/web/public/
 *.tsbuildinfo
+dist/

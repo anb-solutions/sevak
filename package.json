@@ -12,7 +12,7 @@
     "test": "pnpm -r --if-present test",
     "typecheck": "pnpm -r --if-present typecheck",
     "db:generate": "pnpm --filter @sevak/db generate",
-    "db:migrate": "pnpm --filter @sevak/db migrate",
-    "db:seed": "pnpm --filter @sevak/core seed"
+    "db:migrate": "pnpm --filter @sevak/core task migrate",
+    "db:seed": "pnpm --filter @sevak/core task seed"
   }
 }

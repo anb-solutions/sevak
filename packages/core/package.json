@@ -9,7 +9,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "seed": "tsx src/cli-seed.ts"
+    "task": "tsx src/tasks.ts",
+    "bundle:tasks": "esbuild src/tasks.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/tasks.mjs --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\""
   },
   "dependencies": {
     "@sevak/db": "workspace:*",
@@ -20,6 +21,7 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.14",
     "@types/node": "^26.6.6",
+    "esbuild": "^0.28.2",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0"
   }

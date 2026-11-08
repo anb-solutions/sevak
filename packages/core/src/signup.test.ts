@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createMemoryDb, type Db, emails, events, roles, shifts, signups, users } from "@sevak/db";
+import { type Db, emails, events, roles, shifts, signups, users } from "@sevak/db";
+import { createMemoryDb } from "@sevak/db/memory";
 import { cancelSignup, publicEvent, signUp, SignUpError } from "./signup";
 import { FLUTE_MALI, seedBetaEvent } from "./seed";
 import { hashToken } from "./tokens";

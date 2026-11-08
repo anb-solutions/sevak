@@ -1,3 +1,5 @@
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
 
 // Security headers for every response (docs/ARCHITECTURE.md §4.3). The
@@ -17,6 +19,9 @@ const csp = [
 ].join("; ");
 
 const config: NextConfig = {
+  // A self-contained server for the container image (see Dockerfile).
+  output: "standalone",
+  outputFileTracingRoot: join(dirname(fileURLToPath(import.meta.url)), "..", ".."),
   reactStrictMode: true,
   poweredByHeader: false,
   transpilePackages: ["@sevak/core", "@sevak/db"],
