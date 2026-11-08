@@ -150,23 +150,17 @@
         <!-- Services -->
         <fieldset class="section" id="services-section">
           <legend>Services I can provide <span class="optional">(optional)</span></legend>
-          <p class="section-help">Choose from the list. Add as many as you like.</p>
-          <div class="field service-picker">
-            <label for="serviceSelect">Type of service</label>
-            <select id="serviceSelect">
-              <option value="">Choose a service…</option>
-              <option value="general">General help</option>
-              <option value="av">AV system help</option>
-              <option value="food">Food service</option>
-              <option value="website">Website maintenance</option>
-              <option value="telemarketing">Telemarketing</option>
-              <option value="fundraising">Fundraising</option>
-              <option value="accounting">Accounting</option>
-              <option value="office">Office help</option>
-            </select>
+          <p class="section-help">Tap all that apply.</p>
+          <div class="service-options" id="service-options">
+            <label class="service-option"><input type="checkbox" name="services" value="general"><span>General help</span></label>
+            <label class="service-option"><input type="checkbox" name="services" value="av"><span>AV system help</span></label>
+            <label class="service-option"><input type="checkbox" name="services" value="food"><span>Food service</span></label>
+            <label class="service-option"><input type="checkbox" name="services" value="website"><span>Website maintenance</span></label>
+            <label class="service-option"><input type="checkbox" name="services" value="telemarketing"><span>Telemarketing</span></label>
+            <label class="service-option"><input type="checkbox" name="services" value="fundraising"><span>Fundraising</span></label>
+            <label class="service-option"><input type="checkbox" name="services" value="accounting"><span>Accounting</span></label>
+            <label class="service-option"><input type="checkbox" name="services" value="office"><span>Office help</span></label>
           </div>
-          <ul class="service-list" id="service-list" aria-label="Services you've chosen"></ul>
-          <p class="hint" id="service-empty">No services chosen yet.</p>
         </fieldset>
 
         <div id="volunteer-fields" hidden>
