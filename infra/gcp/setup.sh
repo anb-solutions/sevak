@@ -4,8 +4,8 @@
 # per environment, each in its own project. Step-by-step guide:
 # infra/gcp/README.md.
 #
-#   bash infra/gcp/setup.sh --project <staging-project-id> --env staging --repo anbbala/sevak --budget 25
-#   bash infra/gcp/setup.sh --project <prod-project-id> --env production --repo anbbala/sevak --budget 25
+#   bash infra/gcp/setup.sh --project <staging-project-id> --env staging --repo anb-solutions/sevak --budget 25
+#   bash infra/gcp/setup.sh --project <prod-project-id> --env production --repo anb-solutions/sevak --budget 25
 #
 # Safe to run again: anything already set up is left as it is.
 #

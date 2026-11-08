@@ -46,8 +46,8 @@ Open [Cloud Shell](https://shell.cloud.google.com) (signed in as `abhishek@thean
 run:
 
 ```sh
-git clone https://github.com/anbbala/sevak.git && cd sevak
-bash infra/gcp/setup.sh --project YOUR-STAGING-PROJECT-ID --env staging --repo anbbala/sevak --budget 25
+git clone https://github.com/anb-solutions/sevak.git && cd sevak
+bash infra/gcp/setup.sh --project YOUR-STAGING-PROJECT-ID --env staging --repo anb-solutions/sevak --budget 25
 ```
 
 - Replace `YOUR-STAGING-PROJECT-ID` with the project's **ID** (shown on the project dashboard; it
