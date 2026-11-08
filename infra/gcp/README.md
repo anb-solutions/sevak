@@ -13,7 +13,10 @@ signs in to Google with short-lived credentials (no stored keys), and each proje
 deploys from its own branch. Each deploy:
 
 1. Builds the container image ([`Dockerfile`](../../Dockerfile)) and stores it in the project.
-2. Runs database migrations as a Cloud Run job. On staging, it also loads demo data.
+2. Runs database migrations as a Cloud Run job, and on staging also loads demo data. The job takes
+   about 2 minutes to start, so it only runs when something that affects the database changed
+   since the live version (migrations, the schema, demo data, the task runner or dependencies).
+   To run it anyway: **Actions → Deploy → Run workflow**, tick **Run database migrations**.
 3. Starts the new version **without traffic**, checks its health and, on staging, that it reads
    the demo event from the database. Only then are users switched to it. A broken version never
    reaches anyone.

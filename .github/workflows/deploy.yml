@@ -11,6 +11,11 @@ on:
   push:
     branches: [staging, main]
   workflow_dispatch: # redeploy the branch's latest commit by hand
+    inputs:
+      update_database:
+        description: Run database migrations (and demo data on staging) even if nothing that affects the database changed
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -43,6 +48,8 @@ jobs:
       IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/sevak/web:${{ github.sha }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # to compare with the commit that's live now
 
       - name: Sign in to Google Cloud
         uses: google-github-actions/auth@v3
@@ -60,19 +67,45 @@ jobs:
           docker build -t "$IMAGE" .
           docker push "$IMAGE"
 
+      # The database job takes about 2 minutes just to start, so it only runs
+      # when something that affects the database changed since the version
+      # that's live: migrations, the schema, demo data or the task runner.
+      # When in doubt (first deploy, a commit it can't find), it runs.
+      - name: Check whether the database needs updating
+        id: db
+        env:
+          FORCE: ${{ inputs.update_database }}
+        run: |
+          live="$(gcloud run services describe sevak-web --project "$PROJECT" --region "$REGION" \
+            --format 'value(spec.template.spec.containers[0].image)' 2>/dev/null | sed -n 's/.*:\([0-9a-f]\{40\}\)$/\1/p')"
+          paths=(packages/db packages/core/src/seed.ts packages/core/src/tasks.ts Dockerfile pnpm-lock.yaml .github/workflows/deploy.yml)
+          if [ "$FORCE" = "true" ]; then
+            reason="asked for when the deploy was started"
+          elif [ -z "$live" ]; then
+            reason="no version is live yet"
+          elif ! git cat-file -e "$live^{commit}" 2>/dev/null; then
+            reason="the live version's commit ($live) isn't in this branch's history"
+          elif ! git diff --quiet "$live" "$GITHUB_SHA" -- "${paths[@]}"; then
+            reason="these changed since the live version: $(git diff --name-only "$live" "$GITHUB_SHA" -- "${paths[@]}" | tr '\n' ' ')"
+          else
+            echo "Skipping the database job: nothing that affects the database changed since ${live:0:7}."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Running the database job: $reason"
+          echo "run=true" >> "$GITHUB_OUTPUT"
+
       - name: Update the database (and add demo data on staging)
+        if: steps.db.outputs.run == 'true'
         run: |
           sql_flag=()
           if [ -n "$CLOUDSQL" ]; then sql_flag=(--set-cloudsql-instances "$CLOUDSQL"); fi
           gcloud run jobs deploy sevak-tasks --project "$PROJECT" --region "$REGION" --image "$IMAGE" \
             --service-account "$RUNTIME_SA" --set-secrets DATABASE_URL=database-url:latest \
-            --set-env-vars SEVAK_ENV="$SEVAK_ENV" --command node --args tasks/tasks.mjs,migrate \
+            --set-env-vars SEVAK_ENV="$SEVAK_ENV" --command node --args tasks/tasks.mjs,deploy \
             --max-retries 0 --task-timeout 300s "${sql_flag[@]}"
+          # Migrations, then demo data on staging, in one run.
           gcloud run jobs execute sevak-tasks --project "$PROJECT" --region "$REGION" --wait
-          if [ "$SEVAK_ENV" = "staging" ]; then
-            gcloud run jobs execute sevak-tasks --project "$PROJECT" --region "$REGION" --wait \
-              --args tasks/tasks.mjs,seed
-          fi
 
       # The app's keys live in GitHub as environment secrets (RESEND_API_KEY,
       # GOOGLE_CLIENT_SECRET). The app reads them from Secret Manager, so a
