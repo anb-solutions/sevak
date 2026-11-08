@@ -42,7 +42,7 @@ jobs:
       GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }} # "Continue with Google"; optional, with the GOOGLE_CLIENT_SECRET secret
       IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/sevak/web:${{ github.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Sign in to Google Cloud
         uses: google-github-actions/auth@v2
