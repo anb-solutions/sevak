@@ -36,6 +36,7 @@ jobs:
       REGION: ${{ vars.GCP_REGION }}
       RUNTIME_SA: ${{ vars.GCP_RUNTIME_SA }}
       CLOUDSQL: ${{ vars.GCP_CLOUDSQL_INSTANCE }} # only if the database is Cloud SQL
+      DOMAIN: ${{ vars.GCP_DOMAIN }} # e.g. staging.sevak.theanbgroup.com; optional
       IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/sevak/web:${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
@@ -47,6 +48,8 @@ jobs:
           service_account: ${{ vars.GCP_DEPLOY_SA }}
 
       - uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: beta # domain mappings for Cloud Run are a beta command
 
       - name: Build and push the image
         run: |
@@ -98,3 +101,23 @@ jobs:
 
       - name: Switch users to the new version
         run: gcloud run services update-traffic sevak-web --project "$PROJECT" --region "$REGION" --to-latest
+
+      # Connects the environment's own address (GCP_DOMAIN) to the app, once.
+      # Needs the domain verified in Google Search Console with sevak-deployer
+      # added as an owner, and a CNAME record to ghs.googlehosted.com
+      # (infra/gcp/README.md). Until then it warns instead of failing, since the
+      # new version is already live.
+      - name: Connect the custom domain
+        if: env.DOMAIN != ''
+        continue-on-error: true
+        run: |
+          if gcloud beta run domain-mappings describe --domain "$DOMAIN" --project "$PROJECT" --region "$REGION" >/dev/null 2>&1; then
+            echo "$DOMAIN is already connected."
+          elif ! gcloud beta run domain-mappings create --service sevak-web --domain "$DOMAIN" \
+              --project "$PROJECT" --region "$REGION"; then
+            echo "::warning::Couldn't connect $DOMAIN. Check that the domain is verified in Search Console with the deploy account as an owner (infra/gcp/README.md, step 4)."
+            exit 1
+          fi
+          echo "DNS records this address needs:"
+          gcloud beta run domain-mappings describe --domain "$DOMAIN" --project "$PROJECT" --region "$REGION" \
+            --format 'yaml(status.resourceRecords)'
