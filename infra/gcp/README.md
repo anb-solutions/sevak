@@ -75,19 +75,26 @@ Check `…/api/v1/health` answers `{"ok":true}`.
 
 ### 4. Give staging its own address: `staging.sevak.theanbgroup.com`
 
-1. **Prove you own the domain** (once for theanbgroup.com):
+You do the domain proof and the DNS record; the deploy workflow connects the address.
+
+1. **Prove you own the domain** (once for theanbgroup.com): in Cloud Shell, run
    `gcloud domains verify theanbgroup.com`. It opens Google Search Console, which gives you a TXT
-   record to add at your DNS provider.
-2. **Map the address to the app:**
+   record to add at your DNS provider. Click **Verify** once the record is in.
+2. **Let the deploy account connect addresses:** open
+   [Webmaster Central](https://www.google.com/webmasters/verification/details?domain=theanbgroup.com),
+   choose **Add an owner**, and add
+   `sevak-deployer@YOUR-STAGING-PROJECT-ID.iam.gserviceaccount.com`.
+3. **Add the DNS record** at your DNS provider: a `CNAME` record named `staging.sevak` pointing to
+   `ghs.googlehosted.com`.
+4. **In GitHub**, add one more variable to the `staging` environment:
+   `GCP_DOMAIN` = `staging.sevak.theanbgroup.com`.
+5. **Run the deploy** (merge anything into `staging`, or **Actions → Deploy → Run workflow** on
+   `staging`). Its last step, **Connect the custom domain**, connects the address and lists the DNS
+   records it expects. Google then issues the HTTPS certificate on its own, usually within 15–60
+   minutes.
 
-   ```sh
-   gcloud beta run domain-mappings create --service sevak-web \
-     --domain staging.sevak.theanbgroup.com --region us-central1
-   ```
-
-3. **Add the DNS record it asks for** at your DNS provider: a `CNAME` record named `staging.sevak`
-   pointing to `ghs.googlehosted.com`.
-4. Google issues the HTTPS certificate on its own, usually within 15–60 minutes.
+If that step shows a warning, the deploy itself still succeeded; the warning says what's missing
+(usually step 2).
 
 Cloud Run's built-in domain mapping is a preview feature. That's fine for staging. Production
 will use Firebase Hosting in front of Cloud Run (free), which Google supports for production use.
