@@ -5,3 +5,9 @@ packages:
 # Only these packages may run install scripts (pnpm blocks all others).
 onlyBuiltDependencies:
   - esbuild
+
+# Security fixes for dependencies of dependencies.
+overrides:
+  # drizzle-kit (development only) pulls in esbuild 0.18 through
+  # @esbuild-kit/core-utils; 0.25 fixes GHSA-67mh-4wv8-2f99.
+  "@esbuild-kit/core-utils>esbuild": ^0.25.0
