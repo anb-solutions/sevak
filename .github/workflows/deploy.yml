@@ -37,6 +37,9 @@ jobs:
       RUNTIME_SA: ${{ vars.GCP_RUNTIME_SA }}
       CLOUDSQL: ${{ vars.GCP_CLOUDSQL_INSTANCE }} # only if the database is Cloud SQL
       DOMAIN: ${{ vars.GCP_DOMAIN }} # e.g. staging.sevak.theanbgroup.com; optional
+      EMAIL_SECRET: ${{ vars.GCP_EMAIL_SECRET }} # "resend-api-key" once email is set up; optional
+      EMAIL_FROM: ${{ vars.EMAIL_FROM }} # optional; the app has a default
+      PLATFORM_ADMINS: ${{ vars.SEVAK_PLATFORM_ADMINS }} # Sevak staff emails, comma-separated; optional
       IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/sevak/web:${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
@@ -81,9 +84,21 @@ jobs:
           if gcloud run services describe sevak-web --project "$PROJECT" --region "$REGION" >/dev/null 2>&1; then
             traffic_flag=(--no-traffic)
           fi
+          # Settings for the app. "|" separates them, since emails contain "@" and ",".
+          env_vars="SEVAK_ENV=$SEVAK_ENV"
+          secrets="DATABASE_URL=database-url:latest"
+          if [ -n "$DOMAIN" ]; then env_vars+="|APP_URL=https://$DOMAIN"; fi
+          if [ -n "$PLATFORM_ADMINS" ]; then env_vars+="|SEVAK_PLATFORM_ADMINS=$PLATFORM_ADMINS"; fi
+          if [ -n "$EMAIL_FROM" ]; then env_vars+="|EMAIL_FROM=$EMAIL_FROM"; fi
+          if [ -n "$EMAIL_SECRET" ]; then
+            env_vars+="|EMAIL_MODE=resend"
+            secrets+=",RESEND_API_KEY=$EMAIL_SECRET:latest"
+          else
+            env_vars+="|EMAIL_MODE=log"
+          fi
           gcloud run deploy sevak-web --project "$PROJECT" --region "$REGION" --image "$IMAGE" \
-            --service-account "$RUNTIME_SA" --set-secrets DATABASE_URL=database-url:latest \
-            --set-env-vars SEVAK_ENV="$SEVAK_ENV" --port 8080 --no-invoker-iam-check \
+            --service-account "$RUNTIME_SA" --set-secrets "$secrets" \
+            --set-env-vars "^|^$env_vars" --port 8080 --no-invoker-iam-check \
             --min-instances 0 --max-instances 3 --memory 512Mi --cpu 1 \
             --tag next "${traffic_flag[@]}" "${sql_flag[@]}"
           describe() { gcloud run services describe sevak-web --project "$PROJECT" --region "$REGION" --format json; }

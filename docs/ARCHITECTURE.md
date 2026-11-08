@@ -155,12 +155,19 @@ cancellation gives the spot back in the same transaction. A database rule
 ### 3.2 Sign-in and secure links (VOL-1, NFR-4, NFR-6)
 
 - **Sign-in:** the email contains a link and a 6-digit code. Both expire after 15 minutes and work
-  once. Only a hash is stored. Requests are rate-limited by email and by IP.
-- **Session:** a random id in a `Secure; HttpOnly; SameSite=Lax` cookie, stored in the database so
-  it can be revoked. Lasts 30 days.
+  once. Only a hash is stored. Requests are rate-limited by email (5 an hour, in the database) and
+  by IP (per server instance). Five wrong codes and that code stops working. The link carries its
+  token after `#`, so it never reaches a server log or a link scanner; the sign-in page sends it.
+  Links always point at `APP_URL`, never at the request's Host header.
+- **Session:** a random id in a `__Host-` cookie (`Secure; HttpOnly; SameSite=Lax`), stored hashed
+  in the database so it can be revoked. Lasts 30 days.
+- **Requests that change something** must come from Sevak's own pages (`Sec-Fetch-Site` or
+  `Origin`), so another site can't act for a signed-in browser.
+- Code: `packages/core/src/auth.ts`; routes under `apps/web/src/app/api/v1/auth/`.
 - **Manage-my-sign-up links:** long random tokens, stored hashed. A link opens only its own
   sign-up.
-- **Platform admins** also use an authenticator app code (TOTP).
+- **Platform admins** (Sevak staff, who verify organizations) are listed by email in
+  `SEVAK_PLATFORM_ADMINS`. Before production they also use an authenticator app code (TOTP).
 
 ### 3.3 Who can see what (§5 of the requirements)
 
@@ -176,6 +183,15 @@ Each event stores its time zone (for example `America/Chicago`). Shift times are
 shown in the event's time.
 
 ### 3.5 Email and calendars (COM-*, COM-10)
+
+**Provider: Resend**, behind one small function (`apps/web/src/lib/mail.ts`), so moving to another
+provider means changing that file. Why Resend: its key can only send email, it's free up to 3,000
+emails a month (100 a day; $20 a month for 50,000), and it sends from `sevak.theanbgroup.com`, so
+Sevak's sending reputation is separate from the company's own email. Sending through Google
+Workspace would need either a key that can send as anyone in the company (domain-wide delegation)
+or another licensed mailbox; Amazon SES would need an AWS account. Without a key (local
+development, or staging before email is set up) emails, including sign-in codes, are written to
+the server log; production refuses to run that way.
 
 The app records each email and queues it in the same transaction as the change that caused it, so
 an email is never sent for a sign-up that failed. The background job sends it and retries on
@@ -278,10 +294,21 @@ arrive about weekly. Production goes live once the owner approves it.
 | Mid-December | Production project set up; privacy policy updated; dry run with the pilot organizations |
 | **January 2027** | **Pilot starts** on `sevak.theanbgroup.com` |
 
-**How the app reuses the prototype:** the web app serves the prototype's pages, and the
-prototype's storage files (`orgs-store.js`, `events-store.js`, `signups-store.js` and others) get
-a version that talks to `/api/v1` instead of the browser. That keeps the screens people have
-already reviewed, and they move into React components one at a time.
+**How the app reuses the prototype:** the web app serves the prototype's pages with one script
+added to the top of each, `apps/web/prototype/sync.js`. The pages still read and write browser
+storage; sync.js loads chosen keys from the server before the page starts (`GET /api/v1/sync`)
+and sends each change back (`POST /api/v1/sync/<key>`). The server keeps them in the `records`
+table and decides who may see and change each one (`packages/core/src/records.ts`): a change that
+isn't allowed is refused and the page gets the server's copy back. That keeps the screens people
+have already reviewed, and they move into React components and proper tables one at a time.
+
+| Data | On the server since | Who sees it | Who changes it |
+|---|---|---|---|
+| Profile (`sevak.profile.v1`) | Sign-in release | You | You |
+| Organizations (`sevak.organizations.v1`) | Sign-in release | Everyone: name, description, website, city, charity status, verification. Its team and Sevak staff: everything | Admins; Coordinators can only leave the team; only Sevak staff verify |
+| Events, sign-ups, memberships, hours, certificates, documents | Next releases | | |
+
+Demo data (ids starting `demo-`) stays in each browser.
 
 ### Domains
 

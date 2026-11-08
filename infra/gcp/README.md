@@ -100,11 +100,45 @@ If that step shows a warning, the deploy itself still succeeded; the warning say
 Cloud Run's built-in domain mapping is a preview feature. That's fine for staging. Production
 will use Firebase Hosting in front of Cloud Run (free), which Google supports for production use.
 
+Once `GCP_DOMAIN` is set, links in Sevak's emails point at that address.
+
+### 5. Send email (sign-in codes)
+
+People sign in with a code that Sevak emails them. Until email is set up, staging writes each
+code to its log instead: **Cloud Run → sevak-web → Logs**, search for `sign-in code`. That's fine
+for a first look; set up email before others test.
+
+Sevak sends through [Resend](https://resend.com) (why: [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md)
+§3.5). About 10 minutes:
+
+1. **Sign up** at resend.com with `ops@theanbgroup.com`. The free plan is enough for the pilot.
+2. **Add the domain** `sevak.theanbgroup.com` (**Domains → Add domain**). Resend lists 3 or 4 DNS
+   records (an MX and TXT records for sending, and a DKIM TXT record). Add them at your DNS
+   provider exactly as shown. They only cover `sevak.theanbgroup.com`, so your own email at
+   theanbgroup.com is unaffected. Click **Verify** once they're in.
+3. **Create an API key** (**API Keys → Create**) with **Sending access** only, for that domain.
+   Copy it (it starts with `re_`); Resend shows it once.
+4. **Store it in Google Cloud.** In Cloud Shell, in the repository folder, run the setup script
+   again with `--email resend` (the rest is left as it is) and paste the key when asked. It
+   isn't shown and never goes into GitHub:
+   ```sh
+   bash infra/gcp/setup.sh --project YOUR-STAGING-PROJECT-ID --env staging --repo anb-solutions/sevak --email resend
+   ```
+5. **In GitHub**, add a variable to the `staging` environment: `GCP_EMAIL_SECRET` =
+   `resend-api-key`. The next deploy sends real email.
+
+Optional variables on the environment:
+
+- `SEVAK_PLATFORM_ADMINS`: emails of Sevak staff, separated by commas. They can verify
+  organizations (the Review page).
+- `EMAIL_FROM`: the sender, if not `Sevak <notify@sevak.theanbgroup.com>`.
+
 ## Set up production (later)
 
 1. Create a second Google Cloud project for production, and run the script with
-   `--env production` and the new project's ID. Production's database gets nightly backups and
-   deletion protection.
+   `--env production --email resend` and the new project's ID (production won't start without
+   email; use a separate Resend key). Production's database gets nightly backups and deletion
+   protection.
 2. In GitHub, **Settings → Rules → Rulesets → New branch ruleset** for `main`: restrict who can
    update it to yourself, and require a pull request.
 3. Add a `production` environment in GitHub with **Deployment branches** set to `main`, the
