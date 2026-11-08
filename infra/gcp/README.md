@@ -115,8 +115,9 @@ from `notify@sevak.theanbgroup.com`, each from its own Resend team with its own 
 can never come from the real address, and a problem with one doesn't affect the other. About 10
 minutes:
 
-1. **Sign up** at resend.com with `ops@theanbgroup.com`, and name the team **Sevak Staging**. The
-   free plan is enough.
+1. **Sign up** at resend.com with your own work account (for example `abhishek@theanbgroup.com`),
+   turn on two-factor sign-in, and name the team **Sevak Staging**. The free plan is enough. Invite
+   a second admin later so the account isn't tied to one person.
 2. **Add the domain** `staging.sevak.theanbgroup.com` (**Domains → Add domain**). Resend lists 3
    or 4 DNS records (an MX and TXT records on names like `send.staging.sevak`, and a DKIM TXT
    record on `resend._domainkey.staging.sevak`). Add them at your DNS provider exactly as shown;
