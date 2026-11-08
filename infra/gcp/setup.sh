@@ -5,7 +5,7 @@
 # infra/gcp/README.md.
 #
 #   bash infra/gcp/setup.sh --project <staging-project-id> --env staging --repo anb-solutions/sevak --budget 25
-#   bash infra/gcp/setup.sh --project <prod-project-id> --env production --repo anb-solutions/sevak --budget 25 --email resend
+#   bash infra/gcp/setup.sh --project <prod-project-id> --env production --repo anb-solutions/sevak --budget 25
 #
 # Safe to run again: anything already set up is left as it is.
 #
@@ -20,12 +20,14 @@
 #     and only from this repository's branch for this environment
 #     (staging branch → staging, main branch → production)
 #   - Optional monthly budget alert (--budget <US dollars>)
-#   - Optional: the key Sevak sends email with (--email resend), in Secret
-#     Manager as "resend-api-key"
+#   - Places in Secret Manager for the app's keys ("resend-api-key" for
+#     email, "google-client-secret" for Continue with Google). Their values
+#     come from GitHub: each deploy copies them in from the environment's
+#     secrets. Only the app can read them, and only the deploy can update them.
 set -euo pipefail
 
 REGION="us-central1"
-PROJECT="" ENV="" REPO="" DATABASE="cloudsql" BUDGET="" EMAIL=""
+PROJECT="" ENV="" REPO="" DATABASE="cloudsql" BUDGET=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --project) PROJECT="$2"; shift 2 ;;
@@ -34,7 +36,8 @@ while [ $# -gt 0 ]; do
     --region) REGION="$2"; shift 2 ;;
     --database) DATABASE="$2"; shift 2 ;;
     --budget) BUDGET="$2"; shift 2 ;;
-    --email) EMAIL="$2"; shift 2 ;;
+    --email) shift 2 ;; # no longer needed: keys come from GitHub (README step 5)
+    --google) shift ;;
     *) echo "Unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -44,7 +47,6 @@ case "$ENV" in
   *) echo "Use --env staging or --env production" >&2; exit 2 ;;
 esac
 case "$DATABASE" in cloudsql|external) ;; *) echo "Use --database cloudsql or --database external" >&2; exit 2 ;; esac
-case "$EMAIL" in ""|resend) ;; *) echo "Use --email resend (or leave it out)" >&2; exit 2 ;; esac
 [ -n "$PROJECT" ] && [ -n "$REPO" ] || { echo "Use --project <id> and --repo <owner/name>" >&2; exit 2; }
 
 say() { printf '\n== %s\n' "$*"; }
@@ -162,24 +164,17 @@ else
   echo "Saved."
 fi
 
-if [ "$EMAIL" = "resend" ]; then
-  say "Email: the Resend API key, kept in Secret Manager as resend-api-key"
-  exists gcloud secrets describe resend-api-key ||
-    gcloud secrets create resend-api-key --replication-policy automatic
-  gcloud secrets add-iam-policy-binding resend-api-key --member "serviceAccount:$RUNTIME_SA" \
+say "Places for the app's keys (filled in from GitHub by each deploy)"
+for name in resend-api-key google-client-secret; do
+  exists gcloud secrets describe "$name" || gcloud secrets create "$name" --replication-policy automatic
+  gcloud secrets add-iam-policy-binding "$name" --member "serviceAccount:$RUNTIME_SA" \
     --role roles/secretmanager.secretAccessor >/dev/null
-  if [ -n "$(gcloud secrets versions list resend-api-key --filter 'state=ENABLED' --format 'value(name)' --limit 1)" ]; then
-    echo "Already has a value; left as it is. To replace it, run:"
-    echo "  read -rs KEY && printf %s \"\$KEY\" | gcloud secrets versions add resend-api-key --data-file=-"
-  else
-    echo "Paste the Resend API key (re_...), then press Enter. It won't be shown:"
-    read -rs RESEND_KEY
-    [ -n "$RESEND_KEY" ] || { echo "Nothing entered. Run this script again to add it." >&2; exit 1; }
-    printf '%s' "$RESEND_KEY" | gcloud secrets versions add resend-api-key --data-file=- >/dev/null
-    unset RESEND_KEY
-    echo "Saved."
-  fi
-fi
+  # The deploy stores new values, turns off old ones, and reads the current
+  # one to see whether it changed. (It can already deploy code that reads it.)
+  for role in roles/secretmanager.secretVersionManager roles/secretmanager.secretAccessor; do
+    gcloud secrets add-iam-policy-binding "$name" --member "serviceAccount:$DEPLOY_SA" --role "$role" >/dev/null
+  done
+done
 
 if [ -n "$BUDGET" ]; then
   say "Budget alert: emails billing admins at 50%, 90% and 100% of \$$BUDGET a month"
@@ -206,6 +201,6 @@ echo "  GCP_WIF_PROVIDER       $POOL/providers/github-actions"
 echo "  GCP_DEPLOY_SA          $DEPLOY_SA"
 echo "  GCP_RUNTIME_SA         $RUNTIME_SA"
 if [ -n "$CONNECTION" ]; then echo "  GCP_CLOUDSQL_INSTANCE  $CONNECTION"; fi
-if [ "$EMAIL" = "resend" ]; then echo "  GCP_EMAIL_SECRET       resend-api-key"; fi
 echo
 echo "None of these are secrets. No keys were created."
+echo "Keys for email and Google sign-in go in the GitHub environment's secrets (infra/gcp/README.md)."

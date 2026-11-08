@@ -1,5 +1,6 @@
 import { readSynced } from "@sevak/core";
 import { getDb } from "@/lib/db";
+import { googleEnabled } from "@/lib/google";
 import { json, viewerFor } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -9,5 +10,9 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const viewer = await viewerFor(req);
   const data = await readSynced(await getDb(), viewer);
-  return json({ user: viewer ? { email: viewer.email, isPlatformAdmin: viewer.isPlatformAdmin } : null, data });
+  return json({
+    user: viewer ? { email: viewer.email, isPlatformAdmin: viewer.isPlatformAdmin } : null,
+    signIn: { google: googleEnabled() },
+    data,
+  });
 }

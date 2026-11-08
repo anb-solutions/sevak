@@ -110,6 +110,13 @@ export async function verifySignIn(
     .returning({ id: loginTokens.id });
   if (!used.length) throw new AuthError("invalid");
 
+  return startSession(db, email, now);
+}
+
+// Signs in someone whose email is already proven (by an emailed code or
+// link, or by Google), creating their account the first time.
+export async function startSession(db: Db, rawEmail: string, now = new Date()): Promise<{ sessionToken: string; viewer: Viewer; isNew: boolean }> {
+  const email = emailSchema.parse(rawEmail);
   let [user] = await db.select().from(users).where(eq(users.email, email));
   const isNew = !user;
   if (!user) {

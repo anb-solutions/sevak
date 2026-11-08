@@ -91,6 +91,7 @@
 
   if (!server.offline && loaded.data) {
     server.user = loaded.data.user;
+    server.signIn = loaded.data.signIn || {};
     Object.keys(SYNCED).forEach(function (key) {
       var value = loaded.data.data[key];
       if (SYNCED[key] === "list") {

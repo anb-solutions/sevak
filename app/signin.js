@@ -73,6 +73,28 @@
     location.href = nextPage(data.hasProfile);
   }
 
+  // Continue with Google, when it's set up on the server.
+  var params = new URLSearchParams(location.search);
+  if (server.signIn && server.signIn.google) {
+    $("google-signin").hidden = false;
+    var next = params.get("next");
+    if (next && /^[a-z-]+\.html$/.test(next)) $("google-button").href = "/api/v1/auth/google/start?next=" + encodeURIComponent(next);
+  }
+  var GOOGLE_ERRORS = {
+    google_use_email: "That Google account doesn't use a Gmail or Google Workspace address, so sign in with a code sent to your email instead.",
+    google_cancelled: "Google sign-in was cancelled. Try again, or use your email.",
+    google_failed: "Google sign-in didn't work. Try again, or use your email.",
+    google_off: "Google sign-in isn't available here yet. Use your email."
+  };
+  var error = GOOGLE_ERRORS[params.get("error")];
+  if (error) {
+    var note = document.createElement("p");
+    note.className = "error";
+    note.setAttribute("role", "alert");
+    note.textContent = error;
+    form.insertBefore(note, form.firstChild);
+  }
+
   // Opened from the emailed link: #token=…
   var token = (location.hash.match(/token=([A-Za-z0-9_-]+)/) || [])[1];
   if (token) {

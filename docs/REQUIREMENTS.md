@@ -1,6 +1,6 @@
 # Sevak: MVP Requirements
 
-**Version:** 2.27 (sign-in by email code; profiles and organizations saved on the server) · **Updated:** 2026-11-08 · **Status:** Draft for review
+**Version:** 2.28 (Continue with Google) · **Updated:** 2026-11-08 · **Status:** Draft for review
 
 This replaces the original SRS outline, which is about six months old. That outline covered a full
 volunteer management system: background checks, GPS clock-in, CRM integrations and so on. This
@@ -215,7 +215,7 @@ Sign-ups appear on the host dashboard right away. | Must |
 
 | ID | Requirement | Priority |
 |---|---|---|
-| VOL-1 | Any volunteer who has signed up can **sign in with their email** using a one-time link or a 6-digit code from the same email, with no password. The email address is their identity. A new person signs in first, then fills in their profile. *(Web app: `app/signin.html` with `packages/core/src/auth.ts`.)* | Must |
+| VOL-1 | Any volunteer who has signed up can **sign in with their email** using a one-time link or a 6-digit code from the same email, with no password, or with **Continue with Google** (Gmail and Google Workspace accounts; Sevak receives only the email address). The email address is their identity. A new person signs in first, then fills in their profile. *(Web app: `app/signin.html` with `packages/core/src/auth.ts`.)* | Must |
 | VOL-2 | A signed-in volunteer can keep a **profile** so future sign-ups are pre-filled and take one click. The profile holds: first and last name, email, mobile phone (NFR-16), an optional **gender** (a drop-down: *Woman, Man, Non-binary, Another gender, Prefer not to say*; shared only with organizations whose events the person signs up for), an optional address (country, street, city or town, and a state or region and postal code where used), optional **affiliations** (up to 5, each with a type such as school, Scouting, faith community, workplace or club, plus a name), and **usual availability** (weekends only, weekdays, evenings only, or anytime). Organizations never see the street address. *(Prototype: `app/profile.html`. In the web app the profile is saved on the server and its email is the one the person signed in with.)* | Should |
 | VOL-3 | A signed-in volunteer has a **"My volunteering"** page showing upcoming and past shifts across all organizations, **including private events**, with hours credited and certificates. | Must |
 | VOL-4 | The log is **private to the volunteer.** Hosts only ever see records for their own organization's events. Nothing about a private event appears on any public page, in search, or to other volunteers. | Must |

@@ -126,14 +126,53 @@ minutes:
    **Verify** once they're in.
 3. **Create an API key** (**API Keys → Create**) with **Sending access** only, for that domain.
    Copy it (it starts with `re_`); Resend shows it once.
-4. **Store it in staging's Google Cloud project.** In Cloud Shell, in the repository folder, run
-   the setup script again with `--email resend` (the rest is left as it is) and paste the key when
-   asked. It isn't shown and never goes into GitHub:
+4. **Once only: let deploys store keys.** Giving the deploy account a new permission needs a
+   project Owner, so run the setup script once more in Cloud Shell, in the repository folder
+   (`git pull` first). Everything already set up is left as it is:
    ```sh
-   bash infra/gcp/setup.sh --project YOUR-STAGING-PROJECT-ID --env staging --repo anb-solutions/sevak --email resend
+   bash infra/gcp/setup.sh --project YOUR-STAGING-PROJECT-ID --env staging --repo anb-solutions/sevak
    ```
-5. **In GitHub**, add a variable to the `staging` environment: `GCP_EMAIL_SECRET` =
-   `resend-api-key`. The next deploy sends real email.
+5. **In GitHub: Settings → Environments → staging → Environment secrets → Add secret**:
+   `RESEND_API_KEY` = the key. GitHub never shows it again, even to you, and hides it in logs.
+6. **Run the deploy** (**Actions → Deploy → Run workflow** on `staging`). It copies the key into
+   staging's Secret Manager, where only the app can read it, and starts sending real email.
+
+To change the key later (for example if it leaks), update the GitHub secret and run the deploy;
+the old copy is turned off. To stop sending, delete the key in Resend.
+
+### 6. Continue with Google (optional)
+
+Adds a **Continue with Google** button to the sign-in page, next to the emailed code. Sevak asks
+Google for the person's email address only. It accepts Gmail addresses and Google Workspace
+accounts; people whose Google account uses another email provider are asked to use the emailed
+code (Google's own advice, so an old address can't be taken over). Staging and production each
+get their own Google sign-in setup, in their own Google Cloud project. About 10 minutes, in the
+[Google Cloud console](https://console.cloud.google.com) with the **staging project** selected:
+
+1. **Google Auth Platform → Branding** (or **APIs & Services → OAuth consent screen**) →
+   **Get started**:
+   - App name: `Sevak Staging`. User support email: your own.
+   - Audience: **External**. Contact email: your own.
+   - Leave the logo empty for now: adding one makes Google review the app first.
+   - Under **Branding**, add the app home page `https://staging.sevak.theanbgroup.com`, privacy
+     policy `https://staging.sevak.theanbgroup.com/privacy.html`, terms
+     `https://staging.sevak.theanbgroup.com/terms.html`, and the authorized domain
+     `theanbgroup.com`.
+2. **Data access**: add nothing. Sevak only uses the basic `openid` and `email` scopes, which
+   need no review by Google.
+3. **Audience → Publish app**, so anyone with a Google account can sign in. (Left in *Testing*,
+   only the test users you list can.)
+4. **Clients → Create client** → *Web application*, named `Sevak staging`. Under **Authorized
+   redirect URIs** add exactly
+   `https://staging.sevak.theanbgroup.com/api/v1/auth/google/callback`. Create it, then copy the
+   **Client ID** and the **Client secret** (Google may show the secret only once).
+5. **In GitHub**, on the `staging` environment: add the **variable** `GOOGLE_CLIENT_ID` = the
+   Client ID (it ends `.apps.googleusercontent.com`; it isn't a secret), and the **secret**
+   `GOOGLE_CLIENT_SECRET` = the Client secret. (This needs step 5.4 above done once.)
+6. **Run the deploy.** The button appears on the sign-in page.
+
+If Google shows **redirect_uri_mismatch**, the address in step 4 doesn't exactly match
+`GCP_DOMAIN` (check `https://`, no trailing slash).
 
 Optional variables on the environment:
 
@@ -146,9 +185,12 @@ Optional variables on the environment:
 1. Create a second Google Cloud project for production, and run the script with
    `--env production --email resend` and the new project's ID. Production's database gets nightly
    backups and deletion protection.
-   Production won't start without email. Set it up as in staging's step 5, but in a separate
+   Production won't start without email. Set it up as in staging's step 5 (secrets on the
+   `production` environment in GitHub), but in a separate
    Resend team, **Sevak Production** (or a second Resend account if your plan allows only one
-   domain), with the domain `sevak.theanbgroup.com` and its own key.
+   domain), with the domain `sevak.theanbgroup.com` and its own key. For Continue with Google,
+   repeat staging's step 6 in the production project, named `Sevak`, with
+   `https://sevak.theanbgroup.com/...` addresses.
 2. In GitHub, **Settings → Rules → Rulesets → New branch ruleset** for `main`: restrict who can
    update it to yourself, and require a pull request.
 3. Add a `production` environment in GitHub with **Deployment branches** set to `main`, the
