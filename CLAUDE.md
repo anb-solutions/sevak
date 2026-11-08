@@ -33,12 +33,13 @@ Two things live in this repo: the **clickable prototype** and the **real app** t
 ## How changes ship
 
 Branch → pull request → CI (typecheck, tests, build, container image, secret scan) → review →
-merge to `main` → deployed to **staging** automatically. Only the owner releases to
-**production**, by merging `main` into the `production` branch. There are no preview deployments.
+merge into `staging` (the default branch) → deployed to **staging** automatically. Only the owner
+releases to **production**, by merging `staging` into `main`; `main` always holds what's live.
+There are no preview deployments.
 
 ## Rules
 
-- Work on a branch and open a pull request; never push to `main` or `production`.
+- Branch from `staging` and open a pull request into `staging`; never push to `staging` or `main`.
 - Never commit secrets or real personal data. Never use production data locally or in tests.
 - Every API route that touches organization data checks the caller's role, and has a test that
   someone without access is refused.

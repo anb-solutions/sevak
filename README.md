@@ -13,7 +13,7 @@ built for its first pilot organizations in January 2027.
 A monorepo: [`apps/web`](apps/web) (Next.js: pages and the `/api/v1` API), [`packages/db`](packages/db)
 (PostgreSQL schema and migrations) and [`packages/core`](packages/core) (rules such as "never
 overbook a shift"). It runs on Google Cloud (Cloud Run and Cloud SQL PostgreSQL): every merge to
-`main` goes to staging, and the owner releases to production. Deploy guide:
+`staging` goes to staging, and the owner releases to production by merging into `main`. Deploy guide:
 [`infra/gcp/README.md`](infra/gcp/README.md).
 
 ```sh
@@ -67,7 +67,7 @@ tests/run.sh /tmp/sevak-shots   # serves the site on :8765, runs every tests/*-t
 ## Publish with GitHub Pages
 
 The site is deployed by the [`Deploy to GitHub Pages`](.github/workflows/pages.yml) workflow on
-every push to `main`. It checks that local links and scripts exist, then publishes the files as
+every push to `staging`. It checks that local links and scripts exist, then publishes the files as
 they are (no build step). One-time setup:
 
 1. Go to **Settings → Pages**.

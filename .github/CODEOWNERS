@@ -1,12 +1,12 @@
 # Changes to these paths need a code owner's approval (docs/ARCHITECTURE.md §4.1).
-/packages/db/            @anbbala
-/packages/core/          @anbbala
-/apps/web/src/lib/       @anbbala
-/apps/web/next.config.ts @anbbala
-/.github/                @anbbala
-/.claude/                @anbbala
-/Dockerfile              @anbbala
-/infra/                  @anbbala
-/.gitleaks.toml          @anbbala
-/package.json            @anbbala
-/pnpm-lock.yaml          @anbbala
+/packages/db/            @abhishek-austin
+/packages/core/          @abhishek-austin
+/apps/web/src/lib/       @abhishek-austin
+/apps/web/next.config.ts @abhishek-austin
+/.github/                @abhishek-austin
+/.claude/                @abhishek-austin
+/Dockerfile              @abhishek-austin
+/infra/                  @abhishek-austin
+/.gitleaks.toml          @abhishek-austin
+/package.json            @abhishek-austin
+/pnpm-lock.yaml          @abhishek-austin

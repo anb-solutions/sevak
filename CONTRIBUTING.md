@@ -25,7 +25,7 @@ python3 -m http.server 8000   # then open http://localhost:8000
 
 ## Making a change
 
-1. **Branch from `main`.** You can't push to `main` directly.
+1. **Branch from `staging`** (the default branch). You can't push to `staging` or `main` directly.
 2. **Keep it small:** one feature or fix per pull request.
 3. **Run `pnpm test`** before you push.
 4. **Open a pull request** and fill in the template. Say what changed, why, and how you checked it.

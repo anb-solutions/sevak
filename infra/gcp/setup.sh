@@ -18,7 +18,7 @@
 #   - Service account sevak-deployer: what GitHub Actions deploys as
 #   - Workload Identity Federation: GitHub Actions signs in without stored keys,
 #     and only from this repository's branch for this environment
-#     (main → staging, production → production)
+#     (staging branch → staging, main branch → production)
 #   - Optional monthly budget alert (--budget <US dollars>)
 set -euo pipefail
 
@@ -36,8 +36,8 @@ while [ $# -gt 0 ]; do
   esac
 done
 case "$ENV" in
-  staging) BRANCH="main" ;;
-  production) BRANCH="production" ;;
+  staging) BRANCH="staging" ;;
+  production) BRANCH="main" ;;
   *) echo "Use --env staging or --env production" >&2; exit 2 ;;
 esac
 case "$DATABASE" in cloudsql|external) ;; *) echo "Use --database cloudsql or --database external" >&2; exit 2 ;; esac

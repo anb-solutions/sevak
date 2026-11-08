@@ -5,8 +5,8 @@ SQL**. There are two environments, each in its own Google Cloud project:
 
 | Environment | Deploys from | Address | Data |
 |---|---|---|---|
-| **Staging** | `main`, after each reviewed merge | `staging.sevak.theanbgroup.com` | Demo data |
-| **Production** | `production`, which only the owner can merge into | `sevak.theanbgroup.com` | Real data |
+| **Staging** | `staging` (the default branch), after each reviewed merge | `staging.sevak.theanbgroup.com` | Demo data |
+| **Production** | `main`, which only the owner can merge into | `sevak.theanbgroup.com` | Real data |
 
 GitHub Actions deploys ([`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml)). It
 signs in to Google with short-lived credentials (no stored keys), and each project only accepts
@@ -62,14 +62,14 @@ At the end, it prints five or six values. Keep the window open.
 
 In the repository on GitHub: **Settings → Environments → New environment**, name it `staging`.
 
-- Under **Deployment branches and tags**, choose **Selected branches** and add `main`.
+- Under **Deployment branches and tags**, choose **Selected branches** and add `staging`.
 - Under **Environment variables**, add each value the script printed (`GCP_PROJECT_ID`,
   `GCP_REGION`, `GCP_WIF_PROVIDER`, `GCP_DEPLOY_SA`, `GCP_RUNTIME_SA`, `GCP_CLOUDSQL_INSTANCE`).
   None of them are secrets.
 
 ### 3. Deploy
 
-Merge to `main` (or open **Actions → Deploy → Run workflow** on `main`). When it finishes, the
+Merge a pull request into `staging` (or open **Actions → Deploy → Run workflow** on `staging`). When it finishes, the
 run's summary links to the staging address, which looks like `https://sevak-web-….run.app`.
 Check `…/api/v1/health` answers `{"ok":true}`.
 
@@ -97,18 +97,17 @@ will use Firebase Hosting in front of Cloud Run (free), which Google supports fo
 1. Create a second Google Cloud project for production, and run the script with
    `--env production` and the new project's ID. Production's database gets nightly backups and
    deletion protection.
-2. Create the `production` branch from `main`.
-3. In GitHub, **Settings → Rules → Rulesets → New branch ruleset** for `production`: restrict who
-   can update it to yourself, and require a pull request.
-4. Add a `production` environment in GitHub with **Deployment branches** set to `production`, the
+2. In GitHub, **Settings → Rules → Rulesets → New branch ruleset** for `main`: restrict who can
+   update it to yourself, and require a pull request.
+3. Add a `production` environment in GitHub with **Deployment branches** set to `main`, the
    script's values, and **Required reviewers** set to yourself (so each production deploy waits
    for your approval).
-5. Shipping to production is then: open a pull request from `main` into `production`, review it,
+4. Shipping to production is then: open a pull request from `staging` into `main`, review it,
    merge it, approve the deploy.
 
 If the repository becomes private, GitHub's rulesets and environment reviewers need a paid GitHub
 plan. Without them, the Google side still protects production: its project only accepts deploys
-from the `production` branch.
+from the `main` branch.
 
 ## Using your own Postgres instead of Cloud SQL
 
@@ -119,7 +118,7 @@ string and stores it as the `database-url` secret, and doesn't create Cloud SQL.
 ## If something goes wrong
 
 - **"Permission denied" when GitHub Actions signs in:** the deploy ran from a branch the project
-  doesn't accept (staging accepts only `main`), or the repository's name or owner changed. Run the
+  doesn't accept (staging accepts only `staging`, production only `main`), or the repository's name or owner changed. Run the
   script again with the right `--repo`.
 - **The site says it's forbidden:** your organization may require sign-in for Cloud Run. The
   deploy uses `--no-invoker-iam-check` to make the site public; an organization policy

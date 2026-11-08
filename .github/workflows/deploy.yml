@@ -1,6 +1,6 @@
 # Deploys Sevak to Google Cloud Run.
-#   main        → staging    (every reviewed merge)
-#   production  → production (only the repository owner can merge into it)
+#   staging → staging environment    (every reviewed merge)
+#   main    → production environment (only the repository owner can merge into it)
 # Each environment is its own Google Cloud project, and each project only
 # accepts sign-ins from its own branch (infra/gcp/setup.sh), so nothing else
 # can deploy there. There are no stored keys: GitHub Actions signs in to
@@ -9,7 +9,7 @@ name: Deploy
 
 on:
   push:
-    branches: [main, production]
+    branches: [staging, main]
   workflow_dispatch: # redeploy the branch's latest commit by hand
 
 permissions:
@@ -23,15 +23,15 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy ${{ github.ref_name == 'production' && 'production' || 'staging' }}
-    if: github.ref_name == 'main' || github.ref_name == 'production'
+    name: Deploy ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    if: github.ref_name == 'staging' || github.ref_name == 'main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment:
-      name: ${{ github.ref_name == 'production' && 'production' || 'staging' }}
+      name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
       url: ${{ steps.deploy.outputs.url }}
     env:
-      SEVAK_ENV: ${{ github.ref_name == 'production' && 'production' || 'staging' }}
+      SEVAK_ENV: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
       PROJECT: ${{ vars.GCP_PROJECT_ID }}
       REGION: ${{ vars.GCP_REGION }}
       RUNTIME_SA: ${{ vars.GCP_RUNTIME_SA }}

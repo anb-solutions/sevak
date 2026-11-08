@@ -13,8 +13,8 @@ changes, how we keep it secure, and what it costs. The requirements it serves ar
    system, not a throwaway.
 2. **Continuous contribution.** Several people, and their Claude sessions, work in one monorepo
    without stepping on each other.
-3. **Fast, safe delivery.** Every change is checked automatically, every merge to `main` is live on
-   staging within minutes, and only the owner can release to production.
+3. **Fast, safe delivery.** Every change is checked automatically, every merge to `staging` is live
+   on staging within minutes, and only the owner can release to production.
 4. **Security and privacy first.** Volunteers' data is protected by design, not added later.
 5. **Cost-conscious.** A known monthly budget (about $10–20), with no per-user fees.
 
@@ -98,7 +98,8 @@ The flow is the same for a person or for their Claude session:
 Branch ─► Build and try it locally ─► Pull request ─► CI checks ─► Review ─► Merge ─► Staging ─► (owner) ─► Production
 ```
 
-1. **Start a branch** from `main`. Never commit to `main` directly (it's protected, §4.1).
+1. **Start a branch** from `staging`, the default branch. Never commit to `staging` or `main`
+   directly (both are protected, §4.1).
 2. **Run it locally.** `pnpm install`, then `pnpm dev`. The app starts with an in-process database
    (PGlite) loaded with fake demo data. No accounts, keys or Docker needed. `pnpm test` runs the
    checks. Claude Code sessions in the cloud get this set up automatically by a start-up hook.
@@ -107,11 +108,11 @@ Branch ─► Build and try it locally ─► Pull request ─► CI checks ─�
    secrets, and a check that database migrations apply cleanly. A pull request can't merge until
    they pass.
 5. **Review.** At least one approval, and a code owner's for sensitive areas (§4.1).
-6. **Merge → staging.** Merging to `main` deploys to **staging** (`staging.sevak.theanbgroup.com`)
+6. **Merge → staging.** Merging into `staging` deploys to **staging** (`staging.sevak.theanbgroup.com`)
    within minutes. Try it there on a phone. Staging holds only demo data.
-7. **Staging → production, by the owner only.** The owner opens a pull request from `main` into the
-   `production` branch, merges it and approves the deploy. Nobody else can update `production`,
-   and the production Google Cloud project only accepts deploys from that branch.
+7. **Staging → production, by the owner only.** The owner opens a pull request from `staging` into
+   `main`, merges it and approves the deploy. Nobody else can update `main`, and the production
+   Google Cloud project only accepts deploys from it. `main` always holds what's live.
 
 Every deploy runs database migrations first, then starts the new version without traffic, checks
 its health, and only then switches users to it. A broken version never reaches anyone, and the
@@ -127,8 +128,8 @@ the real app.
 | Environment | Where | Data | Email |
 |---|---|---|---|
 | Local | Your laptop or Claude session (`pnpm dev`) | Fake demo data in PGlite | Shown in the console |
-| Staging | Google Cloud project for staging, from `main` | Demo data only | Caught, shown in the outbox, never sent |
-| Production | Separate Google Cloud project, from `production` | Real data | Sent through Resend |
+| Staging | Google Cloud project for staging, from `staging` | Demo data only | Caught, shown in the outbox, never sent |
+| Production | Separate Google Cloud project, from `main` | Real data | Sent through Resend |
 
 There are no per-pull-request previews: staging is where changes are tried before production.
 
@@ -187,12 +188,12 @@ volunteer's calendar entry and a cancellation removes it.
 
 ### 4.1 The repository and contributors
 
-- **`main` is protected:** changes arrive only through pull requests, with passing checks and one
+- **`staging` is protected:** changes arrive only through pull requests, with passing checks and one
   approval. No force-pushes, no deleting the branch.
 - **Code owners** (`.github/CODEOWNERS`) must approve changes to sensitive areas: the database
   schema and migrations, sign-in and permissions, CI and deploy settings.
-- **Only the owner releases to production:** a ruleset lets only the owner update the
-  `production` branch, and the production deploy waits for the owner's approval.
+- **Only the owner releases to production:** a ruleset lets only the owner update `main`, and the
+  production deploy waits for the owner's approval.
 - **Least access:** contributors get *Write* access, not *Admin*. Only the owner (and one backup)
   can change repository settings, Google Cloud or production.
 - **Two-factor sign-in** is required for everyone with access, on GitHub and on Google Cloud.
@@ -202,7 +203,7 @@ volunteer's calendar entry and a cancellation removes it.
 - **Going private:** the repository can be made private. Things to plan for: GitHub Pages,
   rulesets and environment reviewers on a private repository need a paid GitHub plan, and GitHub's
   built-in code scanning is free only for public repositories. The gitleaks and Dependabot checks
-  keep working, and the Google side still only accepts production deploys from `production`.
+  keep working, and the Google side still only accepts production deploys from `main`.
 
 ### 4.2 Secrets
 
