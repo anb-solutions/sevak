@@ -78,7 +78,7 @@
   if (server.signIn && server.signIn.google) {
     $("google-signin").hidden = false;
     var next = params.get("next");
-    if (next && /^[a-z-]+\.html$/.test(next)) $("google-button").href = "/api/v1/auth/google/start?next=" + encodeURIComponent(next);
+    $("google-button").href = "/api/v1/auth/google/start" + (next && /^[a-z-]+\.html$/.test(next) ? "?next=" + encodeURIComponent(next) : "");
   }
   var GOOGLE_ERRORS = {
     google_use_email: "That Google account doesn't use a Gmail or Google Workspace address, so sign in with a code sent to your email instead.",
