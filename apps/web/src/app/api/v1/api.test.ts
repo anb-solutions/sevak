@@ -114,6 +114,16 @@ describe("API", () => {
     expect((await selfApprove.json()).value.find((m: { id: string }) => m.id === "mem-q").status).toBe("requested");
   });
 
+  it("refuses event changes from people not on the organization's team", async () => {
+    const EV = "sevak.events.v1";
+    const ev = { id: "ev-1", organizationId: "org-temple", title: "Seva day", status: "published", visibility: "public" };
+    expect((await save(req(`/api/v1/sync/${EV}`, { body: { upsert: [ev] }, cookie: asha }), params(EV))).status).toBe(200);
+    const takeover = await save(req(`/api/v1/sync/${EV}`, { body: { upsert: [{ ...ev, title: "Mine" }], delete: [] }, cookie: mei }), params(EV));
+    expect(takeover.status).toBe(403);
+    expect((await save(req(`/api/v1/sync/${EV}`, { body: { delete: ["ev-1"] }, cookie: mei }), params(EV))).status).toBe(403);
+    expect((await save(req(`/api/v1/sync/${EV}`, { body: { upsert: [ev] } }), params(EV))).status).toBe(401);
+  });
+
   it("refuses data it doesn't know and bodies that aren't JSON", async () => {
     expect((await save(req("/api/v1/sync/sevak.other.v1", { body: { value: 1 }, cookie: asha }), params("sevak.other.v1"))).status).toBe(404);
     expect((await save(req(`/api/v1/sync/${PROFILE}`, { body: {}, cookie: asha }), params(PROFILE))).status).toBe(400);

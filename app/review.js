@@ -7,6 +7,22 @@
   var V = window.SevakVerify;
   var $ = function (id) { return document.getElementById(id); };
 
+  // With Sevak's server, only Sevak staff (SEVAK_PLATFORM_ADMINS) review;
+  // the server refuses anyone else's decisions anyway.
+  var server = window.SevakServer;
+  if (server) {
+    var banner = document.querySelector("main .banner");
+    if (banner) banner.innerHTML = "<strong>Sevak staff only.</strong> Approving or rejecting emails the organization (emails still go to the <a href=\"outbox.html\">outbox</a> for now).";
+    if (!server.user || !server.user.isPlatformAdmin) {
+      Array.prototype.forEach.call(document.querySelector("main").children, function (c) { c.hidden = true; });
+      var note = document.createElement("section");
+      note.className = "section";
+      note.innerHTML = "<h1 class=\"page-title\">Verification requests</h1><p class=\"page-intro\">Only Sevak's staff can review verification requests. If you asked for your organization to be verified, you'll hear back by email.</p><p><a class=\"btn btn-secondary btn-small\" href=\"organization.html\">Back to your organization</a></p>";
+      document.querySelector("main").appendChild(note);
+      return;
+    }
+  }
+
   var CHARITY = {
     "charity": "Registered charity or nonprofit",
     "nonprofit-other": "Other nonprofit or tax-exempt organization",

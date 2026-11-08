@@ -17,7 +17,13 @@
 (function () {
   "use strict";
 
-  var SYNCED = { "sevak.profile.v1": "object", "sevak.organizations.v1": "list", "sevak.memberships.v1": "list" };
+  var SYNCED = {
+    "sevak.profile.v1": "object",
+    "sevak.organizations.v1": "list",
+    "sevak.memberships.v1": "list",
+    "sevak.events.v1": "list",
+    "sevak.mainEvents.v1": "list"
+  };
   var SIGNED_OUT_KEY = "sevak.signedOut.v1";
 
   var storage = window.localStorage;
