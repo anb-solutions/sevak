@@ -1,282 +1,292 @@
-# Sevak: Architecture and Hosting Plan
+# Sevak: Architecture, Delivery and Security
 
-**Status:** Proposal for Phase 2 (back end and email) · **Updated:** 2026-10-06
+**Status:** Agreed direction for the live app · **Updated:** 2026-11-08
 
-This document explains how Sevak runs today, the back end we plan to build for the MVP, and where
-to host it. The requirements it serves are in [`REQUIREMENTS.md`](REQUIREMENTS.md). IDs such as
-SGN-5 and NFR-10 refer to that document.
+This document describes the long-term architecture for Sevak, how contributors build and ship
+changes, how we keep it secure, and what it costs. The requirements it serves are in
+[`REQUIREMENTS.md`](REQUIREMENTS.md); IDs such as SGN-5 refer to that document. Diagrams are in
+[`DIAGRAMS.md`](DIAGRAMS.md).
 
----
+**Goals**
 
-## 1. Today: a static prototype
-
-```
-Browser ──> GitHub Pages (index.html, privacy.html, terms.html, app/*)
-               │
-               └── app/*-store.js read and write localStorage (no server, no shared data)
-```
-
-- There is no build step. The files are served as they are.
-- Each page's data lives in the visitor's own browser, behind small modules called stores:
-  `orgs-store.js`, `events-store.js` and `signups-store.js`. These stores are what the back end
-  replaces (§6).
-- Deployment uses [`.github/workflows/pages.yml`](../.github/workflows/pages.yml): on every push to
-  `main` it checks that local links exist and the JavaScript parses, then publishes the site. It
-  can also be run by hand from **Actions → Deploy to GitHub Pages → Run workflow**.
+1. **One long-term architecture from day one.** The first beta is the first slice of the real
+   system, not a throwaway.
+2. **Continuous contribution.** Several people, and their Claude sessions, work in one monorepo
+   without stepping on each other.
+3. **Fast, safe delivery.** Every change is checked automatically, every merge to `staging` is live
+   on staging within minutes, and only the owner can release to production.
+4. **Security and privacy first.** Volunteers' data is protected by design, not added later.
+5. **Cost-conscious.** A known monthly budget (about $10–20), with no per-user fees.
 
 ---
 
-## 2. Design goals
-
-Taken from the requirements, roughly in order of importance:
-
-1. **Never overbook a shift**, even with 500 sign-ups in 10 minutes (SGN-5, NFR-2).
-2. **Email is the product**: sign-in links, confirmations, updates, reminders and certificates must
-   arrive, and failed sends are retried (COM-*, NFR-3, NFR-15).
-3. **Public pages are fast and searchable**: they are rendered on the server, with Open Graph and
-   schema.org data (EVT-7, EVT-8, NFR-1, NFR-10).
-4. **Strict data separation**: an organization only ever sees its own data, and private events
-   never leak (§5 of the requirements, NFR-5).
-5. **Small and cheap to run.** About 200 organizations and 20,000 volunteers fit comfortably on one
-   Postgres database and one or two small servers. No microservices, no Kubernetes.
-6. **Typed, tested, one-command local setup** (NFR-13).
-
----
-
-## 3. Target architecture
-
-One codebase and one database, with two processes: a **web app** and a **worker**.
+## 1. The system
 
 ```
-                       ┌──────────────── Cloudflare (DNS, TLS, CDN cache, Turnstile) ───────────────┐
-                       │                                                                            │
-Volunteers & hosts ──> │  sevak.<domain>                                                            │
-                       └──────────────┬─────────────────────────────────────────────────────────────┘
-                                      │
-                    ┌─────────────────▼──────────────────┐
-                    │  Web app (Next.js, TypeScript)      │
-                    │  • Server-rendered public pages     │  /, /discover, /o/{slug}, /e/{slug}, /verify/{code}
-                    │  • Host and volunteer screens       │  /app/...
-                    │  • JSON API                         │  /api/v1/...
-                    └───────┬─────────────────┬──────────┘
-                            │                 │ enqueue jobs
-                            │                 ▼
-                            │      ┌────────────────────────────┐
-                            │      │ Worker (Node, TypeScript)  │  emails, reminders, certificate PDFs,
-                            │      │ jobs via pg-boss           │  website import (ORG-10), cleanups
-                            │      └───────┬───────────┬────────┘
-                            ▼              ▼           ▼
-                  ┌──────────────────┐  ┌────────┐  ┌────────────────────────┐
-                  │ PostgreSQL       │  │ Email  │  │ Object storage (R2/S3) │
-                  │ data + job queue │  │Postmark│  │ logos, covers, PDFs    │
-                  └──────────────────┘  └────────┘  └────────────────────────┘
+Volunteers & hosts (phones first)
+        │ HTTPS
+        ▼
+sevak.theanbgroup.com · staging.sevak.theanbgroup.com
+        │
+        ▼
+Google Cloud project (one for staging, one for production) ───────────────┐
+│  Cloud Run service "sevak-web" (Next.js container, scales to zero)      │
+│   • Public pages, rendered on the server (SEO, link previews)           │
+│   • Host and volunteer screens                                          │
+│   • JSON API at /api/v1                                                 │
+│  Cloud Run job "sevak-tasks": database migrations before each deploy    │
+│  Cloud SQL: PostgreSQL 18 (all data)                                    │
+│  Secret Manager: the database connection                                │
+│  Artifact Registry: container images                                    │
+└─────────────────────────────────────────────────────────────────────────┘
+        │                    │                       │
+   Resend (email)    Cloudflare R2 (files)    Sentry (errors)
 ```
 
-### 3.1 Technology choices
+One app service and one database per environment. No microservices, no Kubernetes, no servers to
+patch. The app is a plain Node container and the database is plain PostgreSQL, so either can move
+to another provider (AWS, Neon, Render) by changing configuration, not code.
+
+### 1.1 Technology choices
 
 | Concern | Choice | Why |
 |---|---|---|
-| Language | **TypeScript** everywhere | One language for front end, back end and shared validation (NFR-13). |
-| Web framework | **Next.js** (App Router) | Server rendering for public pages (NFR-10), React for the host screens, and route handlers for the API, all in one deployable. Runs on any Node host, not only Vercel. |
-| API style | REST + JSON under `/api/v1`, request and response shapes defined with **Zod** | Keeps the front end and back end separated by an API (NFR-13), and a future mobile app can use the same API. |
-| Database | **PostgreSQL 16** | Transactions and row locks give us capacity checks we can trust (SGN-5). `timestamptz` handles time zones (NFR-11). Managed Postgres is available everywhere. |
-| ORM and migrations | **Drizzle ORM** + `drizzle-kit` migrations | Typed queries, plain SQL when needed, and migrations that live in the repo. |
-| Background jobs | **pg-boss** (a queue stored in Postgres) | Retries, scheduling (reminders 24 hours before a shift) and cron jobs, without running Redis. |
-| Email | **Postmark** (or Amazon SES to save money later) | Good deliverability for transactional email, plus bounce and complaint webhooks (NFR-15). |
-| Email templates | **React Email** | The same components as the web app, each with a plain-text version (COM-8). |
-| Certificate PDFs | HTML template rendered by **Playwright/Chromium** in the worker | Branded certificates (ATT-5) from the same HTML and CSS as the web pages. |
-| File storage | **Cloudflare R2** (S3-compatible) | No fees for downloads. Logos and covers are public; certificate PDFs are served through short-lived signed URLs. |
-| Bot protection | **Cloudflare Turnstile** + per-IP and per-email rate limits | SGN-8, NFR-6. |
-| Sign-in | Passwordless email links that we build ourselves (or Auth.js email provider), **TOTP 2FA** for platform admins | NFR-4. It's a small amount of code, and we control the emails. |
-| Errors and logs | **Sentry** + the host's log viewer | Enough for a pilot. |
-| Tests | **Vitest** (unit and database tests against a real Postgres) + **Playwright** (end-to-end) | Covers the core flows NFR-13 names: sign-up, capacity, attendance and certificates. |
+| Language | **TypeScript** everywhere | One language for pages, API and database code (NFR-13) |
+| App framework | **Next.js** | Server-rendered public pages (NFR-10), React screens, and the API in one service |
+| API | REST + JSON at `/api/v1`, inputs and outputs checked with **Zod** | A future mobile app uses the same API |
+| Hosting | **Google Cloud Run** (serverless containers) | Scales to zero, so it costs nearly nothing when idle; Google patches the servers |
+| Database | **PostgreSQL 18** on **Cloud SQL** (smallest size to start) | Transactions make "never overbook" reliable (SGN-5); fixed, predictable cost; no per-user fees; portable |
+| Database code | **Drizzle ORM**, migrations kept in the repo | Typed queries; every schema change is reviewed like code |
+| Local database | **PGlite** (Postgres compiled to run inside Node) | `pnpm dev` and `pnpm test` work on any laptop or Claude session with no Docker and no account |
+| Background work | **Cloud Run jobs** (migrations now; reminders and email retries later, on Cloud Scheduler) | Runs only when needed, nothing idle to pay for |
+| Sign-in | Our own email **link and 6-digit code**; sessions stored in Postgres | No vendor lock-in; the code also works in the iPhone home-screen app |
+| Email | **Resend** to start; Amazon SES if volume makes it cheaper | Every shift email carries a calendar invite (COM-10) |
+| Files | **Cloudflare R2** | Documents, photos, certificate PDFs; no download fees |
+| Errors | **Sentry** (free tier) | Alerts when something breaks |
+| Tests | **Vitest** (logic and database, on PGlite) + **Playwright** (phone-sized browser tests) | Covers sign-up, capacity, attendance and privacy rules |
 
-### 3.2 Repository layout (monorepo, pnpm workspaces)
+### 1.2 Repository layout (monorepo, pnpm workspaces)
 
 ```
 sevak/
 ├── apps/
-│   ├── web/              Next.js: public pages, host and volunteer screens, /api/v1 routes
-│   └── worker/           pg-boss consumers: email, reminders, PDFs, website import
+│   └── web/                 Next.js: pages, /api/v1, background jobs
 ├── packages/
-│   ├── core/             Domain logic in plain TypeScript: sign-up and capacity, permissions,
-│   │                     attendance, certificates. Has no web or framework code, so it's easy to test.
-│   ├── db/               Drizzle schema, migrations, seed and demo data
-│   ├── email/            React Email templates
-│   └── shared/           Zod schemas, types, phone (E.164) and address helpers, countries
-├── prototype/            Today's static app (index.html, app/*), still published to GitHub Pages
-├── docker-compose.yml    Postgres + Mailpit (catches outgoing email) for local development
-└── .github/workflows/    CI (lint, typecheck, test, migrate) and deploys
+│   ├── db/                  Drizzle schema, migrations, seed and demo data
+│   └── core/                Rules in plain TypeScript: sign-up and capacity,
+│                            permissions, hours, certificates. No web code.
+├── app/, index.html, …      The clickable prototype, served by the app on staging
+├── docs/                    Requirements, architecture, diagrams
+├── infra/gcp/               Google Cloud setup script and deploy guide
+├── Dockerfile               The app's container image
+├── .github/workflows/       CI checks, the Google Cloud deploy, the prototype deploy
+├── CLAUDE.md                Instructions every contributor's Claude reads
+└── CONTRIBUTING.md          How to contribute
 ```
 
-The web app and the worker both call into `packages/core`. Route handlers only check input, check
-the session and call core functions.
+The prototype stays where it is, so people working on it are not disrupted. The web app serves a
+copy of the prototype's pages during the pilot (see §6), and screens move into proper React
+components one at a time after launch.
 
 ---
 
-## 4. Key design details
+## 2. How contributors work
 
-### 4.1 Capacity checks that never overbook (SGN-5)
+The flow is the same for a person or for their Claude session:
 
-Each shift row keeps a `filled` counter. A sign-up takes a seat with one atomic statement, inside
-the same transaction that inserts the sign-up rows:
+```
+Branch ─► Build and try it locally ─► Pull request ─► CI checks ─► Review ─► Merge ─► Staging ─► (owner) ─► Production
+```
+
+1. **Start a branch** from `staging`, the default branch. Never commit to `staging` or `main`
+   directly (both are protected, §4.1).
+2. **Run it locally.** `pnpm install`, then `pnpm dev`. The app starts with an in-process database
+   (PGlite) loaded with fake demo data. No accounts, keys or Docker needed. `pnpm test` runs the
+   checks. Claude Code sessions in the cloud get this set up automatically by a start-up hook.
+3. **Open a pull request.** Small and focused: one feature or fix.
+4. **Automatic checks (CI)** run on every push: type checks, tests, a build, a scan for leaked
+   secrets, and a check that database migrations apply cleanly. A pull request can't merge until
+   they pass.
+5. **Review.** At least one approval, and a code owner's for sensitive areas (§4.1).
+6. **Merge → staging.** Merging into `staging` deploys to **staging** (`staging.sevak.theanbgroup.com`)
+   within minutes. Try it there on a phone. Staging holds only demo data.
+7. **Staging → production, by the owner only.** The owner opens a pull request from `staging` into
+   `main`, merges it and approves the deploy. Nobody else can update `main`, and the production
+   Google Cloud project only accepts deploys from it. `main` always holds what's live.
+
+Every deploy runs database migrations first, then starts the new version without traffic, checks
+its health, and only then switches users to it. A broken version never reaches anyone, and the
+previous version can be restored in one click. The full guide is in
+[`infra/gcp/README.md`](../infra/gcp/README.md).
+
+**Rapid prototyping** still has a fast lane: the static prototype (`app/`) needs no back end, runs
+locally with any static file server, and is served by the app on staging after every merge. Ideas
+can be tried there first, then built into the real app.
+
+### Environments
+
+| Environment | Where | Data | Email |
+|---|---|---|---|
+| Local | Your laptop or Claude session (`pnpm dev`) | Fake demo data in PGlite | Shown in the console |
+| Staging | Google Cloud project for staging, from `staging` | Demo data only | Caught, shown in the outbox, never sent |
+| Production | Separate Google Cloud project, from `main` | Real data | Sent through Resend |
+
+There are no per-pull-request previews: staging is where changes are tried before production.
+
+---
+
+## 3. Key design details
+
+### 3.1 Capacity checks that never overbook (SGN-5)
+
+Each shift keeps a `filled` count. A sign-up takes a spot with one statement that only succeeds if
+a spot is left, inside the same transaction that saves the sign-up:
 
 ```sql
-UPDATE shifts
-   SET filled = filled + 1
- WHERE id = $1 AND filled < capacity AND status = 'open'
+UPDATE shifts SET filled = filled + 1
+ WHERE id = $1 AND filled < capacity
 RETURNING id;
 ```
 
-If no row comes back, the shift is full. For a form that picks several shifts, all seats are taken
-in one transaction, in shift-id order (to avoid deadlocks), and the whole form either succeeds or
-reports which shift filled up. A cancellation lowers `filled` in the same transaction that marks
-the sign-up cancelled. A database `CHECK (filled <= capacity)` constraint is a final safety net,
-and a nightly job checks that each counter matches its confirmed sign-ups. A load test (500
-sign-ups in 10 minutes against one event) is part of the Phase 2 exit criteria (NFR-2).
+No row back means the shift is full, and the whole form is rolled back with a clear message. A
+cancellation gives the spot back in the same transaction. A database rule
+(`CHECK (filled <= capacity)`) is the final safety net.
 
-### 4.2 Sign-in, sessions and secure links (VOL-1, NFR-4, NFR-6)
+### 3.2 Sign-in and secure links (VOL-1, NFR-4, NFR-6)
 
-- **Sign-in link:** 32 random bytes, emailed, and **only a SHA-256 hash is stored**. It expires
-  after 15 minutes and works once. Requests are rate-limited by email address and by IP.
-- **Session:** an opaque id in an `HttpOnly; Secure; SameSite=Lax` cookie, stored in a `sessions`
-  table so it can be revoked. Lasts 30 days and is renewed while in use.
-- **Manage-my-sign-up and private-event links:** long random tokens, stored hashed (PRV-4 rotates
-  them). A manage link only gives access to its own registration.
-- **Platform admins** must also pass a TOTP code. 2FA for hosts is optional (Should).
+- **Sign-in:** the email contains a link and a 6-digit code. Both expire after 15 minutes and work
+  once. Only a hash is stored. Requests are rate-limited by email and by IP.
+- **Session:** a random id in a `Secure; HttpOnly; SameSite=Lax` cookie, stored in the database so
+  it can be revoked. Lasts 30 days.
+- **Manage-my-sign-up links:** long random tokens, stored hashed. A link opens only its own
+  sign-up.
+- **Platform admins** also use an authenticator app code (TOTP).
 
-### 4.3 Who can see what (§5 of the requirements, NFR-5)
+### 3.3 Who can see what (§5 of the requirements)
 
-- Every host API call goes through one helper, `requireOrgRole(session, orgId, minRole)`, which
-  reads `org_members`. Every query on organization data filters by `org_id`.
-- Public queries only read published events from public, verified organizations
-  (ORG-3, ORG-6, PRV-1). Private pages send `noindex` and never appear in the sitemap (DSC-6).
+- Every host API call checks the person's role in that organization (Admin or Coordinator) through
+  one shared function, and every query on organization data is limited to that organization.
 - Public pages show counts ("4 of 6 spots left"), never names.
-- Later, Postgres row-level security can enforce the `org_id` rule a second time.
+- Automated tests check these rules on every pull request: for example, a volunteer can't read
+  another volunteer's sign-up, and a Coordinator of one organization can't see another's roster.
 
-### 4.4 Time zones (NFR-11)
+### 3.4 Time zones (NFR-11)
 
-Each event stores an IANA time zone (for example `Asia/Kolkata`). Shift start and end times are
-stored as `timestamptz` (UTC) and converted from the event's local time when the host saves. Pages
-show times in the event's time zone. The prototype's `day + HH:MM` fields map straight onto this.
+Each event stores its time zone (for example `America/Chicago`). Shift times are stored in UTC and
+shown in the event's time.
 
-### 4.5 Email pipeline (COM-*, NFR-3, NFR-15)
+### 3.5 Email and calendars (COM-*, COM-10)
 
-1. The app writes a `messages` row (and one `message_deliveries` row per recipient) and enqueues a
-   job, in the same transaction as the change that caused it. An email is never sent for a
-   sign-up that rolled back.
-2. The worker renders the template and sends it through Postmark. Failures are retried with
-   back-off.
-3. Postmark webhooks (`/api/v1/webhooks/postmark`) record deliveries, bounces and complaints.
-   Bounced addresses are suppressed.
-4. Emails are sent as *"{Organization} via Sevak" &lt;notify@mail.&lt;domain&gt;&gt;*, with
-   `Reply-To` set to the organization's contact (COM-7). SPF, DKIM and DMARC are set up on
-   `mail.<domain>`.
-5. Reminders (COM-6) are scheduled jobs created when someone signs up, and moved or cancelled if
-   the shift changes.
-
-### 4.6 Server-side fetching (ORG-10)
-
-"Fill in from website" moves to the worker. It allows only `http`/`https`, resolves DNS and
-**blocks private, loopback and link-local addresses** (to prevent server-side request forgery),
-times out after 5 seconds, reads at most 1 MB, and follows at most 3 redirects, checking each one.
-
-### 4.7 SEO for public pages (EVT-7, EVT-8, NFR-10)
-
-`/e/{slug}` and `/o/{slug}` are server-rendered with `<title>`, a canonical URL, Open Graph tags
-and schema.org `Event` / `Organization` JSON-LD. They are cached at Cloudflare for a short time
-(about 60 seconds, so spots-left counts stay fresh) and generated again on publish. The app serves
-`sitemap.xml` and `robots.txt`.
+The app records each email and queues it in the same transaction as the change that caused it, so
+an email is never sent for a sign-up that failed. The background job sends it and retries on
+failure. Shift emails carry a calendar invite with a stable id per shift, so a change updates the
+volunteer's calendar entry and a cancellation removes it.
 
 ---
 
-## 5. Hosting
+## 4. Security
 
-### 5.1 Recommendation: Render + Cloudflare
+### 4.1 The repository and contributors
 
-| Piece | Service | Notes |
-|---|---|---|
-| Web app | Render **Web Service** (Node) | Deploys automatically from `main`. Each pull request gets a preview environment. |
-| Worker | Render **Background Worker** | Same repo, different start command. |
-| Database | Render **Managed PostgreSQL** with daily backups and point-in-time recovery | Or **Neon** if you want database branches for each preview. |
-| DNS, TLS, CDN, Turnstile | **Cloudflare** (free plan) | Put the domain on Cloudflare and point it at Render. |
-| Files | **Cloudflare R2** | |
-| Email | **Postmark** | Authenticate the sending domain before the pilot. |
-| Errors | **Sentry** (free tier) | |
-| Prototype | **GitHub Pages** (what we use now) | Keep it for design reviews. |
+- **`staging` is protected:** changes arrive only through pull requests, with passing checks and one
+  approval. No force-pushes, no deleting the branch.
+- **Code owners** (`.github/CODEOWNERS`) must approve changes to sensitive areas: the database
+  schema and migrations, sign-in and permissions, CI and deploy settings.
+- **Only the owner releases to production:** a ruleset lets only the owner update `main`, and the
+  production deploy waits for the owner's approval.
+- **Least access:** contributors get *Write* access, not *Admin*. Only the owner (and one backup)
+  can change repository settings, Google Cloud or production.
+- **Two-factor sign-in** is required for everyone with access, on GitHub and on Google Cloud.
+- **Dependencies:** Dependabot opens pull requests for security updates; CI fails on known
+  critical vulnerabilities.
+- **Secret scanning:** CI scans every pull request for leaked keys (gitleaks).
+- **Going private:** the repository can be made private. Things to plan for: rulesets and environment reviewers on a private repository need a paid GitHub plan, and GitHub's
+  built-in code scanning is free only for public repositories. The gitleaks and Dependabot checks
+  keep working, and the Google side still only accepts production deploys from `main`.
 
-**Why Render:** it's one dashboard for the web app, the worker, cron jobs and Postgres. You deploy
-with `git push`, nobody has to manage servers, it's cheap at pilot scale, and the app is an
-ordinary Node service with no lock-in. Moving to Fly.io, Railway, AWS or Google Cloud Run later is
-a change of configuration, not a rewrite.
+### 4.2 Secrets
 
-**Rough monthly cost for the pilot:** about US$25–60, made up of two small instances, a small
-Postgres database and the entry Postmark plan. Cloudflare, R2 (at this volume) and the Sentry
-free tier cost nothing. Check current prices before you commit.
+- No secrets in the repository, ever. `.env.example` lists names only.
+- **No stored keys for deploys.** GitHub Actions signs in to Google Cloud with short-lived
+  credentials (Workload Identity Federation). Each Google Cloud project accepts sign-ins only from
+  this repository's own branch for that environment.
+- The database connection lives in **Secret Manager**. Only the app's own service account can read
+  it; GitHub never sees it. For Cloud SQL, the password is generated by the setup script and never
+  shown to anyone.
+- **Staging and production are separate Google Cloud projects.** Staging has no production
+  secrets and only demo data. Real data is never copied into staging or onto a laptop.
+- The app runs as a non-root user in a minimal container, and has only the permissions it needs.
 
-### 5.2 Alternatives considered
+### 4.3 The app
 
-| Option | Good | Watch out for |
-|---|---|---|
-| **Vercel + Neon + a job service** (Inngest or Upstash QStash) | The best Next.js experience, serverless, generous free tiers | Background jobs, PDF rendering (Chromium) and long tasks need extra services; three or more vendors to manage. |
-| **Fly.io** | Close to users worldwide, cheap small machines | More do-it-yourself: you look after Postgres operations and more networking yourself. |
-| **Supabase** (Postgres + auth + storage) | Many building blocks included | Pulls the design toward its own auth and row-level-security model. Fine, but a different architecture from this one. |
-| **AWS / GCP directly** (ECS or Cloud Run + RDS or Cloud SQL) | Scales anywhere, enterprise-friendly | Much more setup and running work than a pilot needs. |
+- HTTPS everywhere, strict security headers (including a Content Security Policy).
+- Every input is checked on the server (Zod), whatever the page already checked.
+- Cloudflare Turnstile and rate limits on public forms (SGN-8).
+- Protection against cross-site request forgery: `SameSite` cookies plus an origin check on every
+  change.
+- "Fill in from website" (ORG-10) runs on the server with protections against requests to internal
+  addresses.
 
-### 5.3 Environments and delivery
+### 4.4 Data and privacy
 
-| Environment | Where | Data |
-|---|---|---|
-| Local | `docker compose up` (Postgres + Mailpit) + `pnpm dev` | Seed and demo data (port `app/demo-data.js`) |
-| Preview | Render preview for each pull request | Seeded data, emails caught and never delivered |
-| Staging | `staging.<domain>` | Copy of production structure, made-up data |
-| Production | `<domain>` | Real data |
-
-CI (GitHub Actions) on every pull request: lint, typecheck, unit and database tests against a
-Postgres service container, Playwright tests on the core flows, and a check that migrations apply
-cleanly. Merging to `main` deploys to staging, and promoting deploys to production. Migrations run
-as a pre-deploy step and must be backward-compatible for one release (add first, remove later).
-
-### 5.4 Secrets and configuration
-
-All secrets (`DATABASE_URL`, `POSTMARK_TOKEN`, `R2_*`, `TURNSTILE_SECRET`, `SESSION_SECRET`,
-`SENTRY_DSN`) live in the host's environment settings, never in the repository (NFR-5). There is
-a `.env.example` file listing names only.
+- Collect as little as possible. No date of birth (NFR-8). Phone is optional.
+- Organizations see a volunteer's details only for their own events.
+- Data is stored in a **US region** (us-central1) to start; the first organizations are in Texas.
+  Organizations in India would later get an India region, in line with India's data protection law
+  (DPDP Act 2023).
+- Data is encrypted at rest and in transit (the database accepts only encrypted connections).
+- Production's database has nightly backups and deletion protection; restoring a backup is tested
+  every month.
+- An audit log of sensitive actions: who changed roles, approved hours, exported a roster.
+- Data export and deletion on request (VOL-6). The privacy policy is updated before the pilot.
 
 ---
 
-## 6. Moving from the prototype to the real app
+## 5. Cost
 
-The prototype's stores map directly onto API resources, so screens can be ported one at a time:
+Estimates per month. Check current prices before committing.
 
-| Prototype module | API resources |
+| Item | Service | Cost |
+|---|---|---|
+| Database | Cloud SQL PostgreSQL, smallest size (`db-f1-micro`, 10 GB) | **About $9–10 per environment** |
+| App and migration jobs | Cloud Run | **Usually $0** within the free tier at this size |
+| Images, secrets | Artifact Registry (recent images only), Secret Manager | **Under $1** |
+| Email | Resend free tier to start | **$0**, then about $20 |
+| Files, errors | Cloudflare R2 and Sentry free tiers | **$0** |
+| Code and CI | GitHub Free (public) | **$0**; a private repository with rulesets needs a paid plan, about $4 per person |
+| **Total** | | **About $10 for staging, about $20 with production** |
+
+Google Cloud's $300 free trial covers this at first; a Google for Startups application is in
+progress. Each project has a **budget alert** that counts real usage even while credits pay for
+it. Staging's database can be stopped when nobody is testing, to save most of its cost.
+
+---
+
+## 6. First pilot: January 2027
+
+Two organizations in Houston (a temple and a cultural center) plan to start using Sevak in
+January 2027. The Flute Mali Centenary Celebration on November 14, 2026 uses a Google Form for
+volunteers, and the real app is built properly for the pilot.
+
+**Approach:** staging goes live first, so the team can use real shared data early, and features
+arrive about weekly. Production goes live once the owner approves it.
+
+| When | Milestone |
 |---|---|
-| `orgs-store.js` | `GET/POST /orgs`, `GET/PATCH/DELETE /orgs/{id}`, `/orgs/{id}/members`, `/orgs/{id}/verification` |
-| `events-store.js` (events, roles, shifts) | `/orgs/{id}/events`, `/events/{id}` (roles and shifts saved with the event), `/events/{id}/publish` |
-| `events-store.js` (main events) | `/orgs/{id}/main-events`, `/main-events/{id}` |
-| `signups-store.js` | `POST /events/{id}/registrations` (public, Turnstile), `GET/PATCH /registrations/{manageToken}`, `/events/{id}/roster` |
-| `profile.js` | `GET/PATCH /me`, `/me/affiliations`, `/me/volunteering` |
-| `website-import.js` | `POST /orgs/{id}/import-website` (runs in the worker) |
-| `demo-data.js` | `packages/db` seed script |
+| Week of Nov 9 | Staging live on Google Cloud (Cloud Run + Cloud SQL) with the foundation |
+| Nov–Dec, about weekly | Sign-in; organization and event editing on the database; volunteer sign-up with emails and calendar invites; roster and check-in; hours approval; certificates |
+| Mid-December | Production project set up; privacy policy updated; dry run with the pilot organizations |
+| **January 2027** | **Pilot starts** on `sevak.theanbgroup.com` |
 
-The data model in §8 of the requirements becomes the Drizzle schema almost table for table, with
-these additions: `sessions`, `login_tokens`, a `shifts.filled` counter, `message_deliveries` and
-the pg-boss tables.
+**How the app reuses the prototype:** the web app serves the prototype's pages, and the
+prototype's storage files (`orgs-store.js`, `events-store.js`, `signups-store.js` and others) get
+a version that talks to `/api/v1` instead of the browser. That keeps the screens people have
+already reviewed, and they move into React components one at a time.
 
----
+### Domains
 
-## 7. Phase 2 build plan
-
-| Step | Scope | Done when |
-|---|---|---|
-| **2a. Foundation** (about 1–2 weeks) | Monorepo, Docker Compose, Drizzle schema and migrations, CI, Render staging, Cloudflare domain, Postmark domain authentication, email sign-in and sessions | A person can sign in on staging and the CI pipeline passes |
-| **2b. Host core** | Organizations, members and invitations, events, roles, shifts, main events, publish and unpublish; host screens ported from the prototype | The prototype's host flows work against the API |
-| **2c. Volunteer core** | Server-rendered `/e/{slug}` and `/o/{slug}`, sign-up with capacity checks, Turnstile, confirmation email, manage link, Add to calendar | 500-sign-up load test passes with no overbooking |
-| **2d. Run the event** | Roster, attendance and hours, CSV export, event updates and message history, reminders, certificates (PDF) and `/verify/{code}` | One whole event runs end to end on staging |
-| **2e. Trust and launch** | Verification queue, moderation, Discover with city and date filters, sitemap, data export and deletion, backups restore-tested, Sentry, privacy review | Ready for the Phase 3 pilot |
-
-### Decisions needed
-
-1. **Domain** (Q1 in the requirements). Email authentication and the hosting setup depend on it.
-2. Accept the stack above (Next.js + Postgres + Render), or pick an alternative from §5.2.
-3. Choose the email provider (Postmark recommended) and who owns the vendor accounts (The ANB Group).
+- `staging.sevak.theanbgroup.com`: staging, on Google Cloud (set up in
+  [`infra/gcp/README.md`](../infra/gcp/README.md)).
+- `sevak.theanbgroup.com` still shows the last prototype published on GitHub Pages (Pages is no
+  longer deployed). At launch, Pages is turned off and the address moves to production on Google
+  Cloud. The prototype stays reachable on staging for design reviews.

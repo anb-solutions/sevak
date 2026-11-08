@@ -5,7 +5,27 @@
 A simple web app for organizations to publish volunteer events and shifts, and for volunteers to
 sign up in seconds.
 
-**Status:** pre-MVP. The landing page welcomes volunteers with Sign in and Sign up.
+**Status:** pre-MVP. The clickable prototype is live; the real app (database, API, sign-in) is being
+built for its first pilot organizations in January 2027.
+
+## The live app (in progress)
+
+A monorepo: [`apps/web`](apps/web) (Next.js: pages and the `/api/v1` API), [`packages/db`](packages/db)
+(PostgreSQL schema and migrations) and [`packages/core`](packages/core) (rules such as "never
+overbook a shift"). It runs on Google Cloud (Cloud Run and Cloud SQL PostgreSQL): every merge to
+`staging` goes to staging, and the owner releases to production by merging into `main`. Deploy guide:
+[`infra/gcp/README.md`](infra/gcp/README.md).
+
+```sh
+corepack enable && pnpm install
+pnpm dev     # http://localhost:3000, with an in-memory database and demo data
+pnpm test
+```
+
+No accounts or Docker needed. How to contribute: [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+## Documents and the prototype
+
 
 - MVP requirements: [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md)
 - Architecture, back end and hosting plan: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
@@ -44,16 +64,9 @@ Browser tests (Playwright) live in [`tests/`](tests/). With Node and Playwright 
 tests/run.sh /tmp/sevak-shots   # serves the site on :8765, runs every tests/*-test.js, saves screenshots
 ```
 
-## Publish with GitHub Pages
+## Where the prototype is published
 
-The site is deployed by the [`Deploy to GitHub Pages`](.github/workflows/pages.yml) workflow on
-every push to `main`. It checks that local links and scripts exist, then publishes the files as
-they are (no build step). One-time setup:
-
-1. Go to **Settings → Pages**.
-2. Under **Build and deployment**, set **Source** to **GitHub Actions**.
-
-To redeploy without a new commit, open **Actions → Deploy to GitHub Pages → Run workflow**.
-
-The site is published at <https://anbbala.github.io/sevak/>. If the repository is renamed, this
-address changes to match the new name, and the old address does not redirect.
+The real app serves a copy of the prototype, so it's on **staging** (`staging.sevak.theanbgroup.com`)
+after every merge to `staging`. GitHub Pages is no longer deployed; `sevak.theanbgroup.com` keeps
+showing the last published prototype until production launches there. CI checks on every pull
+request that the prototype's local links and scripts are intact.
