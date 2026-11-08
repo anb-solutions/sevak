@@ -820,6 +820,7 @@ input[type="time"], input[type="number"] {
 .org-pick-item:has(input:focus-visible) { box-shadow: 0 0 0 3px var(--focus); }
 .org-pick-item input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--primary); }
 .org-pick-text { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
+.join-switch { margin: 4px 0 0; }
 .join-alt { margin: 16px 0 0; font-size: 0.92rem; color: var(--muted); }
 .join-alt a, .join-notice a, .team-doors-line a, .browse-hint a, .member-strip a { color: var(--primary); font-weight: 600; text-underline-offset: 3px; }
 .join-notice { margin-bottom: 16px; }
@@ -927,13 +928,11 @@ input[type="time"], input[type="number"] {
 }
 
 /* Services */
-.service-picker { max-width: 360px; }
-.service-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; padding: 0; list-style: none; }
-.service-list[hidden] { display: none; }
-.service-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 4px 4px 12px; border-radius: 999px; background: var(--primary-soft); color: var(--primary); font-weight: 600; font-size: 0.9rem; }
-.service-remove { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; font: inherit; font-size: 0.8rem; color: inherit; background: none; cursor: pointer; }
-.service-remove:hover { background: var(--surface); }
-.service-remove:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); }
+.service-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.service-option { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 14px 6px 10px; border: 1px solid var(--input-border); border-radius: 999px; background: var(--surface); cursor: pointer; font-weight: 600; font-size: 0.95rem; }
+.service-option input { width: 18px; height: 18px; margin: 0; accent-color: var(--primary); }
+.service-option:has(input:checked) { border-color: var(--primary); background: var(--primary-soft); color: var(--primary); }
+.service-option:has(input:focus-visible) { box-shadow: 0 0 0 3px var(--focus); }
 #service-empty { margin-top: 12px; }
 
 /* Documents */

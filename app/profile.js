@@ -179,7 +179,7 @@
     }
     var org = window.SevakOrgs.get(i.orgId);
     if (!org) return false;
-    var rec = M.isMember(org.id) ? { status: "active" } : M.request(org.id, i.note, i.way === "invite");
+    var rec = M.isMember(org.id) ? { status: "active" } : M.request(org.id, i.note, i.way === "invite", i.code);
     var next = i.returnTo || "signup.html#my-orgs";
     if (rec && rec.status === "active") {
       showJoinNotice(["Welcome! You're now a volunteer with " + org.name + ". ", noticeLink(next, i.returnTo ? "Back to the event" : "See its opportunities")]);
@@ -305,57 +305,23 @@
   ABOUT_FIELDS.forEach(function (id) { $(id).addEventListener("input", updateCounters); });
 
   // ---------- Services ----------
-  // Picking a service from the drop-down adds it to the list below; each
-  // service can be chosen once and removed again.
+  // A set of tick boxes: choose as many as apply.
 
-  var serviceSelect = $("serviceSelect");
-  var serviceList = $("service-list");
-
-  function serviceLabel(value) {
-    var option = serviceSelect.querySelector('option[value="' + value + '"]');
-    return option ? option.textContent : value;
-  }
+  var serviceBoxes = form.querySelectorAll('input[name="services"]');
 
   function services() {
-    return Array.prototype.map.call(serviceList.children, function (li) { return li.dataset.value; });
-  }
-
-  function refreshServices() {
-    var chosen = services();
-    Array.prototype.forEach.call(serviceSelect.options, function (o) {
-      if (o.value) o.disabled = chosen.indexOf(o.value) !== -1;
-    });
-    $("service-empty").hidden = chosen.length > 0;
-    serviceList.hidden = !chosen.length;
+    return Array.prototype.filter.call(serviceBoxes, function (b) { return b.checked; }).map(function (b) { return b.value; });
   }
 
   function addService(value) {
-    if (!value || services().indexOf(value) !== -1 || !serviceSelect.querySelector('option[value="' + value + '"]')) return;
-    var li = document.createElement("li");
-    li.className = "service-chip";
-    li.dataset.value = value;
-    var name = document.createElement("span");
-    name.textContent = serviceLabel(value);
-    var remove = document.createElement("button");
-    remove.type = "button";
-    remove.className = "service-remove";
-    remove.setAttribute("aria-label", "Remove " + serviceLabel(value));
-    remove.textContent = "✕";
-    remove.addEventListener("click", function () {
-      li.remove();
-      refreshServices();
-      serviceSelect.focus();
-    });
-    li.appendChild(name);
-    li.appendChild(remove);
-    serviceList.appendChild(li);
-    refreshServices();
+    Array.prototype.forEach.call(serviceBoxes, function (b) { if (b.value === value) b.checked = true; });
   }
 
-  serviceSelect.addEventListener("change", function () {
-    addService(serviceSelect.value);
-    serviceSelect.value = "";
-  });
+  function clearServices() {
+    Array.prototype.forEach.call(serviceBoxes, function (b) { b.checked = false; });
+  }
+
+  function refreshServices() { /* nothing to update: the boxes show what's chosen */ }
 
   // ---------- Read / fill ----------
 
@@ -488,7 +454,7 @@
     $("country").value = F.defaultCountry();
     F.resetPhone($("phone"));
     affiliationRows.innerHTML = "";
-    serviceList.innerHTML = "";
+    clearServices();
     photo.set("");
     refreshServices();
     updateCounters();

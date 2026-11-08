@@ -1,4 +1,7 @@
-// Volunteer memberships (prototype), kept in this browser.
+// Volunteer memberships (prototype), kept in this browser, or on Sevak's
+// server when the web app serves the page (window.SevakServer, sync.js).
+// There, invite codes are checked by the server, which never sends them
+// to people outside the organization's team.
 //
 // Joining Sevak as a volunteer takes an invitation or a request to join a
 // particular organization:
@@ -119,10 +122,19 @@
     return c;
   }
 
+  var codeCache = {};
+
   function orgByCode(c) {
     var want = norm(c).toUpperCase().replace(/[^A-Z0-9]/g, "");
     if (!want) return null;
-    return O.all().filter(function (o) { return o.inviteCode && o.inviteCode === want; })[0] || null;
+    var local = O.all().filter(function (o) { return o.inviteCode && o.inviteCode === want; })[0] || null;
+    var server = window.SevakServer;
+    if (local || !server || server.offline || want.length < 4) return local;
+    if (!(want in codeCache)) {
+      var res = server.call("GET", "/api/v1/organizations/by-code/" + encodeURIComponent(want));
+      codeCache[want] = res.status === 200 && res.data ? res.data.organization : null;
+    }
+    return codeCache[want] && (O.get(codeCache[want].id) || codeCache[want]);
   }
 
   // The join link for a code, relative to the app folder.
@@ -157,12 +169,20 @@
 
   // Ask to join an organization (or join straight away with an invite
   // link, or when the organization approves automatically).
-  function request(orgId, note, viaInvite) {
+  // code: the invitation code, when joining with one (the server checks it).
+  function request(orgId, note, viaInvite, code) {
     var org = O.get(orgId);
     var me = snapshot();
     if (!org || !me.email) return null;
     var current = findMine(orgId);
     if (current && current.status === "active") return current;
+    var server = window.SevakServer;
+    if (server && viaInvite && code) {
+      var res = server.call("POST", "/api/v1/memberships/join", { code: code, note: String(note || "").trim().slice(0, 300) });
+      if (res.status !== 200 || !res.data) return null;
+      server.replace(KEY, res.data.value);
+      return findMine(orgId);
+    }
     var auto = viaInvite || org.autoApprove || (current && current.status === "invited");
     var rec = upsert(orgId, me.email, Object.assign({}, me, {
       status: auto ? "active" : "requested",
@@ -174,7 +194,8 @@
     if (rec && auto) {
       email(me.email, "Welcome to " + org.name, "You're now a volunteer with " + org.name + " on Sevak. You can sign up for its events.", "signup.html#my-orgs", "See its opportunities");
     }
-    return rec;
+    // The server may have approved it straight away (or refused it).
+    return server ? findMine(orgId) : rec;
   }
 
   function withdraw(orgId) {

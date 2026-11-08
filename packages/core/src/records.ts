@@ -8,6 +8,8 @@
 //   sevak.profile.v1        your profile (only you)
 //   sevak.organizations.v1  organizations: everyone sees the public part;
 //                           the team (and Sevak staff) see and change the rest
+//   sevak.memberships.v1    who volunteers with which organization
+//                           (memberships.ts)
 //
 // Records whose id starts with "demo-" are the screens' own demo data and
 // stay in each browser; they never reach the server.
@@ -18,26 +20,27 @@ import type { Viewer } from "./auth";
 
 export const PROFILE_KEY = "sevak.profile.v1";
 export const ORGANIZATIONS_KEY = "sevak.organizations.v1";
-export const SYNCED_KEYS = [PROFILE_KEY, ORGANIZATIONS_KEY] as const;
+export const MEMBERSHIPS_KEY = "sevak.memberships.v1";
+export const SYNCED_KEYS = [PROFILE_KEY, ORGANIZATIONS_KEY, MEMBERSHIPS_KEY] as const;
 export type SyncedKey = (typeof SYNCED_KEYS)[number];
 
-type Json = Record<string, unknown>;
+export type Json = Record<string, unknown>;
 
 const MAX_PROFILE_BYTES = 1_500_000; // room for a profile photo
 const MAX_ORG_BYTES = 500_000;
 
-const idSchema = z
+export const idSchema = z
   .string()
   .regex(/^[A-Za-z0-9_-]{1,80}$/)
   .refine((id) => !id.startsWith("demo-"), "Demo records stay in the browser.");
 
-const objectSchema = z.record(z.string(), z.unknown());
+export const objectSchema = z.record(z.string(), z.unknown());
 
-function tooBig(value: unknown, max: number) {
+export function tooBig(value: unknown, max: number) {
   return JSON.stringify(value).length > max;
 }
 
-const lower = (s: unknown) => String(s ?? "").trim().toLowerCase();
+export const lower = (s: unknown) => String(s ?? "").trim().toLowerCase();
 const str = (s: unknown) => (typeof s === "string" ? s.trim().slice(0, 200) : "");
 
 // ---------- Profile ----------
@@ -96,7 +99,8 @@ export function orgRole(org: Json, email: string): "admin" | "coordinator" | nul
 export function publicOrganization(org: Json): Json {
   const address = (org.address ?? {}) as Json;
   const pick: Json = {};
-  for (const key of ["id", "name", "description", "website", "logo", "taxStatus", "verificationStatus", "socials"]) {
+  // autoApprove: whether asking to join is approved straight away.
+  for (const key of ["id", "name", "description", "website", "logo", "taxStatus", "verificationStatus", "socials", "autoApprove"]) {
     if (org[key] !== undefined) pick[key] = org[key];
   }
   pick.address = { city: address.city, state: address.state, country: address.country };
@@ -226,8 +230,16 @@ export async function writeOrganizations(db: Db, viewer: Viewer, ops: unknown): 
 // ---------- Everything a page loads ----------
 
 export async function readSynced(db: Db, viewer: Viewer | null): Promise<Record<SyncedKey, unknown>> {
+  const { readMemberships } = await import("./memberships");
   return {
     [PROFILE_KEY]: viewer ? await readProfile(db, viewer) : null,
     [ORGANIZATIONS_KEY]: await readOrganizations(db, viewer),
+    [MEMBERSHIPS_KEY]: viewer ? await readMemberships(db, viewer) : [],
   };
+}
+
+// Every organization's full record, by id (for access checks).
+export async function organizationsById(db: Db): Promise<Map<string, Json>> {
+  const rows = await db.select().from(records).where(eq(records.collection, "organizations"));
+  return new Map(rows.map((r) => [r.id, r.data]));
 }
