@@ -121,16 +121,16 @@ gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" --role roles/iam
 if [ "$DATABASE" = "cloudsql" ]; then
   say "PostgreSQL on Cloud SQL (smallest size). Creating it takes 5 to 10 minutes."
   if ! exists gcloud sql instances describe "$INSTANCE"; then
-    if [ "$ENV" = "production" ]; then
-      safety=(--backup-start-time 08:00 --deletion-protection) # nightly backups; can't be deleted by accident
-    else
-      safety=(--no-backup) # staging holds only demo data
-    fi
+    # The same in every environment: nightly backups, and it can't be
+    # deleted by accident.
+    safety=(--backup-start-time 08:00 --deletion-protection)
     gcloud sql instances create "$INSTANCE" --database-version POSTGRES_18 --edition enterprise \
       --tier db-f1-micro --region "$REGION" --availability-type zonal \
       --storage-type SSD --storage-size 10 --ssl-mode ENCRYPTED_ONLY \
       --root-password "$(openssl rand -hex 24)" "${safety[@]}"
   fi
+  # Set up before every environment had them: turn them on.
+  gcloud sql instances patch "$INSTANCE" --backup-start-time 08:00 --deletion-protection --quiet >/dev/null
   exists gcloud sql databases describe sevak --instance "$INSTANCE" ||
     gcloud sql databases create sevak --instance "$INSTANCE"
   CONNECTION="$PROJECT:$REGION:$INSTANCE"

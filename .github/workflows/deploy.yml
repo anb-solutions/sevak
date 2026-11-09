@@ -97,7 +97,7 @@ jobs:
           echo "Running the database job: $reason"
           echo "run=true" >> "$GITHUB_OUTPUT"
 
-      - name: Update the database (and add demo data on staging)
+      - name: Update the database
         if: steps.db.outputs.run == 'true'
         run: |
           sql_flag=()
@@ -106,7 +106,7 @@ jobs:
             --service-account "$RUNTIME_SA" --set-secrets DATABASE_URL=database-url:latest \
             --set-env-vars SEVAK_ENV="$SEVAK_ENV" --command node --args tasks/tasks.mjs,deploy \
             --max-retries 0 --task-timeout 300s "${sql_flag[@]}"
-          # Migrations, then demo data on staging, in one run.
+          # Migrations only. No environment gets demo data.
           gcloud run jobs execute sevak-tasks --project "$PROJECT" --region "$REGION" --wait
 
       # The app's keys live in GitHub as environment secrets (RESEND_API_KEY,
@@ -187,21 +187,20 @@ jobs:
             exit 1
           fi
 
-      # Reads real data from the database through the new version, before any
-      # user is sent to it. Staging has demo data to read; production doesn't.
+      # Reads from the database through the new version, before any user is
+      # sent to it: the public organizations and events, as a visitor sees
+      # them. The same check in every environment.
       - name: Check the new version reads the database
-        if: env.SEVAK_ENV == 'staging'
         run: |
-          curl -fsS "${{ steps.deploy.outputs.next }}/api/v1/events/flute-mali-centenary-celebration" -o event.json
+          curl -fsS "${{ steps.deploy.outputs.next }}/api/v1/sync" -o sync.json
           python3 - <<'PY'
           import json, sys
-          event = json.load(open("event.json"))
-          shifts = [s for r in event["roles"] for s in r["shifts"]]
-          print(f'Read "{event["title"]}" from the database: {len(event["roles"])} roles, {len(shifts)} shifts, '
-                f'{sum(s["spotsLeft"] for s in shifts)} spots left.')
-          if not event["roles"] or not shifts:
-              print("::error::The demo event came back without roles or shifts.")
+          data = json.load(open("sync.json"))["data"]
+          orgs, events = data["sevak.organizations.v1"], data["sevak.events.v1"]
+          if not isinstance(orgs, list) or not isinstance(events, list):
+              print("::error::The new version didn't read organizations and events from the database.")
               sys.exit(1)
+          print(f"Read {len(orgs)} organizations and {len(events)} public events from the database.")
           PY
 
       - name: Switch users to the new version

@@ -17,11 +17,19 @@ Each environment is a set of things kept apart from every other environment:
 | Web address | `staging.sevak.theanbgroup.com` | `sevak.theanbgroup.com` |
 | Email sender (Resend team and key) | `notify@staging.sevak.theanbgroup.com`, team "Sevak Staging" | `notify@sevak.theanbgroup.com`, team "Sevak Production" |
 | Continue with Google (OAuth client) | "Sevak Staging", in the staging project | "Sevak", in the production project |
-| Database | Cloud SQL, no backups, demo data | Cloud SQL, nightly backups, deletion protection, never seeded |
+| Database | Cloud SQL, nightly backups, deletion protection | the same |
 | Files bucket, `app-secrets-key` | in the staging project | in the production project |
 
 Nothing is shared between them: no keys, no database, no email domain, no files. A mistake or
 leak in one never touches the other.
+
+Otherwise they're built and run **identically**: the same code, setup script, deploy steps,
+database settings and checks. Neither gets demo data, and both must send real email. Only two
+differences are on purpose:
+
+- **Labels.** Staging says "Staging" at the top of every page, and staging emails start with
+  "[Staging]", so nobody mistakes it for the real thing.
+- **Approval.** Production deploys wait for the owner's approval.
 
 ## Before you start
 
@@ -53,8 +61,8 @@ the script again is always safe: anything already there is left as it is.
 
 It sets up, in that project:
 
-- **Cloud SQL PostgreSQL 18** (`sevak-db`, smallest size), its database and user. For
-  production: nightly backups and deletion protection.
+- **Cloud SQL PostgreSQL 18** (`sevak-db`, smallest size), its database and user, with nightly
+  backups and deletion protection.
 - **Secret Manager** secrets:
   - `database-url`: filled in by the script
   - `resend-api-key` and `google-client-secret`: empty places, which the deploy fills from
@@ -104,8 +112,8 @@ secrets):
 The run's summary links to an address like `https://sevak-web-….run.app`. Check
 `…/api/v1/health` answers `{"ok":true}`.
 
-**Production refuses to start without email** (step 5), so its first deploy fails the health
-check and nobody is switched to it. That's expected. Do step 5, then deploy again.
+Until email is set up (step 5), no sign-in code can be sent, so nobody can sign in yet. That's
+expected; finish the checklist before anyone uses it.
 
 ### 4. The web address (about 30 minutes, mostly DNS)
 
@@ -128,7 +136,7 @@ Cloud Run adds its own address to each request. So when that happens, set the Gi
 `SEVAK_PROXY_HOPS` to how many addresses it adds after the person's, plus one. Otherwise everyone
 shares one sign-in limit. That isn't set up yet.
 
-### 5. Email (required for production)
+### 5. Email (required)
 
 1. In Resend, create a **separate team** for the environment ("Sevak Production"). Turn on
    two-factor sign-in, and invite a second admin.
@@ -205,7 +213,7 @@ app can read them there.
 
 | Secret | Where it comes from | Needed? |
 |---|---|---|
-| `RESEND_API_KEY` | Resend → API Keys, sending access, for this environment's domain | Production: yes. Staging: optional (without it, emails go to the log) |
+| `RESEND_API_KEY` | Resend → API Keys, sending access, for this environment's domain | Yes: without it nobody can sign in |
 | `GOOGLE_CLIENT_SECRET` | The OAuth client in this environment's project | With `GOOGLE_CLIENT_ID` |
 
 ### Made by the setup script (nothing to copy)
@@ -236,7 +244,7 @@ sense:
 | `SEVAK_ENV` | `production` from `main`, `staging` from `staging` |
 | `APP_URL` | `https://` + `GCP_DOMAIN` |
 | `DATABASE_URL` | Secret `database-url` |
-| `EMAIL_MODE`, `RESEND_API_KEY` | `resend` and the key, once `resend-api-key` has one; otherwise `log` (refused in production) |
+| `EMAIL_MODE`, `RESEND_API_KEY` | `resend` and the key, once `resend-api-key` has one; otherwise `log`, which staging and production refuse |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | The variable and the secret, when both are set |
 | `SEVAK_FILES_BUCKET` | `GCP_FILES_BUCKET` |
 | `SEVAK_SECRETS_KEY` | Secret `app-secrets-key` |
@@ -244,6 +252,30 @@ sense:
 
 Local development and tests use other settings: `SEVAK_FILES_DIR`, `ZEFFY_API_BASE` and
 `DATABASE_URL` pointing at a test database. They're never set on staging or production.
+
+## When to add a firewall
+
+Today each environment's address goes straight to Cloud Run. In front of every Cloud Run service,
+Google's front end already absorbs large network floods, at no cost. Sevak adds its own
+protections: limits kept in the database (sign-in, saving, emails, invite codes), access checks
+on every request, and a strict content security policy. For the pilot, that's the usual setup
+for an app at this stage.
+
+The next step is a Google Cloud **load balancer with Cloud Armor**. Cloud Armor is a web
+application firewall: it blocks common attacks and floods at Google's edge, before they reach the
+app, and can limit requests there. It costs about $20–25 a month per environment, and the setup
+script can do all of it except one DNS record. Add it to **both** environments, so they stay
+identical, when any of these happen:
+
+- Sevak opens beyond the pilot organizations, or traffic grows a lot.
+- There's revenue or a grant to cover it.
+- Someone attacks it: floods of requests, or repeated attempts on sign-in.
+- Google retires the address mapping we use now (it's still a preview feature).
+
+Firebase Hosting is a free alternative front door, supported for production. But it has no
+firewall, it only passes one cookie (named `__session`, so Sevak's `__Host-` sign-in cookie would
+have to be renamed), and requests are capped at 60 seconds. It's a fallback if the address
+mapping gives trouble before Cloud Armor is worth paying for.
 
 ## Rules for every environment
 
@@ -266,6 +298,6 @@ request:
 2. In `.github/workflows/deploy.yml`:
    - add the branch to `on.push.branches`
    - map it to its GitHub environment and `SEVAK_ENV`
-   - decide whether it gets demo data (only `SEVAK_ENV=staging` is seeded)
+   - give it its own labels, like staging's
 3. Then follow this checklist for it, with its own project, address, Resend team and Google
    client.

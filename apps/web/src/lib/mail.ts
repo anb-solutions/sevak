@@ -1,8 +1,8 @@
 // Sends Sevak's emails. EMAIL_MODE=resend sends them through Resend
 // (resend.com) with RESEND_API_KEY; EMAIL_MODE=log (the default without a
-// key: local development, or before email is set up) writes them to the
-// server log instead, so sign-in still works there. Production refuses to
-// log. To use another provider, change send() only.
+// key: local development and tests) writes them to the server log instead.
+// Staging and production refuse to log: they always send real email. To use
+// another provider, change send() only.
 //
 // Staging and production send from different addresses, each a domain of
 // its own in Resend with its own key, so test emails never share anything
@@ -30,7 +30,10 @@ function mode(): "resend" | "log" {
 
 export async function send(email: Email): Promise<void> {
   if (mode() === "log") {
-    if (process.env.SEVAK_ENV === "production") throw new Error("Production must send email: set RESEND_API_KEY.");
+    // Staging and production both send real email; only local development
+    // and tests write it to the log.
+    const env = process.env.SEVAK_ENV;
+    if (env === "production" || env === "staging") throw new Error(`${env} must send email: set RESEND_API_KEY.`);
     console.log(`[email not sent: EMAIL_MODE=log] To: ${email.to}\nSubject: ${email.subject}\n\n${email.text}`);
     return;
   }
