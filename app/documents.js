@@ -1,6 +1,9 @@
 // Documents for organizations, events and profiles (prototype).
 // Each document's details are kept in localStorage; the file itself is kept
 // in IndexedDB, which has room for larger files. Nothing leaves the browser.
+// With Sevak's server (window.SevakServer, sync.js), the details are saved
+// on the server and files are uploaded to it (/api/v1/files/<id>), which
+// checks who may see them, the size, the space left and the kind of file.
 //
 // A document belongs to an owner: "org:<id>", "event:<id>" or
 // "profile:<email>" (a person's own documents, such as their certificates).
@@ -63,13 +66,69 @@
     });
   }
 
-  function putFile(id, blob) { return tx("readwrite", function (s) { return s.put(blob, id); }); }
-  function getFile(id) { return tx("readonly", function (s) { return s.get(id); }); }
-  function deleteFile(id) { return tx("readwrite", function (s) { return s.delete(id); }); }
+  var server = window.SevakServer || null;
+
+  // Why the server refused an upload, in words for the person.
+  var UPLOAD_ERRORS = {
+    too_large: "This file is over 10 MB, the limit for one file.",
+    type: "That kind of file isn't accepted. Use a PDF, a picture, a Word, Excel or PowerPoint file, or a text file.",
+    quota: "There's no room left for more documents here (100 MB for a person, 500 MB for an organization). Delete some first.",
+    empty: "This file is empty.",
+    documents_off: "Documents aren't set up on Sevak yet.",
+    signed_out: "You've been signed out. Sign in again, then upload the file."
+  };
+
+  function putFile(id, blob) {
+    if (server) {
+      return fetch("/api/v1/files/" + encodeURIComponent(id), {
+        method: "PUT",
+        credentials: "same-origin",
+        headers: { "Content-Type": blob.type || "application/octet-stream" },
+        body: blob
+      }).then(function (res) {
+        if (res.ok) return;
+        return res.json().catch(function () { return {}; }).then(function (d) {
+          var e = new Error(d.error || "upload");
+          e.userMessage = UPLOAD_ERRORS[d.error] || "Couldn't upload the file. Check your connection and try again.";
+          throw e;
+        });
+      });
+    }
+    return tx("readwrite", function (s) { return s.put(blob, id); });
+  }
+  function getFile(id) {
+    if (server) {
+      return fetch("/api/v1/files/" + encodeURIComponent(id), { credentials: "same-origin" })
+        .then(function (res) { return res.ok ? res.blob() : null; });
+    }
+    return tx("readonly", function (s) { return s.get(id); });
+  }
+  // With the server, deleting a document's details deletes its file there.
+  function deleteFile(id) {
+    if (server) return Promise.resolve();
+    return tx("readwrite", function (s) { return s.delete(id); });
+  }
+
+  // Saves a document's details and its file (if any). With the server the
+  // details go first (the server only takes files for saved documents); a
+  // new document whose upload fails is removed again.
+  function storeDoc(doc, blob, isNew) {
+    if (!server) {
+      var stored = blob ? putFile(doc.id, blob) : Promise.resolve();
+      return stored.then(function () { if (!saveDoc(doc)) throw new Error("storage"); });
+    }
+    if (!saveDoc(doc)) return Promise.reject(new Error("storage"));
+    if (!blob) return Promise.resolve();
+    return putFile(doc.id, blob).catch(function (e) {
+      if (isNew) F.store(KEY, all().filter(function (d) { return d.id !== doc.id; }));
+      throw e;
+    });
+  }
 
   // Removes files whose document was deleted elsewhere (for example with
   // its organization or event).
   function sweep() {
+    if (server) return Promise.resolve();
     var keep = {};
     all().forEach(function (d) { keep[d.id] = true; });
     return tx("readonly", function (s) { return s.getAllKeys(); }).then(function (keys) {
@@ -128,11 +187,9 @@
       uploadedBy: meta.uploadedBy || currentUser(),
       source: meta.source || ""
     });
+    if (meta.orgId) doc.orgId = meta.orgId;
     if (existing) doc.updatedAt = now;
-    return putFile(doc.id, blob).then(function () {
-      if (!saveDoc(doc)) throw new Error("storage");
-      return doc;
-    });
+    return storeDoc(doc, blob, !existing).then(function () { return doc; });
   }
 
   // ---------- Formatting ----------
@@ -303,15 +360,13 @@
 
       var button = q(".docs-save");
       button.disabled = true;
-      var stored = file ? putFile(doc.id, file) : Promise.resolve();
-      stored.then(function () {
-        if (!saveDoc(doc)) throw new Error("storage");
+      storeDoc(doc, file || null, !existing).then(function () {
         closeForm();
         render();
         statusEl.textContent = existing ? "Saved changes to " + doc.name + "." : doc.name + " uploaded.";
         addBtn.focus();
-      }).catch(function () {
-        statusEl.textContent = "Couldn't save the file in this browser. Check that site storage is allowed and there's space.";
+      }).catch(function (e) {
+        statusEl.textContent = (e && e.userMessage) || "Couldn't save the file in this browser. Check that site storage is allowed and there's space.";
       }).then(function () { button.disabled = false; });
     });
 
@@ -447,6 +502,11 @@
     }
 
     setOwner(owner, opts.blockedMessage);
+    if (server && !(server.features && server.features.documents)) {
+      addBtn.disabled = true;
+      blocked.hidden = false;
+      blocked.textContent = UPLOAD_ERRORS.documents_off;
+    }
     sweep();
     return { setOwner: setOwner, render: render };
   }

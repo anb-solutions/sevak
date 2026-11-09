@@ -17,7 +17,7 @@ E2E_STAFF="e2e-staff-$(date +%s)@example.com"
 pnpm db:migrate >/dev/null || exit 1
 (
   cd apps/web &&
-    PORT="$PORT" EMAIL_MODE=log SEVAK_ENV=test SEVAK_PLATFORM_ADMINS="$E2E_STAFF" \
+    PORT="$PORT" EMAIL_MODE=log SEVAK_ENV=test SEVAK_PLATFORM_ADMINS="$E2E_STAFF" SEVAK_FILES_DIR="$(mktemp -d)" \
       exec npx next start >"$LOG" 2>&1
 ) &
 APP=$!

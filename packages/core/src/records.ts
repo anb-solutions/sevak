@@ -13,6 +13,10 @@
 //   sevak.events.v1,        events and main events (events.ts)
 //   sevak.mainEvents.v1
 //   sevak.signups.v1        sign-ups, check-ins and hours (signups.ts)
+//   sevak.certificates.v1,  certificates and signatures (certificates.ts)
+//   sevak.signatures.v1
+//   sevak.documents.v1      documents' details; files are stored apart
+//                           (documents.ts)
 //
 // Records whose id starts with "demo-" are the screens' own demo data and
 // stay in each browser; they never reach the server.
@@ -27,7 +31,20 @@ export const MEMBERSHIPS_KEY = "sevak.memberships.v1";
 export const EVENTS_KEY = "sevak.events.v1";
 export const MAIN_EVENTS_KEY = "sevak.mainEvents.v1";
 export const SIGNUPS_KEY = "sevak.signups.v1";
-export const SYNCED_KEYS = [PROFILE_KEY, ORGANIZATIONS_KEY, MEMBERSHIPS_KEY, EVENTS_KEY, MAIN_EVENTS_KEY, SIGNUPS_KEY] as const;
+export const CERTIFICATES_KEY = "sevak.certificates.v1";
+export const SIGNATURES_KEY = "sevak.signatures.v1";
+export const DOCUMENTS_KEY = "sevak.documents.v1";
+export const SYNCED_KEYS = [
+  PROFILE_KEY,
+  ORGANIZATIONS_KEY,
+  MEMBERSHIPS_KEY,
+  EVENTS_KEY,
+  MAIN_EVENTS_KEY,
+  SIGNUPS_KEY,
+  CERTIFICATES_KEY,
+  SIGNATURES_KEY,
+  DOCUMENTS_KEY,
+] as const;
 export type SyncedKey = (typeof SYNCED_KEYS)[number];
 
 export type Json = Record<string, unknown>;
@@ -239,6 +256,8 @@ export async function readSynced(db: Db, viewer: Viewer | null): Promise<Record<
   const { readMemberships } = await import("./memberships");
   const { readEventsAndMain } = await import("./events");
   const { readSignups } = await import("./signups");
+  const { readCertificates, readSignatures } = await import("./certificates");
+  const { readDocuments } = await import("./documents");
   const { events, mainEvents } = await readEventsAndMain(db, viewer);
   return {
     [PROFILE_KEY]: viewer ? await readProfile(db, viewer) : null,
@@ -247,6 +266,9 @@ export async function readSynced(db: Db, viewer: Viewer | null): Promise<Record<
     [EVENTS_KEY]: events,
     [MAIN_EVENTS_KEY]: mainEvents,
     [SIGNUPS_KEY]: await readSignups(db, viewer),
+    [CERTIFICATES_KEY]: viewer ? await readCertificates(db, viewer) : [],
+    [SIGNATURES_KEY]: viewer ? await readSignatures(db, viewer) : {},
+    [DOCUMENTS_KEY]: viewer ? await readDocuments(db, viewer) : [],
   };
 }
 

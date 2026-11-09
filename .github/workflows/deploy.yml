@@ -45,6 +45,7 @@ jobs:
       EMAIL_FROM: ${{ vars.EMAIL_FROM }} # optional; the app has a default
       PLATFORM_ADMINS: ${{ vars.SEVAK_PLATFORM_ADMINS }} # Sevak staff emails, comma-separated; optional
       GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }} # "Continue with Google"; optional, with the GOOGLE_CLIENT_SECRET secret
+      FILES_BUCKET: ${{ vars.GCP_FILES_BUCKET }} # private bucket for documents (infra/gcp/setup.sh); optional
       IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/sevak/web:${{ github.sha }}
     steps:
       - uses: actions/checkout@v7
@@ -149,6 +150,7 @@ jobs:
           if [ -n "$DOMAIN" ]; then env_vars+="|APP_URL=https://$DOMAIN"; fi
           if [ -n "$PLATFORM_ADMINS" ]; then env_vars+="|SEVAK_PLATFORM_ADMINS=$PLATFORM_ADMINS"; fi
           if [ -n "$EMAIL_FROM" ]; then env_vars+="|EMAIL_FROM=$EMAIL_FROM"; fi
+          if [ -n "$FILES_BUCKET" ]; then env_vars+="|SEVAK_FILES_BUCKET=$FILES_BUCKET"; fi
           has_key() { [ -n "$(gcloud secrets versions list "$1" --project "$PROJECT" --filter state=ENABLED --format 'value(name)' --limit 1 2>/dev/null)" ]; }
           if has_key resend-api-key; then
             env_vars+="|EMAIL_MODE=resend"

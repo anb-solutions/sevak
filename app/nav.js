@@ -262,7 +262,7 @@
     if (!banner) return;
     // With Sevak's server (sync.js), some data is saved there already.
     if (window.SevakServer && /stays in this browser\.$/.test(banner.textContent.trim())) {
-      banner.innerHTML = "<strong>Beta.</strong> Your profile, organizations, memberships, events, sign-ups and hours are saved to Sevak. Certificates and documents still stay in this browser for now.";
+      banner.innerHTML = "<strong>Beta.</strong> Everything you enter is saved to Sevak. Emails Sevak would send still go to the Outbox page for now.";
     }
     var dismissed = false;
     try { dismissed = localStorage.getItem(BANNER_KEY) === "true"; } catch (e) { /* ignore */ }

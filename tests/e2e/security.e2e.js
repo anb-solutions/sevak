@@ -26,14 +26,14 @@ const { BASE, start, person, signIn, email } = require("./helpers");
   await p.check("input[name=availability][value=anytime]", { force: true }).catch(() => {});
   await p.click("#save");
   await p.evaluate(() => {
-    localStorage.setItem("sevak.certificates.v1", JSON.stringify([{ id: "c1", email: "asha" }]));
+    localStorage.setItem("sevak.seenCertificates.v1", JSON.stringify(["c1"]));
     localStorage.setItem("sevak.outbox.v1", JSON.stringify([{ id: "m1", subject: "private" }]));
     return new Promise((done) => { const r = indexedDB.open("sevak-files", 1); r.onupgradeneeded = () => r.result.createObjectStore("files"); r.onsuccess = () => { r.result.close(); done(); }; });
   });
   await p.click("#sign-out");
   await p.waitForURL(BASE + "/");
   const left = await p.evaluate(async () => ({
-    keys: Object.keys(localStorage).filter((k) => k.startsWith("sevak.") && !/bannerDismissed|opportunityFilter|joinIntent|signedOut|organizations|events|mainEvents|signups|memberships/.test(k)),
+    keys: Object.keys(localStorage).filter((k) => k.startsWith("sevak.") && !/bannerDismissed|opportunityFilter|joinIntent|signedOut|organizations|events|mainEvents|signups|memberships|certificates|signatures|documents/.test(k)),
     profile: localStorage.getItem("sevak.profile.v1"),
     files: (await indexedDB.databases()).some((d) => d.name === "sevak-files"),
   }));
