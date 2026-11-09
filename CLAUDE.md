@@ -21,7 +21,8 @@ Two things live in this repo: the **clickable prototype** and the **real app** t
 - `packages/core`: business rules in plain TypeScript, no web code (sign-in, sign-up and capacity,
   synced records, seed data, time zones, tokens), and `src/tasks.ts` (migrate and seed).
 - `Dockerfile`, `infra/gcp/`, `.github/workflows/deploy.yml`: deployment to Google Cloud Run with
-  Cloud SQL PostgreSQL. Guide: `infra/gcp/README.md`.
+  Cloud SQL PostgreSQL. Guide: `infra/gcp/README.md`; every variable and secret an environment
+  needs (for production, or another): `docs/ENVIRONMENTS.md`. Keep it up to date when you add one.
 - `docs/`: requirements, architecture, UML diagrams.
 
 ## Commands
