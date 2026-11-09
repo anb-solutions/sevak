@@ -18,7 +18,21 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { type Db, records } from "@sevak/db";
 import type { Viewer } from "./auth";
-import { buried, bury, idSchema, type Json, lower, objectSchema, organizationsById, orgRole, tooBig } from "./records";
+import {
+  buried,
+  bury,
+  emailIs,
+  idSchema,
+  inOrgs,
+  type Json,
+  lower,
+  objectSchema,
+  organizationsById,
+  orgRole,
+  type ReadContext,
+  readContext,
+  tooBig,
+} from "./records";
 
 const MAX_BYTES = 1_500_000; // room for a cover picture
 export const MAX_EVENTS_PER_ORG = 500; // events (and main events) one organization can have
@@ -28,7 +42,7 @@ type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 async function activeMemberOf(db: Db, viewer: Viewer | null): Promise<Set<string>> {
   if (!viewer) return new Set();
-  const rows = await db.select().from(records).where(eq(records.collection, "memberships"));
+  const rows = await db.select().from(records).where(and(eq(records.collection, "memberships"), emailIs(viewer.email)));
   return new Set(rows.filter((r) => lower(r.data.email) === viewer.email && r.data.status === "active").map((r) => String(r.data.orgId)));
 }
 
@@ -45,12 +59,18 @@ function isLive(event: Json) {
 }
 
 // Both lists, as this person may see them.
-export async function readEventsAndMain(db: Db, viewer: Viewer | null): Promise<{ events: Json[]; mainEvents: Json[] }> {
-  const [rows, orgs, member] = await Promise.all([
-    db.select().from(records).where(inArray(records.collection, ["events", "mainEvents"])).orderBy(records.createdAt),
-    organizationsById(db),
-    activeMemberOf(db, viewer),
-  ]);
+export async function readEventsAndMain(db: Db, viewer: Viewer | null, ctx?: ReadContext): Promise<{ events: Json[]; mainEvents: Json[] }> {
+  ctx ??= await readContext(db, viewer);
+  const { orgs } = ctx;
+  const member = await activeMemberOf(db, viewer);
+  // Only organizations whose events this person could see: their teams,
+  // where they volunteer, and verified ones (for public events).
+  const verified = [...orgs].filter(([, o]) => o.verificationStatus === "verified").map(([id]) => id);
+  const rows = await db
+    .select()
+    .from(records)
+    .where(and(inArray(records.collection, ["events", "mainEvents"]), inOrgs([...ctx.team, ...member, ...verified])))
+    .orderBy(records.createdAt);
   const events = rows.filter((r) => r.collection === "events").map((r) => r.data);
   const mains = rows.filter((r) => r.collection === "mainEvents").map((r) => r.data);
 

@@ -15,12 +15,12 @@
 //
 // Who sees what: your own requests and certificates; the organization's
 // team sees its organization's.
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 import { type Db, records } from "@sevak/db";
 import type { Viewer } from "./auth";
 import { certificateDeclined, certificateIssued, certificateRequested, type Mail } from "./notify";
-import { idSchema, type Json, lower, objectSchema, organizationsById, orgRole, RecordError, tooBig } from "./records";
+import { emailIs, idSchema, inOrgs, type Json, lower, objectSchema, organizationsById, orgRole, type ReadContext, readContext, RecordError, tooBig } from "./records";
 
 const COLLECTION = "certificates";
 const MAX_BYTES = 400_000; // the snapshot, with the signer's drawn signature
@@ -30,11 +30,14 @@ const now = () => new Date().toISOString();
 
 const isAdmin = (org: Json | undefined, v: Viewer) => !!org && (v.isPlatformAdmin || orgRole(org, v.email) === "admin");
 
-export async function readCertificates(db: Db, viewer: Viewer): Promise<Json[]> {
-  const [rows, orgs] = await Promise.all([
-    db.select().from(records).where(eq(records.collection, COLLECTION)).orderBy(records.createdAt),
-    organizationsById(db),
-  ]);
+export async function readCertificates(db: Db, viewer: Viewer, ctx?: ReadContext): Promise<Json[]> {
+  ctx ??= await readContext(db, viewer);
+  const { orgs } = ctx;
+  const rows = await db
+    .select()
+    .from(records)
+    .where(and(eq(records.collection, COLLECTION), or(emailIs(viewer.email), inOrgs(ctx.admin))))
+    .orderBy(records.createdAt);
   // Your own, and for an organization's Admins its volunteers'.
   return rows.filter((r) => lower(r.data.email) === viewer.email || isAdmin(orgs.get(String(r.data.orgId)), viewer)).map((r) => r.data);
 }

@@ -20,7 +20,7 @@
 //
 // Records whose id starts with "demo-" are the screens' own demo data and
 // stay in each browser; they never reach the server.
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, type SQL, sql } from "drizzle-orm";
 import { z } from "zod";
 import { type Db, records, users } from "@sevak/db";
 import type { Viewer } from "./auth";
@@ -157,9 +157,9 @@ function canSeeAll(org: Json, viewer: Viewer | null) {
   return !!viewer && (viewer.isPlatformAdmin || orgRole(org, viewer.email) !== null);
 }
 
-export async function readOrganizations(db: Db, viewer: Viewer | null): Promise<Json[]> {
-  const rows = await db.select().from(records).where(eq(records.collection, "organizations")).orderBy(records.createdAt);
-  return rows.map((r) => (canSeeAll(r.data, viewer) ? r.data : publicOrganization(r.data)));
+export async function readOrganizations(db: Db, viewer: Viewer | null, ctx?: ReadContext): Promise<Json[]> {
+  const list = ctx ? [...ctx.orgs.values()] : (await db.select().from(records).where(eq(records.collection, "organizations")).orderBy(records.createdAt)).map((r) => r.data);
+  return list.map((org) => (canSeeAll(org, viewer) ? org : publicOrganization(org)));
 }
 
 const VERIFICATION_FIELDS = ["verificationStatus", "verification"] as const;
@@ -352,6 +352,41 @@ export async function buried(tx: Tx, collection: string, ids: string[]): Promise
   return new Set(rows.map((r) => r.id.slice(collection.length + 1)));
 }
 
+// ---------- Reading only what each person may see ----------
+
+// Worked out once per page load: every organization (everyone sees their
+// public part), and which of them this person is on the team of, and an
+// Admin of. Reads then ask the database only for those organizations' rows
+// (and the person's own), and the rules above still decide row by row.
+export interface ReadContext {
+  orgs: Map<string, Json>;
+  team: string[];
+  admin: string[];
+}
+
+export async function readContext(db: Db, viewer: Viewer | null): Promise<ReadContext> {
+  const orgs = await organizationsById(db);
+  const team: string[] = [];
+  const admin: string[] = [];
+  if (viewer) {
+    for (const [id, org] of orgs) {
+      const role = viewer.isPlatformAdmin ? "admin" : orgRole(org, viewer.email);
+      if (role) team.push(id);
+      if (role === "admin") admin.push(id);
+    }
+  }
+  return { orgs, team, admin };
+}
+
+// Rows of these organizations (none, if the list is empty).
+export const inOrgs = (ids: Iterable<string>): SQL => {
+  const list = [...new Set(ids)];
+  return list.length ? inArray(records.orgId, list) : sql`false`;
+};
+
+// Rows whose `field` is this person's email.
+export const emailIs = (email: string, field = "email"): SQL => sql`lower(trim(${records.data}->>${field})) = ${email}`;
+
 // ---------- Everything a page loads ----------
 
 export async function readSynced(db: Db, viewer: Viewer | null): Promise<Record<SyncedKey, unknown>> {
@@ -360,22 +395,31 @@ export async function readSynced(db: Db, viewer: Viewer | null): Promise<Record<
   const { readSignups } = await import("./signups");
   const { readCertificates, readSignatures } = await import("./certificates");
   const { readDocuments } = await import("./documents");
-  const { events, mainEvents } = await readEventsAndMain(db, viewer);
+  const ctx = await readContext(db, viewer);
+  const visible = await readEventsAndMain(db, viewer, ctx);
+  const [profile, memberships, signups, certificates, signatures, documents] = await Promise.all([
+    viewer ? readProfile(db, viewer) : null,
+    viewer ? readMemberships(db, viewer, ctx) : [],
+    readSignups(db, viewer, ctx, visible),
+    viewer ? readCertificates(db, viewer, ctx) : [],
+    viewer ? readSignatures(db, viewer) : {},
+    viewer ? readDocuments(db, viewer, ctx) : [],
+  ]);
   return {
-    [PROFILE_KEY]: viewer ? await readProfile(db, viewer) : null,
-    [ORGANIZATIONS_KEY]: await readOrganizations(db, viewer),
-    [MEMBERSHIPS_KEY]: viewer ? await readMemberships(db, viewer) : [],
-    [EVENTS_KEY]: events,
-    [MAIN_EVENTS_KEY]: mainEvents,
-    [SIGNUPS_KEY]: await readSignups(db, viewer),
-    [CERTIFICATES_KEY]: viewer ? await readCertificates(db, viewer) : [],
-    [SIGNATURES_KEY]: viewer ? await readSignatures(db, viewer) : {},
-    [DOCUMENTS_KEY]: viewer ? await readDocuments(db, viewer) : [],
+    [PROFILE_KEY]: profile,
+    [ORGANIZATIONS_KEY]: await readOrganizations(db, viewer, ctx),
+    [MEMBERSHIPS_KEY]: memberships,
+    [EVENTS_KEY]: visible.events,
+    [MAIN_EVENTS_KEY]: visible.mainEvents,
+    [SIGNUPS_KEY]: signups,
+    [CERTIFICATES_KEY]: certificates,
+    [SIGNATURES_KEY]: signatures,
+    [DOCUMENTS_KEY]: documents,
   };
 }
 
-// Every organization's full record, by id (for access checks).
+// Every organization's full record, by id, oldest first (for access checks).
 export async function organizationsById(db: Db): Promise<Map<string, Json>> {
-  const rows = await db.select().from(records).where(eq(records.collection, "organizations"));
+  const rows = await db.select().from(records).where(eq(records.collection, "organizations")).orderBy(records.createdAt);
   return new Map(rows.map((r) => [r.id, r.data]));
 }
