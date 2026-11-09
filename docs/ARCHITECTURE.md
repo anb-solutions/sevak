@@ -218,6 +218,23 @@ cancellation gives the spot back in the same transaction. A database rule
 Each event stores its time zone (for example `America/Chicago`). Shift times are stored in UTC and
 shown in the event's time.
 
+### 3.4a Events from Zeffy (EVT-20)
+
+Zeffy's API (`https://api.zeffy.com/api/v1`, reference at `/api/docs`) gives each organization a
+key that reads, and can also change, its Zeffy data (payments, contacts, campaigns). Sevak only
+reads campaigns of type `ticketing`, and only on the server:
+
+- **The key** is checked against Zeffy, then sealed with AES-256-GCM using `SEVAK_SECRETS_KEY`
+  (Secret Manager `app-secrets-key`, made at random by the setup script; never in GitHub) and
+  stored in `records` (collection `integrations`, never sent to a page). Only the organization's
+  Admins connect or disconnect; its team lists and imports. Deleting the organization deletes it.
+- **Import** (`POST /api/v1/organizations/{id}/zeffy/events`) makes a draft event through the
+  usual event rules (`writeEvents`), with `source: {kind: "zeffy", id, url}`.
+- **Refresh** (`GET …/zeffy/events/{campaignId}`) returns what Zeffy says now; the editor shows
+  the differences and fills them in, and the team saves as usual.
+- Calls have a 10-second timeout, refuse redirects, and are limited per person. Tests use a
+  stand-in for Zeffy (`tests/e2e/fake-zeffy.js`, `ZEFFY_API_BASE`).
+
 ### 3.5 Email and calendars (COM-*, COM-10)
 
 **Provider: Resend**, behind one small function (`apps/web/src/lib/mail.ts`), so moving to another

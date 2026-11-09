@@ -294,15 +294,15 @@ export async function writeOrganizations(db: Db, viewer: Viewer, ops: unknown): 
       }
       await tx.delete(records).where(and(eq(records.collection, "organizations"), eq(records.id, id)));
       await bury(tx, "organizations", id, viewer);
-      // Its events and who volunteers with it go too. Sign-ups (with their
+      // Its events, who volunteers with it and its connections (Zeffy) go too. Sign-ups (with their
       // hours), certificates and documents stay with the people they're for.
       const owned = await tx
         .select({ collection: records.collection, id: records.id })
         .from(records)
-        .where(and(inArray(records.collection, ["events", "mainEvents", "memberships"]), eq(records.orgId, id)));
+        .where(and(inArray(records.collection, ["events", "mainEvents", "memberships", "integrations"]), eq(records.orgId, id)));
       for (const r of owned) {
         await tx.delete(records).where(and(eq(records.collection, r.collection), eq(records.id, r.id)));
-        if (r.collection !== "memberships") await bury(tx, r.collection, r.id, viewer);
+        if (r.collection === "events" || r.collection === "mainEvents") await bury(tx, r.collection, r.id, viewer);
       }
       byId.delete(id);
     }

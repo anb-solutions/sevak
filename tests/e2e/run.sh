@@ -14,20 +14,25 @@ LOG="$(mktemp)"
 PORT="${E2E_PORT:-3100}"
 E2E_STAFF="e2e-staff-$(date +%s)@example.com"
 
+ZEFFY_PORT="${E2E_ZEFFY_PORT:-3199}"
+
 pnpm db:migrate >/dev/null || exit 1
+# A stand-in for Zeffy's API (fake-zeffy.js).
+PORT="$ZEFFY_PORT" node tests/e2e/fake-zeffy.js &
+ZEFFY=$!
 (
   cd apps/web &&
     PORT="$PORT" EMAIL_MODE=log SEVAK_ENV=test SEVAK_PLATFORM_ADMINS="$E2E_STAFF" SEVAK_FILES_DIR="$(mktemp -d)" \
-      exec npx next start >"$LOG" 2>&1
+      ZEFFY_API_BASE="http://127.0.0.1:$ZEFFY_PORT/api/v1" exec npx next start >"$LOG" 2>&1
 ) &
 APP=$!
-trap 'kill $APP 2>/dev/null' EXIT
+trap 'kill $APP $ZEFFY 2>/dev/null' EXIT
 for _ in $(seq 1 60); do
   curl -fsS "http://localhost:$PORT/api/v1/health" >/dev/null 2>&1 && break
   sleep 1
 done
 
-export NODE_PATH="${NODE_PATH:-$(npm root -g)}" E2E_BASE="http://localhost:$PORT" E2E_LOG="$LOG" E2E_STAFF
+export NODE_PATH="${NODE_PATH:-$(npm root -g)}" E2E_BASE="http://localhost:$PORT" E2E_LOG="$LOG" E2E_STAFF E2E_ZEFFY="http://127.0.0.1:$ZEFFY_PORT"
 fail=0
 for t in tests/e2e/*.e2e.js; do
   out=$(timeout 300 node "$t" 2>&1)

@@ -398,6 +398,8 @@
       status: status,
       active: active,
       inactiveAt: active ? undefined : (existing && existing.inactiveAt) || new Date().toISOString(),
+      // Where it was imported from (Zeffy), kept for Refresh.
+      source: (existing && existing.source) || undefined,
       createdAt: createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };

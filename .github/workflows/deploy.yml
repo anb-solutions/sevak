@@ -158,6 +158,8 @@ jobs:
           else
             env_vars+="|EMAIL_MODE=log"
           fi
+          # Encrypts organizations' Zeffy keys; made by infra/gcp/setup.sh.
+          if has_key app-secrets-key; then secrets+=",SEVAK_SECRETS_KEY=app-secrets-key:latest"; fi
           if [ -n "$GOOGLE_CLIENT_ID" ] && has_key google-client-secret; then
             env_vars+="|GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID"
             secrets+=",GOOGLE_CLIENT_SECRET=google-client-secret:latest"
