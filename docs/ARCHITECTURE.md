@@ -198,6 +198,13 @@ cancellation gives the spot back in the same transaction. A database rule
 
 ### 3.3 Who can see what (§5 of the requirements)
 
+- **Each page load reads only what the person may see.** It works out once which organizations
+  they're on the team of, an Admin of, or volunteer with, then asks the database only for those
+  organizations' rows (plus their own, and verified organizations' public events), and the rules
+  in `packages/core` still decide row by row (`readContext` in `records.ts`).
+  `visibility.test.ts` records exactly what each kind of person gets, so a change can't quietly
+  show anyone more.
+
 - Every host API call checks the person's role in that organization (Admin or Coordinator) through
   one shared function, and every query on organization data is limited to that organization.
 - Public pages show counts ("4 of 6 spots left"), never names. People outside an event's team

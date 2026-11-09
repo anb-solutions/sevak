@@ -1,0 +1,1949 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`what a page load gives each person > ada 1`] = `
+{
+  "sevak.certificates.v1": [
+    {
+      "email": "mei@example.com",
+      "from": "2030-01-01",
+      "id": "c-1",
+      "name": "Mei",
+      "note": "",
+      "orgId": "org-v",
+      "requestedAt": "<time>",
+      "status": "requested",
+      "to": "2030-01-31",
+    },
+  ],
+  "sevak.documents.v1": [
+    {
+      "id": "d-ev",
+      "name": "Run sheet",
+      "owner": "event:ev-v-pub",
+    },
+    {
+      "id": "d-org",
+      "name": "Policy",
+      "owner": "org:org-v",
+      "storedAt": "<time>",
+      "storedBytes": 15,
+      "storedType": "application/pdf",
+    },
+  ],
+  "sevak.events.v1": [
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "id": "ev-v-draft",
+      "mainEventId": "main-v-hidden",
+      "organizationId": "org-v",
+      "roles": [
+        {
+          "id": "ev-v-draft-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-draft-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-draft-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "draft",
+      "title": "ev-v-draft",
+      "visibility": "public",
+    },
+    {
+      "active": false,
+      "endDate": "2030-01-10",
+      "id": "ev-v-off",
+      "organizationId": "org-v",
+      "roles": [
+        {
+          "id": "ev-v-off-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-off-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-off-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-v-off",
+      "visibility": "public",
+    },
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "id": "ev-v-priv",
+      "organizationId": "org-v",
+      "roles": [
+        {
+          "id": "ev-v-priv-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-priv-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-priv-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-v-priv",
+      "visibility": "private",
+    },
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "eventAdmin": "cora@example.com",
+      "id": "ev-v-pub",
+      "mainEventId": "main-v",
+      "organizationId": "org-v",
+      "roles": [
+        {
+          "id": "ev-v-pub-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-pub-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-pub-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-v-pub",
+      "visibility": "public",
+    },
+  ],
+  "sevak.mainEvents.v1": [
+    {
+      "id": "main-v",
+      "organizationId": "org-v",
+      "title": "Festival",
+    },
+    {
+      "id": "main-v-hidden",
+      "organizationId": "org-v",
+      "title": "Hidden",
+    },
+  ],
+  "sevak.memberships.v1": [
+    {
+      "decidedAt": "<time>",
+      "decidedBy": "ada@example.com",
+      "email": "dev@example.com",
+      "how": "request",
+      "id": "m-dev-v",
+      "name": "Dev",
+      "orgId": "org-v",
+      "status": "declined",
+      "updatedAt": "<time>",
+    },
+    {
+      "decidedAt": "<time>",
+      "email": "mei@example.com",
+      "how": "invitation",
+      "id": "m-mei-v",
+      "invitedAt": "<time>",
+      "invitedBy": "ada@example.com",
+      "orgId": "org-v",
+      "status": "active",
+    },
+    {
+      "email": "sam@example.com",
+      "how": "request",
+      "id": "m-sam-v",
+      "name": "Sam",
+      "orgId": "org-v",
+      "status": "requested",
+    },
+  ],
+  "sevak.organizations.v1": [
+    {
+      "address": {},
+      "id": "org-u",
+      "name": "Unverified",
+      "public": true,
+      "team": [],
+      "verificationStatus": "unverified",
+    },
+    {
+      "address": {
+        "city": "Houston",
+        "line1": "1 Main St",
+      },
+      "createdBy": "ada@example.com",
+      "id": "org-v",
+      "name": "Verified",
+      "primaryContact": {
+        "email": "ada@example.com",
+        "name": "Ada",
+        "phone": "+15550000001",
+      },
+      "team": [
+        {
+          "email": "cora@example.com",
+          "name": "Cora",
+          "role": "coordinator",
+        },
+        {
+          "email": "carl@example.com",
+          "name": "Carl",
+          "role": "coordinator",
+        },
+      ],
+      "verificationStatus": "verified",
+    },
+  ],
+  "sevak.profile.v1": null,
+  "sevak.signatures.v1": {},
+  "sevak.signups.v1": [
+    {
+      "email": "mei@example.com",
+      "eventId": "ev-v-pub",
+      "id": "su-1",
+      "name": "mei",
+      "phone": "+15551112222",
+      "shiftId": "ev-v-pub-s1",
+      "status": "confirmed",
+    },
+    {
+      "email": "mei@example.com",
+      "eventId": "ev-v-priv",
+      "id": "su-2",
+      "name": "mei",
+      "phone": "+15551112222",
+      "shiftId": "ev-v-priv-s1",
+      "status": "confirmed",
+    },
+    {
+      "email": "walkin@example.com",
+      "eventId": "ev-v-pub",
+      "id": "su-4",
+      "name": "walkin",
+      "phone": "+15551112222",
+      "shiftId": "ev-v-pub-s2",
+      "status": "confirmed",
+    },
+    {
+      "email": "walkin@example.com",
+      "eventId": "ev-v-draft",
+      "id": "su-5",
+      "name": "walkin",
+      "phone": "+15551112222",
+      "shiftId": "ev-v-draft-s1",
+      "status": "confirmed",
+    },
+  ],
+}
+`;
+
+exports[`what a page load gives each person > carl 1`] = `
+{
+  "sevak.certificates.v1": [],
+  "sevak.documents.v1": [
+    {
+      "id": "d-ev",
+      "name": "Run sheet",
+      "owner": "event:ev-v-pub",
+    },
+    {
+      "id": "d-org",
+      "name": "Policy",
+      "owner": "org:org-v",
+      "storedAt": "<time>",
+      "storedBytes": 15,
+      "storedType": "application/pdf",
+    },
+  ],
+  "sevak.events.v1": [
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "id": "ev-v-draft",
+      "mainEventId": "main-v-hidden",
+      "organizationId": "org-v",
+      "roles": [
+        {
+          "id": "ev-v-draft-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-draft-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-draft-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "draft",
+      "title": "ev-v-draft",
+      "visibility": "public",
+    },
+    {
+      "active": false,
+      "endDate": "2030-01-10",
+      "id": "ev-v-off",
+      "organizationId": "org-v",
+      "roles": [
+        {
+          "id": "ev-v-off-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-off-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-off-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-v-off",
+      "visibility": "public",
+    },
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "id": "ev-v-priv",
+      "organizationId": "org-v",
+      "roles": [
+        {
+          "id": "ev-v-priv-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-priv-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-priv-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-v-priv",
+      "visibility": "private",
+    },
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "eventAdmin": "cora@example.com",
+      "id": "ev-v-pub",
+      "mainEventId": "main-v",
+      "organizationId": "org-v",
+      "roles": [
+        {
+          "id": "ev-v-pub-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-pub-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-pub-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-v-pub",
+      "visibility": "public",
+    },
+  ],
+  "sevak.mainEvents.v1": [
+    {
+      "id": "main-v",
+      "organizationId": "org-v",
+      "title": "Festival",
+    },
+    {
+      "id": "main-v-hidden",
+      "organizationId": "org-v",
+      "title": "Hidden",
+    },
+  ],
+  "sevak.memberships.v1": [],
+  "sevak.organizations.v1": [
+    {
+      "address": {},
+      "id": "org-u",
+      "name": "Unverified",
+      "public": true,
+      "team": [],
+      "verificationStatus": "unverified",
+    },
+    {
+      "address": {
+        "city": "Houston",
+        "line1": "1 Main St",
+      },
+      "createdBy": "ada@example.com",
+      "id": "org-v",
+      "name": "Verified",
+      "primaryContact": {
+        "email": "ada@example.com",
+        "name": "Ada",
+        "phone": "+15550000001",
+      },
+      "team": [
+        {
+          "email": "cora@example.com",
+          "name": "Cora",
+          "role": "coordinator",
+        },
+        {
+          "email": "carl@example.com",
+          "name": "Carl",
+          "role": "coordinator",
+        },
+      ],
+      "verificationStatus": "verified",
+    },
+  ],
+  "sevak.profile.v1": null,
+  "sevak.signatures.v1": {},
+  "sevak.signups.v1": [
+    {
+      "anonymous": true,
+      "eventId": "ev-v-pub",
+      "id": "su-1",
+      "shiftId": "ev-v-pub-s1",
+      "status": "confirmed",
+    },
+    {
+      "anonymous": true,
+      "eventId": "ev-v-priv",
+      "id": "su-2",
+      "shiftId": "ev-v-priv-s1",
+      "status": "confirmed",
+    },
+    {
+      "anonymous": true,
+      "eventId": "ev-v-pub",
+      "id": "su-4",
+      "shiftId": "ev-v-pub-s2",
+      "status": "confirmed",
+    },
+    {
+      "anonymous": true,
+      "eventId": "ev-v-draft",
+      "id": "su-5",
+      "shiftId": "ev-v-draft-s1",
+      "status": "confirmed",
+    },
+  ],
+}
+`;
+
+exports[`what a page load gives each person > cora 1`] = `
+{
+  "sevak.certificates.v1": [],
+  "sevak.documents.v1": [
+    {
+      "id": "d-ev",
+      "name": "Run sheet",
+      "owner": "event:ev-v-pub",
+    },
+    {
+      "id": "d-org",
+      "name": "Policy",
+      "owner": "org:org-v",
+      "storedAt": "<time>",
+      "storedBytes": 15,
+      "storedType": "application/pdf",
+    },
+  ],
+  "sevak.events.v1": [
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "id": "ev-v-draft",
+      "mainEventId": "main-v-hidden",
+      "organizationId": "org-v",
+      "roles": [
+        {
+          "id": "ev-v-draft-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-draft-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-draft-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "draft",
+      "title": "ev-v-draft",
+      "visibility": "public",
+    },
+    {
+      "active": false,
+      "endDate": "2030-01-10",
+      "id": "ev-v-off",
+      "organizationId": "org-v",
+      "roles": [
+        {
+          "id": "ev-v-off-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-off-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-off-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-v-off",
+      "visibility": "public",
+    },
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "id": "ev-v-priv",
+      "organizationId": "org-v",
+      "roles": [
+        {
+          "id": "ev-v-priv-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-priv-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-priv-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-v-priv",
+      "visibility": "private",
+    },
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "eventAdmin": "cora@example.com",
+      "id": "ev-v-pub",
+      "mainEventId": "main-v",
+      "organizationId": "org-v",
+      "roles": [
+        {
+          "id": "ev-v-pub-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-pub-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-pub-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-v-pub",
+      "visibility": "public",
+    },
+  ],
+  "sevak.mainEvents.v1": [
+    {
+      "id": "main-v",
+      "organizationId": "org-v",
+      "title": "Festival",
+    },
+    {
+      "id": "main-v-hidden",
+      "organizationId": "org-v",
+      "title": "Hidden",
+    },
+  ],
+  "sevak.memberships.v1": [],
+  "sevak.organizations.v1": [
+    {
+      "address": {},
+      "id": "org-u",
+      "name": "Unverified",
+      "public": true,
+      "team": [],
+      "verificationStatus": "unverified",
+    },
+    {
+      "address": {
+        "city": "Houston",
+        "line1": "1 Main St",
+      },
+      "createdBy": "ada@example.com",
+      "id": "org-v",
+      "name": "Verified",
+      "primaryContact": {
+        "email": "ada@example.com",
+        "name": "Ada",
+        "phone": "+15550000001",
+      },
+      "team": [
+        {
+          "email": "cora@example.com",
+          "name": "Cora",
+          "role": "coordinator",
+        },
+        {
+          "email": "carl@example.com",
+          "name": "Carl",
+          "role": "coordinator",
+        },
+      ],
+      "verificationStatus": "verified",
+    },
+  ],
+  "sevak.profile.v1": null,
+  "sevak.signatures.v1": {},
+  "sevak.signups.v1": [
+    {
+      "email": "mei@example.com",
+      "eventId": "ev-v-pub",
+      "id": "su-1",
+      "name": "mei",
+      "phone": "+15551112222",
+      "shiftId": "ev-v-pub-s1",
+      "status": "confirmed",
+    },
+    {
+      "anonymous": true,
+      "eventId": "ev-v-priv",
+      "id": "su-2",
+      "shiftId": "ev-v-priv-s1",
+      "status": "confirmed",
+    },
+    {
+      "email": "walkin@example.com",
+      "eventId": "ev-v-pub",
+      "id": "su-4",
+      "name": "walkin",
+      "phone": "+15551112222",
+      "shiftId": "ev-v-pub-s2",
+      "status": "confirmed",
+    },
+    {
+      "anonymous": true,
+      "eventId": "ev-v-draft",
+      "id": "su-5",
+      "shiftId": "ev-v-draft-s1",
+      "status": "confirmed",
+    },
+  ],
+}
+`;
+
+exports[`what a page load gives each person > dev 1`] = `
+{
+  "sevak.certificates.v1": [],
+  "sevak.documents.v1": [],
+  "sevak.events.v1": [
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "id": "ev-v-pub",
+      "mainEventId": "main-v",
+      "organizationId": "org-v",
+      "roles": [
+        {
+          "id": "ev-v-pub-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-pub-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-pub-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-v-pub",
+      "visibility": "public",
+    },
+  ],
+  "sevak.mainEvents.v1": [
+    {
+      "id": "main-v",
+      "organizationId": "org-v",
+      "title": "Festival",
+    },
+  ],
+  "sevak.memberships.v1": [
+    {
+      "decidedAt": "<time>",
+      "decidedBy": "ada@example.com",
+      "email": "dev@example.com",
+      "how": "request",
+      "id": "m-dev-v",
+      "name": "Dev",
+      "orgId": "org-v",
+      "status": "declined",
+      "updatedAt": "<time>",
+    },
+  ],
+  "sevak.organizations.v1": [
+    {
+      "address": {},
+      "id": "org-u",
+      "name": "Unverified",
+      "public": true,
+      "team": [],
+      "verificationStatus": "unverified",
+    },
+    {
+      "address": {
+        "city": "Houston",
+      },
+      "id": "org-v",
+      "name": "Verified",
+      "public": true,
+      "team": [],
+      "verificationStatus": "verified",
+    },
+  ],
+  "sevak.profile.v1": {
+    "aboutMe": "about dev@example.com",
+    "email": "dev@example.com",
+    "firstName": "dev",
+    "lastName": "Test",
+    "phone": "+15551112222",
+  },
+  "sevak.signatures.v1": {},
+  "sevak.signups.v1": [
+    {
+      "anonymous": true,
+      "eventId": "ev-v-pub",
+      "id": "su-1",
+      "shiftId": "ev-v-pub-s1",
+      "status": "confirmed",
+    },
+    {
+      "anonymous": true,
+      "eventId": "ev-v-pub",
+      "id": "su-4",
+      "shiftId": "ev-v-pub-s2",
+      "status": "confirmed",
+    },
+  ],
+}
+`;
+
+exports[`what a page load gives each person > mei 1`] = `
+{
+  "sevak.certificates.v1": [
+    {
+      "email": "mei@example.com",
+      "from": "2030-01-01",
+      "id": "c-1",
+      "name": "Mei",
+      "note": "",
+      "orgId": "org-v",
+      "requestedAt": "<time>",
+      "status": "requested",
+      "to": "2030-01-31",
+    },
+  ],
+  "sevak.documents.v1": [
+    {
+      "id": "d-mei",
+      "name": "Mei's",
+      "owner": "profile:mei@example.com",
+    },
+  ],
+  "sevak.events.v1": [
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "id": "ev-u-priv",
+      "organizationId": "org-u",
+      "roles": [
+        {
+          "id": "ev-u-priv-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-u-priv-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-u-priv-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-u-priv",
+      "visibility": "private",
+    },
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "id": "ev-u-pub",
+      "organizationId": "org-u",
+      "roles": [
+        {
+          "id": "ev-u-pub-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-u-pub-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-u-pub-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-u-pub",
+      "visibility": "public",
+    },
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "id": "ev-v-priv",
+      "organizationId": "org-v",
+      "roles": [
+        {
+          "id": "ev-v-priv-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-priv-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-priv-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-v-priv",
+      "visibility": "private",
+    },
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "id": "ev-v-pub",
+      "mainEventId": "main-v",
+      "organizationId": "org-v",
+      "roles": [
+        {
+          "id": "ev-v-pub-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-pub-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-pub-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-v-pub",
+      "visibility": "public",
+    },
+  ],
+  "sevak.mainEvents.v1": [
+    {
+      "id": "main-v",
+      "organizationId": "org-v",
+      "title": "Festival",
+    },
+  ],
+  "sevak.memberships.v1": [
+    {
+      "decidedAt": "<time>",
+      "email": "mei@example.com",
+      "how": "invitation",
+      "id": "m-mei-u",
+      "invitedAt": "<time>",
+      "invitedBy": "una@example.com",
+      "orgId": "org-u",
+      "status": "active",
+    },
+    {
+      "decidedAt": "<time>",
+      "email": "mei@example.com",
+      "how": "invitation",
+      "id": "m-mei-v",
+      "invitedAt": "<time>",
+      "invitedBy": "ada@example.com",
+      "orgId": "org-v",
+      "status": "active",
+    },
+  ],
+  "sevak.organizations.v1": [
+    {
+      "address": {},
+      "id": "org-u",
+      "name": "Unverified",
+      "public": true,
+      "team": [],
+      "verificationStatus": "unverified",
+    },
+    {
+      "address": {
+        "city": "Houston",
+      },
+      "id": "org-v",
+      "name": "Verified",
+      "public": true,
+      "team": [],
+      "verificationStatus": "verified",
+    },
+  ],
+  "sevak.profile.v1": {
+    "aboutMe": "about mei@example.com",
+    "email": "mei@example.com",
+    "firstName": "mei",
+    "lastName": "Test",
+    "phone": "+15551112222",
+  },
+  "sevak.signatures.v1": {},
+  "sevak.signups.v1": [
+    {
+      "email": "mei@example.com",
+      "eventId": "ev-v-pub",
+      "id": "su-1",
+      "name": "mei",
+      "phone": "+15551112222",
+      "shiftId": "ev-v-pub-s1",
+      "status": "confirmed",
+    },
+    {
+      "email": "mei@example.com",
+      "eventId": "ev-v-priv",
+      "id": "su-2",
+      "name": "mei",
+      "phone": "+15551112222",
+      "shiftId": "ev-v-priv-s1",
+      "status": "confirmed",
+    },
+    {
+      "email": "mei@example.com",
+      "eventId": "ev-u-pub",
+      "id": "su-3",
+      "name": "mei",
+      "phone": "+15551112222",
+      "shiftId": "ev-u-pub-s1",
+      "status": "confirmed",
+    },
+    {
+      "anonymous": true,
+      "eventId": "ev-v-pub",
+      "id": "su-4",
+      "shiftId": "ev-v-pub-s2",
+      "status": "confirmed",
+    },
+  ],
+}
+`;
+
+exports[`what a page load gives each person > out 1`] = `
+{
+  "sevak.certificates.v1": [],
+  "sevak.documents.v1": [],
+  "sevak.events.v1": [
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "id": "ev-v-pub",
+      "mainEventId": "main-v",
+      "organizationId": "org-v",
+      "roles": [
+        {
+          "id": "ev-v-pub-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-pub-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-pub-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-v-pub",
+      "visibility": "public",
+    },
+  ],
+  "sevak.mainEvents.v1": [
+    {
+      "id": "main-v",
+      "organizationId": "org-v",
+      "title": "Festival",
+    },
+  ],
+  "sevak.memberships.v1": [],
+  "sevak.organizations.v1": [
+    {
+      "address": {},
+      "id": "org-u",
+      "name": "Unverified",
+      "public": true,
+      "team": [],
+      "verificationStatus": "unverified",
+    },
+    {
+      "address": {
+        "city": "Houston",
+      },
+      "id": "org-v",
+      "name": "Verified",
+      "public": true,
+      "team": [],
+      "verificationStatus": "verified",
+    },
+  ],
+  "sevak.profile.v1": null,
+  "sevak.signatures.v1": {},
+  "sevak.signups.v1": [
+    {
+      "anonymous": true,
+      "eventId": "ev-v-pub",
+      "id": "su-1",
+      "shiftId": "ev-v-pub-s1",
+      "status": "confirmed",
+    },
+    {
+      "anonymous": true,
+      "eventId": "ev-v-pub",
+      "id": "su-4",
+      "shiftId": "ev-v-pub-s2",
+      "status": "confirmed",
+    },
+  ],
+}
+`;
+
+exports[`what a page load gives each person > sam 1`] = `
+{
+  "sevak.certificates.v1": [],
+  "sevak.documents.v1": [],
+  "sevak.events.v1": [
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "id": "ev-v-pub",
+      "mainEventId": "main-v",
+      "organizationId": "org-v",
+      "roles": [
+        {
+          "id": "ev-v-pub-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-pub-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-pub-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-v-pub",
+      "visibility": "public",
+    },
+  ],
+  "sevak.mainEvents.v1": [
+    {
+      "id": "main-v",
+      "organizationId": "org-v",
+      "title": "Festival",
+    },
+  ],
+  "sevak.memberships.v1": [
+    {
+      "email": "sam@example.com",
+      "how": "request",
+      "id": "m-sam-v",
+      "name": "Sam",
+      "orgId": "org-v",
+      "status": "requested",
+    },
+  ],
+  "sevak.organizations.v1": [
+    {
+      "address": {},
+      "id": "org-u",
+      "name": "Unverified",
+      "public": true,
+      "team": [],
+      "verificationStatus": "unverified",
+    },
+    {
+      "address": {
+        "city": "Houston",
+      },
+      "id": "org-v",
+      "name": "Verified",
+      "public": true,
+      "team": [],
+      "verificationStatus": "verified",
+    },
+  ],
+  "sevak.profile.v1": {
+    "aboutMe": "about sam@example.com",
+    "email": "sam@example.com",
+    "firstName": "sam",
+    "lastName": "Test",
+    "phone": "+15551112222",
+  },
+  "sevak.signatures.v1": {},
+  "sevak.signups.v1": [
+    {
+      "anonymous": true,
+      "eventId": "ev-v-pub",
+      "id": "su-1",
+      "shiftId": "ev-v-pub-s1",
+      "status": "confirmed",
+    },
+    {
+      "anonymous": true,
+      "eventId": "ev-v-pub",
+      "id": "su-4",
+      "shiftId": "ev-v-pub-s2",
+      "status": "confirmed",
+    },
+  ],
+}
+`;
+
+exports[`what a page load gives each person > signed out 1`] = `
+{
+  "sevak.certificates.v1": [],
+  "sevak.documents.v1": [],
+  "sevak.events.v1": [
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "id": "ev-v-pub",
+      "mainEventId": "main-v",
+      "organizationId": "org-v",
+      "roles": [
+        {
+          "id": "ev-v-pub-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-pub-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-pub-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-v-pub",
+      "visibility": "public",
+    },
+  ],
+  "sevak.mainEvents.v1": [
+    {
+      "id": "main-v",
+      "organizationId": "org-v",
+      "title": "Festival",
+    },
+  ],
+  "sevak.memberships.v1": [],
+  "sevak.organizations.v1": [
+    {
+      "address": {},
+      "id": "org-u",
+      "name": "Unverified",
+      "public": true,
+      "team": [],
+      "verificationStatus": "unverified",
+    },
+    {
+      "address": {
+        "city": "Houston",
+      },
+      "id": "org-v",
+      "name": "Verified",
+      "public": true,
+      "team": [],
+      "verificationStatus": "verified",
+    },
+  ],
+  "sevak.profile.v1": null,
+  "sevak.signatures.v1": {},
+  "sevak.signups.v1": [
+    {
+      "anonymous": true,
+      "eventId": "ev-v-pub",
+      "id": "su-1",
+      "shiftId": "ev-v-pub-s1",
+      "status": "confirmed",
+    },
+    {
+      "anonymous": true,
+      "eventId": "ev-v-pub",
+      "id": "su-4",
+      "shiftId": "ev-v-pub-s2",
+      "status": "confirmed",
+    },
+  ],
+}
+`;
+
+exports[`what a page load gives each person > staff 1`] = `
+{
+  "sevak.certificates.v1": [
+    {
+      "email": "mei@example.com",
+      "from": "2030-01-01",
+      "id": "c-1",
+      "name": "Mei",
+      "note": "",
+      "orgId": "org-v",
+      "requestedAt": "<time>",
+      "status": "requested",
+      "to": "2030-01-31",
+    },
+  ],
+  "sevak.documents.v1": [
+    {
+      "id": "d-ev",
+      "name": "Run sheet",
+      "owner": "event:ev-v-pub",
+    },
+    {
+      "id": "d-org",
+      "name": "Policy",
+      "owner": "org:org-v",
+      "storedAt": "<time>",
+      "storedBytes": 15,
+      "storedType": "application/pdf",
+    },
+    {
+      "id": "d-u",
+      "name": "Theirs",
+      "owner": "org:org-u",
+    },
+  ],
+  "sevak.events.v1": [
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "id": "ev-u-priv",
+      "organizationId": "org-u",
+      "roles": [
+        {
+          "id": "ev-u-priv-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-u-priv-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-u-priv-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-u-priv",
+      "visibility": "private",
+    },
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "id": "ev-u-pub",
+      "organizationId": "org-u",
+      "roles": [
+        {
+          "id": "ev-u-pub-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-u-pub-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-u-pub-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-u-pub",
+      "visibility": "public",
+    },
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "id": "ev-v-draft",
+      "mainEventId": "main-v-hidden",
+      "organizationId": "org-v",
+      "roles": [
+        {
+          "id": "ev-v-draft-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-draft-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-draft-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "draft",
+      "title": "ev-v-draft",
+      "visibility": "public",
+    },
+    {
+      "active": false,
+      "endDate": "2030-01-10",
+      "id": "ev-v-off",
+      "organizationId": "org-v",
+      "roles": [
+        {
+          "id": "ev-v-off-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-off-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-off-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-v-off",
+      "visibility": "public",
+    },
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "id": "ev-v-priv",
+      "organizationId": "org-v",
+      "roles": [
+        {
+          "id": "ev-v-priv-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-priv-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-priv-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-v-priv",
+      "visibility": "private",
+    },
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "eventAdmin": "cora@example.com",
+      "id": "ev-v-pub",
+      "mainEventId": "main-v",
+      "organizationId": "org-v",
+      "roles": [
+        {
+          "id": "ev-v-pub-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-pub-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-pub-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-v-pub",
+      "visibility": "public",
+    },
+  ],
+  "sevak.mainEvents.v1": [
+    {
+      "id": "main-v",
+      "organizationId": "org-v",
+      "title": "Festival",
+    },
+    {
+      "id": "main-v-hidden",
+      "organizationId": "org-v",
+      "title": "Hidden",
+    },
+  ],
+  "sevak.memberships.v1": [
+    {
+      "decidedAt": "<time>",
+      "decidedBy": "ada@example.com",
+      "email": "dev@example.com",
+      "how": "request",
+      "id": "m-dev-v",
+      "name": "Dev",
+      "orgId": "org-v",
+      "status": "declined",
+      "updatedAt": "<time>",
+    },
+    {
+      "decidedAt": "<time>",
+      "email": "mei@example.com",
+      "how": "invitation",
+      "id": "m-mei-u",
+      "invitedAt": "<time>",
+      "invitedBy": "una@example.com",
+      "orgId": "org-u",
+      "status": "active",
+    },
+    {
+      "decidedAt": "<time>",
+      "email": "mei@example.com",
+      "how": "invitation",
+      "id": "m-mei-v",
+      "invitedAt": "<time>",
+      "invitedBy": "ada@example.com",
+      "orgId": "org-v",
+      "status": "active",
+    },
+    {
+      "email": "sam@example.com",
+      "how": "request",
+      "id": "m-sam-v",
+      "name": "Sam",
+      "orgId": "org-v",
+      "status": "requested",
+    },
+  ],
+  "sevak.organizations.v1": [
+    {
+      "createdBy": "una@example.com",
+      "id": "org-u",
+      "inviteCode": "UNVE2345",
+      "name": "Unverified",
+      "team": [],
+      "verificationStatus": "unverified",
+    },
+    {
+      "address": {
+        "city": "Houston",
+        "line1": "1 Main St",
+      },
+      "createdBy": "ada@example.com",
+      "id": "org-v",
+      "name": "Verified",
+      "primaryContact": {
+        "email": "ada@example.com",
+        "name": "Ada",
+        "phone": "+15550000001",
+      },
+      "team": [
+        {
+          "email": "cora@example.com",
+          "name": "Cora",
+          "role": "coordinator",
+        },
+        {
+          "email": "carl@example.com",
+          "name": "Carl",
+          "role": "coordinator",
+        },
+      ],
+      "verificationStatus": "verified",
+    },
+  ],
+  "sevak.profile.v1": null,
+  "sevak.signatures.v1": {},
+  "sevak.signups.v1": [
+    {
+      "email": "mei@example.com",
+      "eventId": "ev-v-pub",
+      "id": "su-1",
+      "name": "mei",
+      "phone": "+15551112222",
+      "shiftId": "ev-v-pub-s1",
+      "status": "confirmed",
+    },
+    {
+      "email": "mei@example.com",
+      "eventId": "ev-v-priv",
+      "id": "su-2",
+      "name": "mei",
+      "phone": "+15551112222",
+      "shiftId": "ev-v-priv-s1",
+      "status": "confirmed",
+    },
+    {
+      "email": "mei@example.com",
+      "eventId": "ev-u-pub",
+      "id": "su-3",
+      "name": "mei",
+      "phone": "+15551112222",
+      "shiftId": "ev-u-pub-s1",
+      "status": "confirmed",
+    },
+    {
+      "email": "walkin@example.com",
+      "eventId": "ev-v-pub",
+      "id": "su-4",
+      "name": "walkin",
+      "phone": "+15551112222",
+      "shiftId": "ev-v-pub-s2",
+      "status": "confirmed",
+    },
+    {
+      "email": "walkin@example.com",
+      "eventId": "ev-v-draft",
+      "id": "su-5",
+      "name": "walkin",
+      "phone": "+15551112222",
+      "shiftId": "ev-v-draft-s1",
+      "status": "confirmed",
+    },
+  ],
+}
+`;
+
+exports[`what a page load gives each person > una 1`] = `
+{
+  "sevak.certificates.v1": [],
+  "sevak.documents.v1": [
+    {
+      "id": "d-u",
+      "name": "Theirs",
+      "owner": "org:org-u",
+    },
+  ],
+  "sevak.events.v1": [
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "id": "ev-u-priv",
+      "organizationId": "org-u",
+      "roles": [
+        {
+          "id": "ev-u-priv-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-u-priv-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-u-priv-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-u-priv",
+      "visibility": "private",
+    },
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "id": "ev-u-pub",
+      "organizationId": "org-u",
+      "roles": [
+        {
+          "id": "ev-u-pub-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-u-pub-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-u-pub-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-u-pub",
+      "visibility": "public",
+    },
+    {
+      "active": true,
+      "endDate": "2030-01-10",
+      "id": "ev-v-pub",
+      "mainEventId": "main-v",
+      "organizationId": "org-v",
+      "roles": [
+        {
+          "id": "ev-v-pub-r",
+          "name": "Setup",
+          "shifts": [
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-pub-s1",
+              "start": "09:00",
+            },
+            {
+              "capacity": 5,
+              "date": "2030-01-10",
+              "end": "12:00",
+              "id": "ev-v-pub-s2",
+              "start": "09:00",
+            },
+          ],
+        },
+      ],
+      "startDate": "2030-01-10",
+      "status": "published",
+      "title": "ev-v-pub",
+      "visibility": "public",
+    },
+  ],
+  "sevak.mainEvents.v1": [
+    {
+      "id": "main-v",
+      "organizationId": "org-v",
+      "title": "Festival",
+    },
+  ],
+  "sevak.memberships.v1": [
+    {
+      "decidedAt": "<time>",
+      "email": "mei@example.com",
+      "how": "invitation",
+      "id": "m-mei-u",
+      "invitedAt": "<time>",
+      "invitedBy": "una@example.com",
+      "orgId": "org-u",
+      "status": "active",
+    },
+  ],
+  "sevak.organizations.v1": [
+    {
+      "createdBy": "una@example.com",
+      "id": "org-u",
+      "inviteCode": "UNVE2345",
+      "name": "Unverified",
+      "team": [],
+      "verificationStatus": "unverified",
+    },
+    {
+      "address": {
+        "city": "Houston",
+      },
+      "id": "org-v",
+      "name": "Verified",
+      "public": true,
+      "team": [],
+      "verificationStatus": "verified",
+    },
+  ],
+  "sevak.profile.v1": null,
+  "sevak.signatures.v1": {},
+  "sevak.signups.v1": [
+    {
+      "anonymous": true,
+      "eventId": "ev-v-pub",
+      "id": "su-1",
+      "shiftId": "ev-v-pub-s1",
+      "status": "confirmed",
+    },
+    {
+      "email": "mei@example.com",
+      "eventId": "ev-u-pub",
+      "id": "su-3",
+      "name": "mei",
+      "phone": "+15551112222",
+      "shiftId": "ev-u-pub-s1",
+      "status": "confirmed",
+    },
+    {
+      "anonymous": true,
+      "eventId": "ev-v-pub",
+      "id": "su-4",
+      "shiftId": "ev-v-pub-s2",
+      "status": "confirmed",
+    },
+  ],
+}
+`;

@@ -18,13 +18,13 @@
 //
 // Capacity is checked inside a transaction that first locks the event's
 // record, so two people can't take the last spot at the same time (SGN-5).
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { type Db, records } from "@sevak/db";
 import type { Viewer } from "./auth";
 import { readEventsAndMain } from "./events";
 import { type Mail, shiftLabel, signedUp } from "./notify";
-import { idSchema, type Json, lower, objectSchema, organizationsById, runsEvent, tooBig } from "./records";
+import { emailIs, idSchema, inOrgs, type Json, lower, objectSchema, organizationsById, type ReadContext, readContext, runsEvent, tooBig } from "./records";
 
 const COLLECTION = "signups";
 const MAX_BYTES = 50_000;
@@ -34,14 +34,20 @@ type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 const isTaken = (s: Json) => s.status !== "cancelled";
 
-export async function readSignups(db: Db, viewer: Viewer | null): Promise<Json[]> {
-  const [rows, eventRows, orgs, visible] = await Promise.all([
-    db.select().from(records).where(eq(records.collection, COLLECTION)).orderBy(records.createdAt),
-    db.select().from(records).where(eq(records.collection, "events")),
-    organizationsById(db),
-    readEventsAndMain(db, viewer),
-  ]);
-  const eventsById = new Map(eventRows.map((r) => [r.id, r.data]));
+// Your own sign-ups; the full roster of events you run; and, for events you
+// can see, which spots are taken (no names).
+export async function readSignups(db: Db, viewer: Viewer | null, ctx?: ReadContext, visible?: { events: Json[] }): Promise<Json[]> {
+  ctx ??= await readContext(db, viewer);
+  visible ??= await readEventsAndMain(db, viewer, ctx);
+  const { orgs } = ctx;
+  // Everyone who runs an event sees it (and all its organization's events).
+  const eventsById = new Map(visible.events.map((e) => [String(e.id), e]));
+  const eventOrgs = visible.events.map((e) => String(e.organizationId ?? ""));
+  const rows = await db
+    .select()
+    .from(records)
+    .where(and(eq(records.collection, COLLECTION), viewer ? or(emailIs(viewer.email), inOrgs(eventOrgs)) : inOrgs(eventOrgs)))
+    .orderBy(records.createdAt);
   const visibleEvents = new Set(visible.events.map((e) => String(e.id)));
   const out: Json[] = [];
   for (const { data: s } of rows) {

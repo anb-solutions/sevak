@@ -13,11 +13,25 @@
 //     approve, decline, invite by email, remove
 //   - anyone with the organization's invite code: join it (joinWithCode);
 //     the codes themselves are never sent outside the team
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 import { type Db, records } from "@sevak/db";
 import type { Viewer } from "./auth";
-import { idSchema, isOrgAdmin, type Json, lower, objectSchema, organizationsById, publicOrganization, readProfile, tooBig } from "./records";
+import {
+  emailIs,
+  idSchema,
+  inOrgs,
+  isOrgAdmin,
+  type Json,
+  lower,
+  objectSchema,
+  organizationsById,
+  publicOrganization,
+  type ReadContext,
+  readContext,
+  readProfile,
+  tooBig,
+} from "./records";
 import { askedToJoin, decided, invited, type Mail, welcome } from "./notify";
 import { newToken } from "./tokens";
 
@@ -31,11 +45,15 @@ function canManage(org: Json | undefined, viewer: Viewer) {
   return isOrgAdmin(org, viewer);
 }
 
-export async function readMemberships(db: Db, viewer: Viewer): Promise<Json[]> {
-  const [rows, orgs] = await Promise.all([
-    db.select().from(records).where(eq(records.collection, COLLECTION)).orderBy(records.createdAt),
-    organizationsById(db),
-  ]);
+// Your own memberships, and the organizations' you're an Admin of.
+export async function readMemberships(db: Db, viewer: Viewer, ctx?: ReadContext): Promise<Json[]> {
+  ctx ??= await readContext(db, viewer);
+  const rows = await db
+    .select()
+    .from(records)
+    .where(and(eq(records.collection, COLLECTION), or(emailIs(viewer.email), inOrgs(ctx.admin))))
+    .orderBy(records.createdAt);
+  const { orgs } = ctx;
   return rows
     .filter((r) => lower(r.data.email) === viewer.email || canManage(orgs.get(String(r.data.orgId)), viewer))
     .map((r) => r.data);
@@ -208,7 +226,7 @@ export async function joinWithCode(db: Db, viewer: Viewer, code: unknown, note: 
   const org = await orgWithCode(db, code);
   if (!org) return null;
   const orgId = String(org.id);
-  const [current] = (await db.select().from(records).where(eq(records.collection, COLLECTION))).filter(
+  const [current] = (await db.select().from(records).where(and(eq(records.collection, COLLECTION), eq(records.orgId, orgId), emailIs(viewer.email)))).filter(
     (r) => r.orgId === orgId && lower(r.data.email) === viewer.email,
   );
   const prev = current?.data ?? null;

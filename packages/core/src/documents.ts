@@ -14,11 +14,11 @@
 // Limits (checked when the file is uploaded): 10 MB a file; 100 MB of files
 // per person; 500 MB per organization (its own and its events' documents),
 // 50 MB until Sevak verifies it.
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { type Db, records } from "@sevak/db";
 import type { Viewer } from "./auth";
-import { idSchema, type Json, lower, objectSchema, organizationsById, orgRole, tooBig } from "./records";
+import { idSchema, inOrgs, type Json, lower, objectSchema, organizationsById, orgRole, type ReadContext, readContext, tooBig } from "./records";
 
 const COLLECTION = "documents";
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -85,8 +85,24 @@ function isIssuedCertificate(doc: Json, viewer: Viewer, ctx: Context): boolean {
   );
 }
 
-export async function readDocuments(db: Db, viewer: Viewer): Promise<Json[]> {
-  const [rows, ctx] = await Promise.all([db.select().from(records).where(eq(records.collection, COLLECTION)).orderBy(records.createdAt), context(db)]);
+// Your own documents, and those of the organizations (and their events)
+// whose team you're on.
+export async function readDocuments(db: Db, viewer: Viewer, read?: ReadContext): Promise<Json[]> {
+  read ??= await readContext(db, viewer);
+  const [rows, events] = await Promise.all([
+    db
+      .select()
+      .from(records)
+      .where(
+        and(
+          eq(records.collection, COLLECTION),
+          or(sql`(${records.data}->>'owner') like 'profile:%' and lower(trim(substr(${records.data}->>'owner', 9))) = ${viewer.email}`, inOrgs(read.team)),
+        ),
+      )
+      .orderBy(records.createdAt),
+    db.select().from(records).where(and(eq(records.collection, "events"), inOrgs(read.team))),
+  ]);
+  const ctx: Context = { orgs: read.orgs, eventOrg: new Map(events.map((e) => [e.id, String(e.data.organizationId ?? "")])), asked: new Set() };
   return rows.filter((r) => canSeeDocument(r.data, viewer, ctx)).map((r) => r.data);
 }
 
