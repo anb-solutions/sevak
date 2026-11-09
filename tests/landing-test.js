@@ -6,7 +6,7 @@ const SP = process.argv[2];
   for (const [w, scheme] of [[1100, 'light'], [375, 'light'], [320, 'dark']]) {
     const p = await b.newPage({ viewport: { width: w, height: 800 }, colorScheme: scheme });
     p.on('pageerror', e => errs.push(e.message));
-    await p.goto('file:///home/user/vms-app/index.html');
+    await p.goto('http://localhost:8765/index.html');
     const t = await p.textContent('body');
     for (const bad of ['Coming soon', "What's coming", 'Try the prototype', 'Food Drive']) if (t.includes(bad)) errs.push('found ' + bad);
     if (!t.includes('Welcome Volunteer') || !t.includes('A Service of The ANB Group') || !t.includes('© 2026 The ANB Group')) errs.push('missing text');
@@ -17,9 +17,9 @@ const SP = process.argv[2];
   }
   const p = await b.newPage({ viewport: { width: 375, height: 800 } });
   p.on('pageerror', e => errs.push(e.message));
-  await p.goto('file:///home/user/vms-app/index.html');
+  await p.goto('http://localhost:8765/index.html');
   await p.click('text=Sign up'); if (!p.url().endsWith('app/join.html')) errs.push('signup link ' + p.url());
-  await p.goto('file:///home/user/vms-app/index.html');
+  await p.goto('http://localhost:8765/index.html');
   await p.click('a:has-text("Sign in")'); if (!p.url().endsWith('app/signin.html')) errs.push('signin link');
   await p.click('button:has-text("Sign in")');
   if (!(await p.textContent('#email-error')).includes('required')) errs.push('empty msg: ' + await p.textContent('#email-error'));

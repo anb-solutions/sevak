@@ -5,7 +5,7 @@ const { chromium } = require('playwright');
   for (const w of [320, 375, 1100]) for (const f of pages) {
     const p = await b.newPage({ viewport: { width: w, height: 700 } });
     p.on('pageerror', e => errs.push(f + ' ' + e.message));
-    await p.goto('file:///home/user/vms-app/' + f);
+    await p.goto('http://localhost:8765/' + f);
     const t = await p.textContent('.brand');
     if (!/Sevak\s*Volunteer Management System\s*A Service of The ANB Group/.test(t)) errs.push(f + ' text ' + t);
     if (await p.evaluate(() => document.documentElement.scrollWidth > innerWidth)) errs.push(`overflow ${f} @${w}`);
