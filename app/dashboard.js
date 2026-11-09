@@ -14,7 +14,8 @@
   var NEEDS_WITHIN_DAYS = 14;
 
   // dashboard.html?demo=1 loads the demo organization and shows it.
-  if (new URLSearchParams(location.search).get("demo") === "1" && window.SevakDemo) {
+  // Not with Sevak's server: there, only real organizations and people.
+  if (new URLSearchParams(location.search).get("demo") === "1" && window.SevakDemo && !window.SevakServer) {
     window.SevakDemo.load();
     history.replaceState(null, "", location.pathname);
     window.SevakNav.render();
@@ -308,6 +309,9 @@
   // ---------- Start ----------
 
   if (!window.SevakNav.guard()) return;
+
+  // Demo data and sample sign-ups are for the prototype only.
+  if (window.SevakServer) document.querySelector(".sample-card").hidden = true;
 
   // Demo data buttons work with or without an organization.
   var D = window.SevakDemo;

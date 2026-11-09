@@ -169,6 +169,11 @@ cancellation gives the spot back in the same transaction. A database rule
   email must be verified, and must be a Gmail address or a Google Workspace account (`hd`), as
   Google advises; other Google accounts use the emailed code. It signs in to the same account as
   the emailed code. Sevak stores no Google tokens.
+- **Shared devices:** everything Sevak keeps in a browser belongs to the person signed in. When
+  they sign out, or their session ends, it's all cleared on the next page (including stored
+  files), so the next person on the device starts clean (`apps/web/prototype/sync.js`).
+- **Pages for running organizations** (Manage, Review, Outbox) send signed-out visitors to sign in.
+  The server enforces access either way; this just doesn't show empty previews.
 - Code: `packages/core/src/auth.ts` and `google.ts`; routes under `apps/web/src/app/api/v1/auth/`.
 - **Manage-my-sign-up links:** long random tokens, stored hashed. A link opens only its own
   sign-up.

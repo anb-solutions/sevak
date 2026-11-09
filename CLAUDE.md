@@ -28,6 +28,9 @@ Two things live in this repo: the **clickable prototype** and the **real app** t
 
 - `pnpm install`, `pnpm dev` (the app on http://localhost:3000, with demo data in an in-memory
   database; no Docker, accounts or keys), `pnpm test`, `pnpm typecheck`, `pnpm build`.
+- Browser tests: `tests/run.sh <screenshot-dir>` (the prototype's pages) and, after `pnpm build`,
+  `DATABASE_URL=… tests/e2e/run.sh` (whole flows with several people against the real app and a
+  real PostgreSQL). CI runs both on every pull request. Add an end-to-end test for each new flow.
 - `pnpm db:generate` after changing `packages/db/src/schema.ts`; commit the migration it creates.
 - `pnpm db:migrate` and `pnpm db:seed` against `DATABASE_URL` (seed only runs with
   `SEVAK_ENV=staging`).

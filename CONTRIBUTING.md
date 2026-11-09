@@ -11,7 +11,8 @@ You need Node 22 and pnpm (`corepack enable` installs pnpm).
 ```sh
 pnpm install
 pnpm dev        # the app at http://localhost:3000, with fake demo data
-pnpm test       # all checks
+pnpm test       # rules and API tests
+pnpm build && DATABASE_URL=postgres://… tests/e2e/run.sh   # whole flows in real browsers (needs a PostgreSQL)
 ```
 
 No accounts, keys or Docker are needed. Locally the app uses PGlite, a copy of Postgres that runs
