@@ -46,13 +46,14 @@ beforeEach(async () => {
 });
 
 describe("asking for a certificate", () => {
-  it("is your own request, which the team sees and you can withdraw", async () => {
+  it("is your own request, which the organization's Admins see and you can withdraw", async () => {
     expect((await writeCertificates(db, mei, { upsert: [request({ id: "cert-0", status: "issued", code: "SVK-AAAA-AAAA" })] })).refused).toBe(1);
     expect((await writeCertificates(db, mei, { upsert: [request({ email: "someone@example.com", code: "SVK-AAAA-AAAA" })] })).refused).toBe(0);
     const [mine] = await readCertificates(db, mei);
     expect(mine).toMatchObject({ email: "mei@example.com", status: "requested" });
     expect(mine).not.toHaveProperty("code");
-    expect(await readCertificates(db, ravi)).toHaveLength(1);
+    expect(await readCertificates(db, asha)).toHaveLength(1);
+    expect(await readCertificates(db, ravi)).toEqual([]);
     expect(await readCertificates(db, sam)).toEqual([]);
     expect((await writeCertificates(db, mei, { delete: ["cert-1"] })).refused).toBe(0);
   });

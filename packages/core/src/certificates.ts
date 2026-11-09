@@ -28,7 +28,6 @@ const CODE = /^SVK-[A-Z2-9]{4}-[A-Z2-9]{4}$/;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const now = () => new Date().toISOString();
 
-const isTeam = (org: Json | undefined, v: Viewer) => !!org && (v.isPlatformAdmin || orgRole(org, v.email) !== null);
 const isAdmin = (org: Json | undefined, v: Viewer) => !!org && (v.isPlatformAdmin || orgRole(org, v.email) === "admin");
 
 export async function readCertificates(db: Db, viewer: Viewer): Promise<Json[]> {
@@ -36,7 +35,8 @@ export async function readCertificates(db: Db, viewer: Viewer): Promise<Json[]> 
     db.select().from(records).where(eq(records.collection, COLLECTION)).orderBy(records.createdAt),
     organizationsById(db),
   ]);
-  return rows.filter((r) => lower(r.data.email) === viewer.email || isTeam(orgs.get(String(r.data.orgId)), viewer)).map((r) => r.data);
+  // Your own, and for an organization's Admins its volunteers'.
+  return rows.filter((r) => lower(r.data.email) === viewer.email || isAdmin(orgs.get(String(r.data.orgId)), viewer)).map((r) => r.data);
 }
 
 function shiftDate(event: Json, shiftId: unknown): string | null {

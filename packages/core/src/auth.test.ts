@@ -105,11 +105,26 @@ describe("sign-in with the emailed link", () => {
 });
 
 describe("sessions", () => {
-  it("end on sign-out, after 30 days, and for unknown tokens", async () => {
+  it("end 24 hours after they were last used", async () => {
     const { code } = await requestSignIn(db, "asha@example.com", NOW);
     const { sessionToken } = await verifySignIn(db, { email: "asha@example.com", code }, NOW);
-    expect(await sessionViewer(db, sessionToken, later(29 * 24 * 60))).not.toBeNull();
-    expect(await sessionViewer(db, sessionToken, later(31 * 24 * 60))).toBeNull();
+    expect(await sessionViewer(db, sessionToken, later(23 * 60))).not.toBeNull();
+    // Used at 23 hours, so it lasts until 47 hours.
+    expect(await sessionViewer(db, sessionToken, later(46 * 60))).not.toBeNull();
+    expect(await sessionViewer(db, sessionToken, later(46 * 60 + 25 * 60))).toBeNull();
+  });
+
+  it("end after 30 days even if used every day", async () => {
+    const { code } = await requestSignIn(db, "asha@example.com", NOW);
+    const { sessionToken } = await verifySignIn(db, { email: "asha@example.com", code }, NOW);
+    // Used every 20 hours: it keeps going, until 30 days after signing in.
+    for (let at = 20 * 60; at < 30 * 24 * 60; at += 20 * 60) expect(await sessionViewer(db, sessionToken, later(at))).not.toBeNull();
+    expect(await sessionViewer(db, sessionToken, later(30 * 24 * 60 + 1))).toBeNull();
+  });
+
+  it("end on sign-out, and for unknown tokens", async () => {
+    const { code } = await requestSignIn(db, "asha@example.com", NOW);
+    const { sessionToken } = await verifySignIn(db, { email: "asha@example.com", code }, NOW);
     expect(await sessionViewer(db, "nope", NOW)).toBeNull();
     expect(await sessionViewer(db, undefined, NOW)).toBeNull();
     await signOut(db, sessionToken);
