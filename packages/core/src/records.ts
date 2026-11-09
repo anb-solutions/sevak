@@ -24,6 +24,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { type Db, records, users } from "@sevak/db";
 import type { Viewer } from "./auth";
+import type { Mail } from "./notify";
 
 export const PROFILE_KEY = "sevak.profile.v1";
 export const ORGANIZATIONS_KEY = "sevak.organizations.v1";
@@ -195,9 +196,11 @@ export const organizationOpsSchema = z.object({
 // Applies changes from a screen: organizations to add or update, and ids to
 // delete. Each one is checked on its own; what isn't allowed is left as it
 // was. Returns how many were refused and the organizations as you now see them.
-export async function writeOrganizations(db: Db, viewer: Viewer, ops: unknown): Promise<{ refused: number; value: Json[] }> {
+export async function writeOrganizations(db: Db, viewer: Viewer, ops: unknown): Promise<{ refused: number; value: Json[]; emails: Mail[] }> {
   const { upsert, delete: remove } = organizationOpsSchema.parse(ops);
+  const { addedToTeam, verificationDecided, verificationRequested } = await import("./notify");
   let refused = 0;
+  const emails: Mail[] = [];
 
   await db.transaction(async (tx) => {
     const ids = [...upsert.map((o) => String(o.id ?? "")), ...remove];
@@ -233,6 +236,20 @@ export async function writeOrganizations(db: Db, viewer: Viewer, ops: unknown): 
         .values({ collection: "organizations", id: id.data, orgId: id.data, data: next, updatedBy: viewer.id })
         .onConflictDoUpdate({ target: [records.collection, records.id], set: { data: next, updatedAt: new Date(), updatedBy: viewer.id } });
       byId.set(id.data, next);
+
+      // Who to tell: people newly on the team, and about verification.
+      const before = new Set(((prev?.team as Json[] | undefined) ?? []).map((m) => lower(m?.email)));
+      for (const m of (next.team as Json[] | undefined) ?? []) {
+        const email = lower(m?.email);
+        if (email.includes("@") && email !== viewer.email && !before.has(email)) emails.push(addedToTeam(next, email, String(m.role)));
+      }
+      const was = prev?.verificationStatus ?? "unverified";
+      if (next.verificationStatus !== was) {
+        if (next.verificationStatus === "pending") emails.push(verificationRequested(next));
+        else if (was === "pending" && (next.verificationStatus === "verified" || next.verificationStatus === "rejected")) {
+          emails.push(...verificationDecided(next, next.verificationStatus === "verified", String((next.verification as Json | undefined)?.reason ?? "")));
+        }
+      }
     }
 
     for (const id of remove) {
@@ -247,7 +264,7 @@ export async function writeOrganizations(db: Db, viewer: Viewer, ops: unknown): 
     }
   });
 
-  return { refused, value: await readOrganizations(db, viewer) };
+  return { refused, value: await readOrganizations(db, viewer), emails };
 }
 
 // ---------- Everything a page loads ----------

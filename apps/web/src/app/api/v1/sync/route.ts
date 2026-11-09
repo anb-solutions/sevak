@@ -15,6 +15,7 @@ export async function GET(req: Request) {
     user: viewer ? { email: viewer.email, isPlatformAdmin: viewer.isPlatformAdmin } : null,
     signIn: { google: googleEnabled() },
     features: { documents: !!fileStore() },
+    env: process.env.SEVAK_ENV === "production" ? "production" : "staging",
     data,
   });
 }

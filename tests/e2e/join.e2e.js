@@ -1,5 +1,5 @@
 // Joining: an invite link, asking to join, approval; memberships are private.
-const { BASE, start, person, signIn, synced, organization, email } = require("./helpers");
+const { BASE, start, person, signIn, synced, organization, email, mailsTo } = require("./helpers");
 const ORG = "Temple Volunteers " + require("./helpers").RUN;
 
 (async () => {
@@ -23,6 +23,7 @@ const ORG = "Temple Volunteers " + require("./helpers").RUN;
   await mei.click("#save");
   await mei.waitForFunction(() => /volunteer with/.test(document.getElementById("join-notice").textContent));
   check((await memberships(asha)).some((m) => m.email === email("mei") && m.status === "active"), "joined by invite code");
+  check(mailsTo(email("mei")).includes("Welcome to " + ORG), "welcome email sent");
 
   // A wrong code isn't recognised.
   await mei.goto(BASE + "/app/join.html");
@@ -42,6 +43,7 @@ const ORG = "Temple Volunteers " + require("./helpers").RUN;
   check((await sam.textContent("#join-done")).includes("Request sent"), "request sent");
   const request = (await memberships(asha)).find((m) => m.email === email("sam"));
   check(request && request.status === "requested", "team sees the request");
+  check(mailsTo(asha.address).some((s) => s.includes("asked to volunteer with " + ORG)), "Admin emailed about the request");
 
   // Sam can't approve himself.
   await sam.evaluate((mid) => {
@@ -54,6 +56,7 @@ const ORG = "Temple Volunteers " + require("./helpers").RUN;
   await asha.goto(BASE + "/app/volunteers.html");
   await asha.evaluate((mid) => window.SevakMembers.approve(mid), request.id);
   check((await memberships(sam))[0].status === "active", "approved by the team");
+  check(mailsTo(email("sam")).includes(ORG + " approved your request"), "approval emailed");
   check((await memberships(mei)).every((m) => m.email === email("mei")), "volunteers see only their own memberships");
   check((await memberships(asha)).length === 2, "the team sees both");
   await t.done();

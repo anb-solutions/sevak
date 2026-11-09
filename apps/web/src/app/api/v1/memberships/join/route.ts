@@ -1,7 +1,8 @@
 import { joinWithCode } from "@sevak/core";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
-import { clientIp, fromOurPages, json, readJson, refuse, tooMany, viewerFor } from "@/lib/http";
+import { clientIp, fromOurPages, json, publicUrl, readJson, refuse, tooMany, viewerFor } from "@/lib/http";
+import { sendMails } from "@/lib/mail";
 
 export const dynamic = "force-dynamic";
 
@@ -18,5 +19,8 @@ export async function POST(req: Request) {
   if (!parsed.success) return refuse.invalid();
   if (tooMany(`code:${clientIp(req)}`, 30, 60 * 60_000)) return json({ error: "rate_limited" }, 429);
   const result = await joinWithCode(await getDb(), viewer, parsed.data.code, parsed.data.note);
-  return result ? json(result) : json({ error: "not_found" }, 404);
+  if (!result) return json({ error: "not_found" }, 404);
+  const { emails, ...rest } = result;
+  await sendMails(publicUrl(req), emails);
+  return json(rest);
 }

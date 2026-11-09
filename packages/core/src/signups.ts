@@ -23,6 +23,7 @@ import { z } from "zod";
 import { type Db, records } from "@sevak/db";
 import type { Viewer } from "./auth";
 import { readEventsAndMain } from "./events";
+import { type Mail, shiftLabel, signedUp } from "./notify";
 import { idSchema, type Json, lower, objectSchema, organizationsById, orgRole, tooBig } from "./records";
 
 const COLLECTION = "signups";
@@ -79,10 +80,12 @@ export const signupOpsSchema = z.object({
 
 const SELF_FIELDS = ["status", "name", "phone", "checkInAt", "checkOutAt", "hours", "updatedAt", "cancelledAt"] as const;
 
-export async function writeSignups(db: Db, viewer: Viewer, ops: unknown): Promise<{ refused: number; reason?: string; value: Json[] }> {
+export async function writeSignups(db: Db, viewer: Viewer, ops: unknown): Promise<{ refused: number; reason?: string; value: Json[]; emails: Mail[] }> {
   const { upsert, delete: remove } = signupOpsSchema.parse(ops);
   const orgs = await organizationsById(db);
   let refused = 0;
+  // New confirmed spots, by event and person, for one confirmation email each.
+  const confirmed = new Map<string, { event: Json; email: string; labels: string[] }>();
   let reason: string | undefined;
   const refuse = (why: string) => {
     refused++;
@@ -182,6 +185,13 @@ export async function writeSignups(db: Db, viewer: Viewer, ops: unknown): Promis
         .values({ collection: COLLECTION, id: id.data, orgId: String(org.id), data: next, updatedBy: viewer.id })
         .onConflictDoUpdate({ target: [records.collection, records.id], set: { data: next, updatedAt: new Date(), updatedBy: viewer.id } });
       byId.set(id.data, next);
+
+      if (!prev && isTaken(next) && typeof next.email === "string" && next.email.includes("@") && !next.sample) {
+        const k = `${eventId}|${lower(next.email)}`;
+        const entry = confirmed.get(k) ?? { event, email: lower(next.email), labels: [] };
+        entry.labels.push(shiftLabel(event, next.shiftId));
+        confirmed.set(k, entry);
+      }
     }
 
     for (const id of remove) {
@@ -197,5 +207,6 @@ export async function writeSignups(db: Db, viewer: Viewer, ops: unknown): Promis
     }
   });
 
-  return { refused, reason, value: await readSignups(db, viewer) };
+  const emails = [...confirmed.values()].map((c) => signedUp(c.event, c.email, c.labels));
+  return { refused, reason, value: await readSignups(db, viewer), emails };
 }

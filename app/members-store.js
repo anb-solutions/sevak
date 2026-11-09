@@ -154,7 +154,10 @@
     return Array.isArray(list) ? list : [];
   }
 
+  // With Sevak's server, the server sends real emails when things happen
+  // (packages/core/src/notify.ts); pages never send email themselves.
   function email(to, subject, body, link, linkText) {
+    if (window.SevakServer) return;
     var list = outbox();
     list.unshift({ id: newId("mail"), to: to, subject: subject, body: body, link: link || "", linkText: linkText || "", sentAt: now() });
     F.store(OUTBOX_KEY, list.slice(0, 200));

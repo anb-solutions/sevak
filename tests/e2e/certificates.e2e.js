@@ -5,7 +5,7 @@
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { BASE, start, person, synced, organization, joinWithCode } = require("./helpers");
+const { BASE, start, person, synced, organization, joinWithCode, mailsTo } = require("./helpers");
 const ORG = "Temple Volunteers " + require("./helpers").RUN;
 
 (async () => {
@@ -62,6 +62,7 @@ const ORG = "Temple Volunteers " + require("./helpers").RUN;
   const issued = await asha.evaluate((id) => window.SevakCerts.issue(id).then((c) => ({ code: c.code, docIds: c.docIds })), certId);
   const cert = (await certs(mei))[0];
   check(cert.status === "issued" && cert.code === issued.code && cert.data.minutes === 120, "issued with the approved hours");
+  check(mailsTo(mei.address).includes("Your volunteer certificate from " + ORG), "certificate emailed");
 
   // The PDF is in Mei's documents and downloads for her, not for others.
   const docs = (await synced(mei)).data["sevak.documents.v1"];

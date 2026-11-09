@@ -262,7 +262,8 @@
     if (!banner) return;
     // With Sevak's server (sync.js), some data is saved there already.
     if (window.SevakServer && /stays in this browser\.$/.test(banner.textContent.trim())) {
-      banner.innerHTML = "<strong>Beta.</strong> Everything you enter is saved to Sevak. Emails Sevak would send still go to the Outbox page for now.";
+      if (window.SevakServer.env === "production") { banner.remove(); return; }
+      banner.innerHTML = "<strong>Staging.</strong> This is Sevak's test site: everything is saved, and emails are sent for real, so use it only for testing.";
     }
     var dismissed = false;
     try { dismissed = localStorage.getItem(BANNER_KEY) === "true"; } catch (e) { /* ignore */ }
