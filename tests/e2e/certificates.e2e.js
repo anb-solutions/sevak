@@ -79,6 +79,7 @@ const ORG = "Temple Volunteers " + require("./helpers").RUN;
   await visitor.waitForSelector("#verify-result:not([hidden])");
   const shown = await visitor.textContent("#verify-result");
   check(shown.includes("Genuine") && shown.includes("Mei Test") && shown.includes(ORG) && !shown.includes(mei.address), "verified by number, no email shown");
+  check(shown.includes("not verified by Sevak"), "says Sevak hasn't verified the organization");
   await visitor.goto(BASE + "/app/verify.html?code=SVK-ZZZZ-ZZZZ");
   await visitor.waitForSelector("#verify-result:not([hidden])");
   check((await visitor.textContent("#verify-result")).includes("Not found"), "a wrong number isn't found");

@@ -145,6 +145,8 @@ export async function readOrganizations(db: Db, viewer: Viewer | null): Promise<
 }
 
 const VERIFICATION_FIELDS = ["verificationStatus", "verification"] as const;
+// What Sevak checks when it verifies an organization.
+const IDENTITY_FIELDS = ["name", "website", "registrationNumber", "ein", "taxStatus"] as const;
 
 // Only Sevak staff decide verification (ORG-3). An organization's Admins can
 // ask for it (status "pending"), withdraw, or reset it to "unverified".
@@ -160,6 +162,14 @@ function keepStaffFields(next: Json, prev: Json | null): Json {
       else delete out[f];
     }
     if (!prev) out.verificationStatus = "unverified";
+    // Verified means Sevak checked these; changing one means checking again.
+    if (before === "verified" && prev && IDENTITY_FIELDS.some((f) => stableJson(next[f] ?? "") !== stableJson(prev[f] ?? ""))) {
+      out.verificationStatus = "pending";
+      out.verification = { ...((prev.verification as Json | undefined) ?? {}), requestedAt: new Date().toISOString(), changedAfterVerification: true };
+      delete (out.verification as Json).decidedAt;
+      delete (out.verification as Json).decidedBy;
+      delete (out.verification as Json).reason;
+    }
   } else if (asking && out.verification && typeof out.verification === "object") {
     const v = { ...(out.verification as Json) };
     delete v.decidedAt;
@@ -211,10 +221,11 @@ export async function writeOrganizations(db: Db, viewer: Viewer, ops: unknown): 
       ? await tx.select().from(records).where(and(eq(records.collection, "organizations"), inArray(records.id, ids))).for("update")
       : [];
     const byId = new Map(existing.map((r) => [r.id, r.data]));
+    const gone = await buried(tx, "organizations", ids);
 
     for (const raw of upsert) {
       const id = idSchema.safeParse(raw.id);
-      if (!id.success || tooBig(raw, MAX_ORG_BYTES) || raw.public === true) {
+      if (!id.success || tooBig(raw, MAX_ORG_BYTES) || raw.public === true || (!byId.has(id.data) && gone.has(id.data))) {
         refused++;
         continue;
       }
@@ -282,11 +293,45 @@ export async function writeOrganizations(db: Db, viewer: Viewer, ops: unknown): 
         continue;
       }
       await tx.delete(records).where(and(eq(records.collection, "organizations"), eq(records.id, id)));
+      await bury(tx, "organizations", id, viewer);
+      // Its events and who volunteers with it go too. Sign-ups (with their
+      // hours), certificates and documents stay with the people they're for.
+      const owned = await tx
+        .select({ collection: records.collection, id: records.id })
+        .from(records)
+        .where(and(inArray(records.collection, ["events", "mainEvents", "memberships"]), eq(records.orgId, id)));
+      for (const r of owned) {
+        await tx.delete(records).where(and(eq(records.collection, r.collection), eq(records.id, r.id)));
+        if (r.collection !== "memberships") await bury(tx, r.collection, r.id, viewer);
+      }
       byId.delete(id);
     }
   });
 
   return { refused, reason, value: await readOrganizations(db, viewer), emails };
+}
+
+// ---------- Deleted ids ----------
+
+// Sign-ups, certificates and documents point at organizations and events by
+// id. When one is deleted, its id is kept here so nobody can create a new
+// one with the same id and so see what pointed at the old one.
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+
+export async function bury(tx: Tx, collection: string, id: string, viewer: Viewer) {
+  await tx
+    .insert(records)
+    .values({ collection: "deleted", id: `${collection}:${id}`, data: { at: new Date().toISOString(), by: viewer.email }, updatedBy: viewer.id })
+    .onConflictDoNothing();
+}
+
+export async function buried(tx: Tx, collection: string, ids: string[]): Promise<Set<string>> {
+  if (!ids.length) return new Set();
+  const rows = await tx
+    .select({ id: records.id })
+    .from(records)
+    .where(and(eq(records.collection, "deleted"), inArray(records.id, ids.map((id) => `${collection}:${id}`))));
+  return new Set(rows.map((r) => r.id.slice(collection.length + 1)));
 }
 
 // ---------- Everything a page loads ----------
