@@ -1,5 +1,9 @@
 # Deploying Sevak to Google Cloud
 
+This guide walks through staging step by step. For a checklist of everything an environment
+needs (production, or any other), with every variable and secret in one table, see
+[`docs/ENVIRONMENTS.md`](../../docs/ENVIRONMENTS.md).
+
 Sevak runs on **Cloud Run** (serverless: it scales to zero when idle) with **PostgreSQL on Cloud
 SQL**. There are two environments, each in its own Google Cloud project:
 
@@ -103,8 +107,8 @@ If that step shows a warning, the deploy itself still succeeded; the warning say
 Cloud Run's built-in domain mapping is a preview feature. That's fine for staging. Production
 will use Firebase Hosting in front of Cloud Run (free), which Google supports for production use.
 Anything put in front of Cloud Run adds its own address to `X-Forwarded-For`, which Sevak's
-per-address limits read from the right: set `SEVAK_PROXY_HOPS` to how many addresses it adds
-after the person's plus one (see `clientIp` in `apps/web/src/lib/http.ts`), or everyone would
+per-address limits read from the right: set the GitHub variable `SEVAK_PROXY_HOPS` to how many
+addresses it adds after the person's plus one (see `clientIp` in `apps/web/src/lib/http.ts`), or everyone would
 share one limit.
 
 Once `GCP_DOMAIN` is set, links in Sevak's emails point at that address.
@@ -215,8 +219,11 @@ Optional variables on the environment:
 
 ## Set up production (later)
 
+The full checklist, with every variable and secret, is in
+[`docs/ENVIRONMENTS.md`](../../docs/ENVIRONMENTS.md). In short:
+
 1. Create a second Google Cloud project for production, and run the script with
-   `--env production --email resend` and the new project's ID. Production's database gets nightly
+   `--env production` and the new project's ID. Production's database gets nightly
    backups and deletion protection.
    Production won't start without email. Set it up as in staging's step 5 (secrets on the
    `production` environment in GitHub), but in a separate
