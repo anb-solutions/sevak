@@ -147,6 +147,7 @@
     server.user = loaded.data.user;
     server.signIn = loaded.data.signIn || {};
     server.features = loaded.data.features || {};
+    server.env = loaded.data.env || "staging";
     claimBrowser(server.user && server.user.email);
     Object.keys(SYNCED).forEach(function (key) {
       var value = loaded.data.data[key];

@@ -22,7 +22,8 @@ import {
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { fileStore } from "@/lib/files";
-import { fromOurPages, json, readJson, refuse, viewerFor } from "@/lib/http";
+import { fromOurPages, json, publicUrl, readJson, refuse, viewerFor } from "@/lib/http";
+import { sendMails } from "@/lib/mail";
 
 export const dynamic = "force-dynamic";
 
@@ -63,7 +64,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
       return json({ refused: 0, value: await writeSignatures(db, viewer, value) });
     }
     if (key === ORGANIZATIONS_KEY) {
-      const result = await writeOrganizations(db, viewer, body);
+      const { emails, ...result } = await writeOrganizations(db, viewer, body);
+      await sendMails(publicUrl(req), emails);
       return json(result, result.refused ? 403 : 200);
     }
     const writers = {
@@ -75,7 +77,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
     } as const;
     const writer = writers[key as keyof typeof writers];
     if (writer) {
-      const result = await writer(db, viewer, body);
+      const { emails, ...result } = { emails: [], ...(await writer(db, viewer, body)) };
+      await sendMails(publicUrl(req), emails);
       return json(result, result.refused ? 403 : 200);
     }
     return json({ error: "not_found" }, 404);

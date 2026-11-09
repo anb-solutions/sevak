@@ -18,6 +18,7 @@ import { z } from "zod";
 import { type Db, records } from "@sevak/db";
 import type { Viewer } from "./auth";
 import { idSchema, type Json, lower, objectSchema, organizationsById, orgRole, publicOrganization, readProfile, tooBig } from "./records";
+import { askedToJoin, decided, invited, type Mail, welcome } from "./notify";
 import { newToken } from "./tokens";
 
 const COLLECTION = "memberships";
@@ -99,10 +100,11 @@ export const membershipOpsSchema = z.object({
   delete: z.array(z.string()).max(200).default([]),
 });
 
-export async function writeMemberships(db: Db, viewer: Viewer, ops: unknown): Promise<{ refused: number; value: Json[] }> {
+export async function writeMemberships(db: Db, viewer: Viewer, ops: unknown): Promise<{ refused: number; value: Json[]; emails: Mail[] }> {
   const { upsert, delete: remove } = membershipOpsSchema.parse(ops);
   const orgs = await organizationsById(db);
   let refused = 0;
+  const emails: Mail[] = [];
 
   await db.transaction(async (tx) => {
     const ids = [...upsert.map((m) => String(m.id ?? "")), ...remove];
@@ -133,6 +135,15 @@ export async function writeMemberships(db: Db, viewer: Viewer, ops: unknown): Pr
         .values({ collection: COLLECTION, id: id.data, orgId, data: next, updatedBy: viewer.id })
         .onConflictDoUpdate({ target: [records.collection, records.id], set: { data: next, orgId, updatedAt: new Date(), updatedBy: viewer.id } });
       byId.set(id.data, next);
+
+      // Who to tell.
+      const to = String(next.email);
+      if (next.status !== prev?.status) {
+        if (next.status === "invited") emails.push(invited(org, to));
+        else if (next.status === "requested") emails.push(...askedToJoin(org, String(next.name || to)));
+        else if (next.status === "declined") emails.push(decided(org, to, false));
+        else if (next.status === "active") emails.push(to === viewer.email ? welcome(org, to) : decided(org, to, true));
+      }
     }
 
     for (const id of remove) {
@@ -147,7 +158,7 @@ export async function writeMemberships(db: Db, viewer: Viewer, ops: unknown): Pr
     }
   });
 
-  return { refused, value: await readMemberships(db, viewer) };
+  return { refused, value: await readMemberships(db, viewer), emails };
 }
 
 // ---------- Invite codes ----------
@@ -173,7 +184,7 @@ export async function organizationForCode(db: Db, code: unknown): Promise<Json |
 }
 
 // Joins the organization whose invite code this is, as an active volunteer.
-export async function joinWithCode(db: Db, viewer: Viewer, code: unknown, note: unknown): Promise<{ organization: Json; value: Json[] } | null> {
+export async function joinWithCode(db: Db, viewer: Viewer, code: unknown, note: unknown): Promise<{ organization: Json; value: Json[]; emails: Mail[] } | null> {
   const org = await orgWithCode(db, code);
   if (!org) return null;
   const orgId = String(org.id);
@@ -195,5 +206,6 @@ export async function joinWithCode(db: Db, viewer: Viewer, code: unknown, note: 
     .insert(records)
     .values({ collection: COLLECTION, id: String(record.id), orgId, data: record, updatedBy: viewer.id })
     .onConflictDoUpdate({ target: [records.collection, records.id], set: { data: record, updatedAt: new Date(), updatedBy: viewer.id } });
-  return { organization: publicOrganization(org), value: await readMemberships(db, viewer) };
+  const emails = prev?.status === "active" ? [] : [welcome(org, viewer.email)];
+  return { organization: publicOrganization(org), value: await readMemberships(db, viewer), emails };
 }

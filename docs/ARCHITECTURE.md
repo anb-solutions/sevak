@@ -206,7 +206,16 @@ or another licensed mailbox; Amazon SES would need an AWS account. Without a key
 development, or staging before email is set up) emails, including sign-in codes, are written to
 the server log; production refuses to run that way.
 
-The app records each email and queues it in the same transaction as the change that caused it, so
+**Who decides what's sent:** only the server. Pages never send email (so nobody can use Sevak to
+email whoever they like); each change's rules produce the emails it causes
+(`packages/core/src/notify.ts`): an invitation, a welcome, a request to join (to the Admins), an
+approval or decline, being added to a team, a verification request (to Sevak staff) and its
+outcome, a sign-up confirmation (one per sign-up, listing its shifts), a certificate request (to
+the Admins), and the certificate issued or declined. The API route sends them after the change is
+saved; a failed email is logged and never undoes the change. The prototype's Outbox page is only
+used without the server.
+
+Later: the app records each email and queues it in the same transaction as the change that caused it, so
 an email is never sent for a sign-up that failed. The background job sends it and retries on
 failure. Shift emails carry a calendar invite with a stable id per shift, so a change updates the
 volunteer's calendar entry and a cancellation removes it.

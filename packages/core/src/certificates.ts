@@ -19,6 +19,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { type Db, records } from "@sevak/db";
 import type { Viewer } from "./auth";
+import { certificateDeclined, certificateIssued, certificateRequested, type Mail } from "./notify";
 import { idSchema, type Json, lower, objectSchema, organizationsById, orgRole, RecordError, tooBig } from "./records";
 
 const COLLECTION = "certificates";
@@ -68,10 +69,11 @@ export const certificateOpsSchema = z.object({
   delete: z.array(z.string()).max(50).default([]),
 });
 
-export async function writeCertificates(db: Db, viewer: Viewer, ops: unknown): Promise<{ refused: number; reason?: string; value: Json[] }> {
+export async function writeCertificates(db: Db, viewer: Viewer, ops: unknown): Promise<{ refused: number; reason?: string; value: Json[]; emails: Mail[] }> {
   const { upsert, delete: remove } = certificateOpsSchema.parse(ops);
   const orgs = await organizationsById(db);
   let refused = 0;
+  const emails: Mail[] = [];
   let reason: string | undefined;
   const refuse = (why: string) => {
     refused++;
@@ -160,6 +162,12 @@ export async function writeCertificates(db: Db, viewer: Viewer, ops: unknown): P
         .values({ collection: COLLECTION, id: id.data, orgId, data: next, updatedBy: viewer.id })
         .onConflictDoUpdate({ target: [records.collection, records.id], set: { data: next, updatedAt: new Date(), updatedBy: viewer.id } });
       byId.set(id.data, next);
+
+      if (next.status !== prev?.status) {
+        if (next.status === "requested") emails.push(...certificateRequested(org, String(next.name || next.email)));
+        else if (next.status === "issued") emails.push(certificateIssued(org, String(next.email), id.data));
+        else if (next.status === "declined") emails.push(certificateDeclined(org, String(next.email), String(next.reason ?? "")));
+      }
     }
 
     for (const id of remove) {
@@ -175,7 +183,7 @@ export async function writeCertificates(db: Db, viewer: Viewer, ops: unknown): P
     }
   });
 
-  return { refused, reason, value: await readCertificates(db, viewer) };
+  return { refused, reason, value: await readCertificates(db, viewer), emails };
 }
 
 // What anyone may see of an issued certificate, by its number: only what

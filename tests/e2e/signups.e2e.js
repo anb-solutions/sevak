@@ -1,6 +1,6 @@
 // Sign-ups on the server: signing up through the page, a full shift, no
 // names for others, hours waiting for approval, the team approving them.
-const { BASE, start, person, synced, organization, joinWithCode } = require("./helpers");
+const { BASE, start, person, synced, organization, joinWithCode, mailsTo } = require("./helpers");
 const ORG = "Temple Volunteers " + require("./helpers").RUN;
 
 (async () => {
@@ -31,6 +31,7 @@ const ORG = "Temple Volunteers " + require("./helpers").RUN;
   await mei.waitForURL(/registration=/);
   const meis = await signups(mei);
   check(meis.length === 1 && meis[0].email === mei.address, "signed up on the server");
+  check(mailsTo(mei.address).includes("You're signed up: Seva day"), "confirmation emailed");
 
   // Ravi: the shift is full, and forcing it is refused.
   await ravi.goto(BASE + "/app/signup.html?event=" + eventId);

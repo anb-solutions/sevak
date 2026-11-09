@@ -25,6 +25,16 @@ function codeFor(address) {
   return m[1];
 }
 
+// Subjects of the emails the app "sent" to an address (written to its log).
+function mailsTo(address) {
+  const log = fs.readFileSync(LOG, "utf8");
+  const out = [];
+  const re = new RegExp("To: " + address.replace(/[.+]/g, "\\$&") + "\\nSubject: ([^\\n]*)", "g");
+  let m;
+  while ((m = re.exec(log))) out.push(m[1]);
+  return out;
+}
+
 // Starts a test: a browser, check() and done(), in the style of tests/*-test.js
 // (prints "N ok", or FAIL lines and a non-zero exit).
 async function start() {
@@ -97,4 +107,4 @@ async function joinWithCode(page, code) {
   await page.waitForSelector("#join-done:not([hidden])");
 }
 
-module.exports = { RUN, BASE, STAFF_EMAIL, email, codeFor, start, person, signIn, synced, organization, joinWithCode };
+module.exports = { RUN, BASE, STAFF_EMAIL, mailsTo, email, codeFor, start, person, signIn, synced, organization, joinWithCode };
