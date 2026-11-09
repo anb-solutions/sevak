@@ -116,7 +116,7 @@
     $("join-email").textContent = profile ? profile.email : "your email";
     // Setting up an organization needs a saved profile: you become its Admin.
     var row = $("setup-org-row");
-    if (profile && F.session.signedIn()) {
+    if (F.session.saved() && F.session.signedIn()) {
       row.innerHTML = '<strong>Run volunteer events for a group?</strong> <a href="organization.html?new=1" id="setup-org">Set up your organization</a> and you\'ll be its Admin.';
     } else {
       row.innerHTML = "<strong>Run volunteer events for a group?</strong> Save your profile first, then you can set up your organization and be its Admin.";
