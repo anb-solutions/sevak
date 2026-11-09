@@ -1,0 +1,68 @@
+// Protections around the pages themselves: sign-in before the Manage and
+// staff pages, nothing left behind on a shared device, no inline scripts,
+// no demo data on the real app.
+const { BASE, start, person, signIn, email } = require("./helpers");
+
+(async () => {
+  const t = await start();
+  const { check } = t;
+
+  // Signed out: Manage and staff pages send you to sign in, then back.
+  const ctx = await t.browser.newContext({ viewport: { width: 390, height: 844 } });
+  const visitor = await ctx.newPage();
+  for (const pg of ["events.html", "volunteers.html", "dashboard.html", "organization.html", "review.html", "outbox.html"]) {
+    await visitor.goto(BASE + "/app/" + pg);
+    await visitor.waitForURL(/signin\.html/);
+    check(visitor.url().endsWith("signin.html?next=" + pg), "signed out: " + pg + " asks you to sign in");
+  }
+
+  // A shared device: Asha's things are cleared when she signs out...
+  const shared = await t.browser.newContext({ viewport: { width: 390, height: 844 } });
+  const p = await shared.newPage();
+  p.on("pageerror", (e) => t.errors.push(e.message));
+  await signIn(p, email("asha"));
+  await p.goto(BASE + "/app/profile.html");
+  await p.fill("#firstName", "Asha"); await p.fill("#lastName", "Test"); await p.fill("#phone", "7135550100");
+  await p.check("input[name=availability][value=anytime]", { force: true }).catch(() => {});
+  await p.click("#save");
+  await p.evaluate(() => {
+    localStorage.setItem("sevak.certificates.v1", JSON.stringify([{ id: "c1", email: "asha" }]));
+    localStorage.setItem("sevak.outbox.v1", JSON.stringify([{ id: "m1", subject: "private" }]));
+    return new Promise((done) => { const r = indexedDB.open("sevak-files", 1); r.onupgradeneeded = () => r.result.createObjectStore("files"); r.onsuccess = () => { r.result.close(); done(); }; });
+  });
+  await p.click("#sign-out");
+  await p.waitForURL(BASE + "/");
+  const left = await p.evaluate(async () => ({
+    keys: Object.keys(localStorage).filter((k) => k.startsWith("sevak.") && !/bannerDismissed|opportunityFilter|joinIntent|signedOut|organizations|events|mainEvents|signups|memberships/.test(k)),
+    profile: localStorage.getItem("sevak.profile.v1"),
+    files: (await indexedDB.databases()).some((d) => d.name === "sevak-files"),
+  }));
+  check(left.keys.length === 0 && !left.profile, "sign-out clears this browser: " + JSON.stringify(left.keys));
+  check(!left.files, "sign-out deletes stored files");
+
+  // ...and when her session ends without signing out (it expired), the next
+  // page clears them before anyone else uses the browser.
+  await signIn(p, email("asha"));
+  await p.evaluate(() => localStorage.setItem("sevak.outbox.v1", JSON.stringify([{ id: "m2", subject: "Asha's" }])));
+  await shared.clearCookies();
+  await p.goto(BASE + "/app/signup.html");
+  check((await p.evaluate(() => localStorage.getItem("sevak.outbox.v1"))) === null, "an ended session leaves nothing behind");
+  await signIn(p, email("ravi"));
+  check((await p.evaluate(() => localStorage.getItem("sevak.owner.v1"))) === email("ravi"), "the next person starts clean");
+
+  // No inline scripts: an injected one doesn't run.
+  const res = await p.goto(BASE + "/app/signup.html");
+  const csp = res.headers()["content-security-policy"] || "";
+  const scriptSrc = (csp.split(";").map((d) => d.trim()).find((d) => d.startsWith("script-src")) || "");
+  check(scriptSrc === "script-src 'self'", "scripts only from Sevak: " + scriptSrc);
+  await p.evaluate(() => { const s = document.createElement("script"); s.textContent = "window.__injected = true"; document.body.appendChild(s); });
+  check((await p.evaluate(() => window.__injected)) !== true, "injected inline script blocked");
+
+  // No demo data or samples on the real app.
+  const admin = await person(t, "admin");
+  await admin.goto(BASE + "/app/dashboard.html");
+  check(!(await admin.isVisible("#load-demo")) && !(await admin.isVisible("#add-samples")), "no demo or sample buttons");
+  await admin.goto(BASE + "/app/join.html");
+  check(!(await admin.isVisible("#demo-offer")), "no demo offer on Join");
+  await t.done();
+})();

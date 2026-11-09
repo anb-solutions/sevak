@@ -197,7 +197,7 @@
     return O.all().some(function (o) { return o.name; });
   }
 
-  $("demo-offer").hidden = hasOrgs() || !window.SevakDemo;
+  $("demo-offer").hidden = hasOrgs() || !window.SevakDemo || !!window.SevakServer;
   $("load-demo").addEventListener("click", function () {
     window.SevakDemo.load();
     window.SevakNav.render();
