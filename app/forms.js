@@ -366,12 +366,26 @@
   var PROFILE_KEY = "sevak.profile.v1";
   var SIGNED_OUT_KEY = "sevak.signedOut.v1";
 
+  // On Sevak's server (sync.js sets window.SevakServer), you're signed in
+  // when the server says so, even before your profile is saved; until then
+  // your profile is just your email.
+  var serverUser = function () { return window.SevakServer ? window.SevakServer.user || null : undefined; };
+
   var session = {
-    profile: function () {
+    // Your saved profile, if any.
+    saved: function () {
       var p = load(PROFILE_KEY);
       return p && p.email ? p : null;
     },
+    profile: function () {
+      var p = session.saved();
+      var user = serverUser();
+      if (!p && user && user.email) return { email: user.email };
+      return p;
+    },
     signedIn: function () {
+      var user = serverUser();
+      if (user !== undefined) return !!user;
       return !!session.profile() && load(SIGNED_OUT_KEY) !== true;
     },
     signIn: function () { clear(SIGNED_OUT_KEY); },

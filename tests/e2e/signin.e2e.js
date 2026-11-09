@@ -11,6 +11,14 @@ const { BASE, start, person, signIn, synced, email } = require("./helpers");
   await visitor.goto(BASE + "/app/profile.html");
   check(visitor.url().includes("signin.html?next=profile.html"), "signed out: profile asks you to sign in");
 
+  // Signed in before saving a profile: signed in all the same, with Sign out.
+  const fresh = await person(t, "rina", { profile: false });
+  await fresh.goto(BASE + "/app/profile.html");
+  const nav = await fresh.evaluate(() => [...document.querySelectorAll("header a")].map((a) => a.textContent.trim()));
+  check(!nav.includes("Sign in"), "no Sign in link once signed in, even without a profile: " + JSON.stringify(nav));
+  check(await fresh.isVisible("#sign-out"), "Sign out is there");
+  check((await fresh.textContent("#account-email")) === fresh.address, "says who's signed in");
+
   // A new person: code, then their profile, email locked.
   const asha = await person(t, "asha");
   check((await asha.getAttribute("#email", "readonly")) !== null, "profile email is the signed-in one, read-only");
