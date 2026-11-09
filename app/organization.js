@@ -58,26 +58,28 @@
     return [$("contactEmail")].concat(Array.prototype.slice.call(form.querySelectorAll('[data-key="email"]')));
   }
 
-  // An address or a phone number is enough: either one, or both. A street
-  // address needs its city, and the other way round.
-  var ADDRESS_IDS = ["addressLine1", "city"];
+  // A city or a phone number is enough: either one, or both. The street
+  // address is always optional; if it's given, so is its city.
+  var ADDRESS_IDS = ["city"];
 
   function syncAddressOrPhone() {
-    var hasAddress = ADDRESS_IDS.some(function (id) { return $(id).value.trim(); });
+    var hasStreet = !!$("addressLine1").value.trim();
+    var hasCity = !!$("city").value.trim();
     var hasPhone = !!$("contactPhone").value.trim();
-    ADDRESS_IDS.forEach(function (id) { $(id).required = hasAddress || !hasPhone; });
-    $("contactPhone").required = !hasAddress;
+    $("addressLine1").required = false;
+    $("city").required = hasStreet || !hasPhone;
+    $("contactPhone").required = !hasCity;
   }
 
   function messageFor(input) {
     var v = input.value.trim();
     syncAddressOrPhone();
     var eitherOr = input.required && !v && (ADDRESS_IDS.indexOf(input.id) !== -1 || input.id === "contactPhone");
-    var neither = !$("contactPhone").value.trim() && ADDRESS_IDS.every(function (id) { return !$(id).value.trim(); });
+    var neither = !$("contactPhone").value.trim() && !$("city").value.trim();
     if (eitherOr && neither) {
       return input.id === "contactPhone"
-        ? "Add a phone number, or the organization's address on the Address tab. One is enough."
-        : "Add the organization's address, or a phone number on the Contact tab. One is enough.";
+        ? "Add a phone number, or the organization's city on the Address tab. One is enough."
+        : "Add the organization's city, or a phone number on the Contact tab. One is enough.";
     }
     var basic = F.basicMessage(input);
     if (basic) return basic;
