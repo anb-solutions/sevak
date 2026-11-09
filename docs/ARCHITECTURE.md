@@ -109,10 +109,14 @@ Branch ─► Build and try it locally ─► Pull request ─► CI checks ─�
    they pass.
 5. **Review.** At least one approval, and a code owner's for sensitive areas (§4.1).
 6. **Merge → staging.** Merging into `staging` deploys to **staging** (`staging.sevak.theanbgroup.com`)
-   within minutes. Try it there on a phone. Staging holds only demo data.
+   within minutes. Try it there on a phone. Staging holds only test data, never real people's.
 7. **Staging → production, by the owner only.** The owner opens a pull request from `staging` into
    `main`, merges it and approves the deploy. Nobody else can update `main`, and the production
    Google Cloud project only accepts deploys from it. `main` always holds what's live.
+
+Staging and production are built and run identically (same code, setup, database settings and
+checks); only their labels and production's approval step differ
+([`docs/ENVIRONMENTS.md`](ENVIRONMENTS.md)).
 
 Every deploy runs database migrations first, then starts the new version without traffic, checks
 its health, and only then switches users to it. A broken version never reaches anyone, and the
@@ -128,7 +132,7 @@ can be tried there first, then built into the real app.
 | Environment | Where | Data | Email |
 |---|---|---|---|
 | Local | Your laptop or Claude session (`pnpm dev`) | Fake demo data in PGlite | Shown in the console |
-| Staging | Google Cloud project for staging, from `staging` | Demo data only | Caught, shown in the outbox, never sent |
+| Staging | Google Cloud project for staging, from `staging` | Test data only | Sent through Resend, from staging's own address, subjects start with "[Staging]" |
 | Production | Separate Google Cloud project, from `main` | Real data | Sent through Resend |
 
 There are no per-pull-request previews: staging is where changes are tried before production.
@@ -245,8 +249,8 @@ separate here too: staging sends from `staging.sevak.theanbgroup.com` (subjects 
 "[Staging]") and production from `sevak.theanbgroup.com`, each from its own Resend team and key. Sending through Google
 Workspace would need either a key that can send as anyone in the company (domain-wide delegation)
 or another licensed mailbox; Amazon SES would need an AWS account. Without a key (local
-development, or staging before email is set up) emails, including sign-in codes, are written to
-the server log; production refuses to run that way.
+development and tests) emails, including sign-in codes, are written to the server log; staging
+and production refuse to run that way.
 
 **How many:** emails are limited per person whose change causes them (100 an hour, 300 a day;
 staff aside), per recipient (20 a day, sign-in emails aside) and per organization (30 a day until
@@ -304,7 +308,7 @@ volunteer's calendar entry and a cancellation removes it.
   Secret Manager and turns off the old copy; the app reads it from there. So a key is changed
   through GitHub, like everything else, and staging's and production's keys stay separate.
 - **Staging and production are separate Google Cloud projects.** Staging has no production
-  secrets and only demo data. Real data is never copied into staging or onto a laptop.
+  secrets and only test data. Real data is never copied into staging or onto a laptop.
 - The app runs as a non-root user in a minimal container, and has only the permissions it needs.
 
 ### 4.3 The app
@@ -325,7 +329,7 @@ volunteer's calendar entry and a cancellation removes it.
   Organizations in India would later get an India region, in line with India's data protection law
   (DPDP Act 2023).
 - Data is encrypted at rest and in transit (the database accepts only encrypted connections).
-- Production's database has nightly backups and deletion protection; restoring a backup is tested
+- Both databases have nightly backups and deletion protection; restoring a backup is tested
   every month.
 - An audit log of sensitive actions: who changed roles, approved hours, exported a roster.
 - Data export and deletion on request (VOL-6). The privacy policy is updated before the pilot.

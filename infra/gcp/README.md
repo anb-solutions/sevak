@@ -9,7 +9,7 @@ SQL**. There are two environments, each in its own Google Cloud project:
 
 | Environment | Deploys from | Address | Data |
 |---|---|---|---|
-| **Staging** | `staging` (the default branch), after each reviewed merge | `staging.sevak.theanbgroup.com` | Demo data |
+| **Staging** | `staging` (the default branch), after each reviewed merge | `staging.sevak.theanbgroup.com` | Test data people create |
 | **Production** | `main`, which only the owner can merge into | `sevak.theanbgroup.com` | Real data |
 
 GitHub Actions deploys ([`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml)). It
@@ -17,12 +17,12 @@ signs in to Google with short-lived credentials (no stored keys), and each proje
 deploys from its own branch. Each deploy:
 
 1. Builds the container image ([`Dockerfile`](../../Dockerfile)) and stores it in the project.
-2. Runs database migrations as a Cloud Run job, and on staging also loads demo data. The job takes
+2. Runs database migrations as a Cloud Run job (no environment gets demo data). The job takes
    about 2 minutes to start, so it only runs when something that affects the database changed
-   since the live version (migrations, the schema, demo data, the task runner or dependencies).
+   since the live version (migrations, the schema, the task runner or dependencies).
    To run it anyway: **Actions → Deploy → Run workflow**, tick **Run database migrations**.
-3. Starts the new version **without traffic**, checks its health and, on staging, that it reads
-   the demo event from the database. Only then are users switched to it. A broken version never
+3. Starts the new version **without traffic**, checks its health and that it reads organizations
+   and events from the database. Only then are users switched to it. A broken version never
    reaches anyone.
 
 ## Cost
@@ -115,9 +115,9 @@ Once `GCP_DOMAIN` is set, links in Sevak's emails point at that address.
 
 ### 5. Send email (sign-in codes)
 
-People sign in with a code that Sevak emails them. Until email is set up, staging writes each
-code to its log instead: **Cloud Run → sevak-web → Logs**, search for `sign-in code`. That's fine
-for a first look; set up email before others test.
+People sign in with a code that Sevak emails them. Staging and production both need email: without
+it, no sign-in code can be sent, so nobody can sign in. Set it up before anyone uses the
+environment.
 
 Sevak sends through [Resend](https://resend.com) (why: [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md)
 §3.5). **Staging and production are kept apart:** staging sends from
@@ -225,7 +225,7 @@ The full checklist, with every variable and secret, is in
 1. Create a second Google Cloud project for production, and run the script with
    `--env production` and the new project's ID. Production's database gets nightly
    backups and deletion protection.
-   Production won't start without email. Set it up as in staging's step 5 (secrets on the
+   Production needs email, like staging. Set it up as in staging's step 5 (secrets on the
    `production` environment in GitHub), but in a separate
    Resend team, **Sevak Production** (or a second Resend account if your plan allows only one
    domain), with the domain `sevak.theanbgroup.com` and its own key. For Continue with Google,

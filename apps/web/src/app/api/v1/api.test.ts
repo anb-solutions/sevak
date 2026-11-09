@@ -202,3 +202,24 @@ describe("Zeffy connection", () => {
     expect((await list(req(`${path}/events`, { method: "GET", cookie: boss }), id)).status).toBe(409);
   });
 });
+
+describe("email", () => {
+  it("is only written to the log in development and tests; staging and production must send it", async () => {
+    const { send } = await import("@/lib/mail");
+    const before = { env: process.env.SEVAK_ENV, mode: process.env.EMAIL_MODE };
+    process.env.EMAIL_MODE = "log";
+    try {
+      for (const env of ["staging", "production"]) {
+        process.env.SEVAK_ENV = env;
+        await expect(send({ to: "a@example.com", subject: "Hi", text: "Hi" })).rejects.toThrow("must send email");
+      }
+      process.env.SEVAK_ENV = "test";
+      await expect(send({ to: "a@example.com", subject: "Hi", text: "Hi" })).resolves.toBeUndefined();
+    } finally {
+      if (before.env === undefined) delete process.env.SEVAK_ENV;
+      else process.env.SEVAK_ENV = before.env;
+      if (before.mode === undefined) delete process.env.EMAIL_MODE;
+      else process.env.EMAIL_MODE = before.mode;
+    }
+  });
+});
