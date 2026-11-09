@@ -1,5 +1,8 @@
 import {
   CERTIFICATES_KEY,
+  DAY,
+  HOUR,
+  hit,
   DOCUMENTS_KEY,
   EVENTS_KEY,
   MAIN_EVENTS_KEY,
@@ -48,6 +51,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
   const body = await readJson(req, 4_000_000);
   if (body === undefined) return refuse.tooLarge();
   const db = await getDb();
+  // How much one person can save, so nobody can fill the database.
+  const size = JSON.stringify(body).length;
+  if (!viewer.isPlatformAdmin && !((await hit(db, `user:writes:${viewer.id}`, 600, HOUR)) && (await hit(db, `user:bytes:${viewer.id}`, 50_000_000, DAY, size)))) {
+    return json({ error: "rate_limited" }, 429);
+  }
   try {
     if (key === PROFILE_KEY) {
       const { value } = z.object({ value: z.union([z.record(z.string(), z.unknown()), z.null()]) }).parse(body);
@@ -65,7 +73,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
     }
     if (key === ORGANIZATIONS_KEY) {
       const { emails, ...result } = await writeOrganizations(db, viewer, body);
-      await sendMails(publicUrl(req), emails);
+      await sendMails(publicUrl(req), viewer, emails);
       return json(result, result.refused ? 403 : 200);
     }
     const writers = {
@@ -78,7 +86,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
     const writer = writers[key as keyof typeof writers];
     if (writer) {
       const { emails, ...result } = { emails: [], ...(await writer(db, viewer, body)) };
-      await sendMails(publicUrl(req), emails);
+      await sendMails(publicUrl(req), viewer, emails);
       return json(result, result.refused ? 403 : 200);
     }
     return json({ error: "not_found" }, 404);

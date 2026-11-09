@@ -32,11 +32,11 @@ beforeEach(async () => {
   ravi = await person("ravi@example.com");
   mei = await person("mei@example.com");
   sam = await person("sam@example.com");
-  await writeOrganizations(db, asha, { upsert: [{ id: "org-temple", name: "Temple", team: [{ email: "ravi@example.com", role: "coordinator" }], inviteCode: "SEVA42" }] });
+  await writeOrganizations(db, asha, { upsert: [{ id: "org-temple", name: "Temple", team: [{ email: "ravi@example.com", role: "coordinator" }], inviteCode: "SEVA4242" }] });
   await writeEvents(db, asha, {
     upsert: [{ id: "ev-1", organizationId: "org-temple", title: "Seva", status: "published", roles: [{ id: "r1", shifts: [{ id: "s1", date: "2030-01-10", capacity: 5 }, { id: "s2", date: "2030-02-10", capacity: 5 }] }] }],
   });
-  await joinWithCode(db, mei, "SEVA42", "");
+  await joinWithCode(db, mei, "SEVA4242", "");
   // Mei logs 2 h in January (approved 90 min) and 1 h in February (approved).
   await writeSignups(db, mei, { upsert: [{ id: "su-1", eventId: "ev-1", shiftId: "s1", email: "mei@example.com", status: "confirmed" }, { id: "su-2", eventId: "ev-1", shiftId: "s2", email: "mei@example.com", status: "confirmed" }] });
   for (const s of await readSignups(db, mei)) await writeSignups(db, mei, { upsert: [{ ...s, hours: { minutes: s.id === "su-1" ? 120 : 60, method: "duration" } }] });

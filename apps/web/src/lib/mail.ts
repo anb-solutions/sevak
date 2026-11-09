@@ -7,6 +7,9 @@
 // Staging and production send from different addresses, each a domain of
 // its own in Resend with its own key, so test emails never share anything
 // with real ones. Staging's subjects also start with "[Staging]".
+import { allowedMails, type Mail, type Viewer } from "@sevak/core";
+import { getDb } from "@/lib/db";
+
 const staging = () => process.env.SEVAK_ENV !== "production";
 
 function from(): string {
@@ -67,10 +70,13 @@ export function signInEmail(to: string, code: string, link: string): Email {
 
 // Sends the emails a change produced (@sevak/core notify.ts). Links become
 // full addresses on this site; "@staff" goes to SEVAK_PLATFORM_ADMINS. Best
-// effort: a failed email is logged, and never undoes the change.
-export async function sendMails(base: string, mails: { to: string; subject: string; text: string; link?: string; linkText?: string }[]) {
+// effort: a failed email is logged, and never undoes the change. Emails over
+// the limits (who caused them, who gets them, which organization) are
+// dropped (@sevak/core limits.ts).
+export async function sendMails(base: string, viewer: Viewer | null, mails: Mail[]) {
   const staff = (process.env.SEVAK_PLATFORM_ADMINS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
-  const out = mails.flatMap((m) => (m.to === "@staff" ? staff.map((to) => ({ ...m, to })) : [m])).slice(0, 50);
+  const allowed = await allowedMails(await getDb(), viewer, mails.slice(0, 50));
+  const out = allowed.flatMap((m) => (m.to === "@staff" ? staff.map((to) => ({ ...m, to })) : [m])).slice(0, 50);
   for (const m of out) {
     const text = m.link ? `${m.text}\n\n${m.linkText ?? "Open Sevak"}: ${base}/app/${m.link}\n\nSevak, a service of The ANB Group` : `${m.text}\n\nSevak, a service of The ANB Group`;
     await send({ to: m.to, subject: m.subject, text }).catch((e) => console.error(`Couldn't send "${m.subject}" to ${m.to}:`, e));

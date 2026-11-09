@@ -17,10 +17,12 @@ export async function POST(req: Request) {
   if (!viewer) return refuse.signedOut();
   const parsed = body.safeParse(await readJson(req, 4_000));
   if (!parsed.success) return refuse.invalid();
-  if (tooMany(`code:${clientIp(req)}`, 30, 60 * 60_000)) return json({ error: "rate_limited" }, 429);
+  if ((await tooMany(`ip:code:${clientIp(req)}`, 30, 60 * 60_000)) || (await tooMany(`user:code:${viewer.id}`, 20, 24 * 60 * 60_000))) {
+    return json({ error: "rate_limited" }, 429);
+  }
   const result = await joinWithCode(await getDb(), viewer, parsed.data.code, parsed.data.note);
   if (!result) return json({ error: "not_found" }, 404);
   const { emails, ...rest } = result;
-  await sendMails(publicUrl(req), emails);
+  await sendMails(publicUrl(req), viewer, emails);
   return json(rest);
 }

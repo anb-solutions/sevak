@@ -56,8 +56,10 @@ function asSelf(raw: Json, prev: Json | null, org: Json, viewer: Viewer): Json |
     if (prev && prev[f] !== undefined) base[f] = prev[f];
     else delete base[f];
   }
-  if (status === "requested" || (status === "active" && org.autoApprove === true)) {
-    if (org.autoApprove === true) return { ...base, status: "active", how: "auto-approved", decidedAt: now() };
+  // Someone the organization declined asks again rather than joining.
+  const auto = org.autoApprove === true && prev?.status !== "declined";
+  if (status === "requested" || (status === "active" && auto)) {
+    if (auto) return { ...base, status: "active", how: "auto-approved", decidedAt: now() };
     return { ...base, status: "requested", how: "request" };
   }
   if (status === "active" && (prev?.status === "invited" || prev?.status === "active")) {
@@ -100,10 +102,11 @@ export const membershipOpsSchema = z.object({
   delete: z.array(z.string()).max(200).default([]),
 });
 
-export async function writeMemberships(db: Db, viewer: Viewer, ops: unknown): Promise<{ refused: number; value: Json[]; emails: Mail[] }> {
+export async function writeMemberships(db: Db, viewer: Viewer, ops: unknown): Promise<{ refused: number; reason?: string; value: Json[]; emails: Mail[] }> {
   const { upsert, delete: remove } = membershipOpsSchema.parse(ops);
   const orgs = await organizationsById(db);
   let refused = 0;
+  let reason: string | undefined;
   const emails: Mail[] = [];
 
   await db.transaction(async (tx) => {
@@ -112,6 +115,7 @@ export async function writeMemberships(db: Db, viewer: Viewer, ops: unknown): Pr
       ? await tx.select().from(records).where(and(eq(records.collection, COLLECTION), inArray(records.id, ids))).for("update")
       : [];
     const byId = new Map(existing.map((r) => [r.id, r.data]));
+    const emailsIn = new Map<string, Set<string>>(); // who already has a record, by organization
 
     for (const raw of upsert) {
       const id = idSchema.safeParse(raw.id);
@@ -123,6 +127,19 @@ export async function writeMemberships(db: Db, viewer: Viewer, ops: unknown): Pr
         continue;
       }
       const self = lower(raw.email) === viewer.email && (!prev || lower(prev.email) === viewer.email);
+      // One record per person and organization: a second one is refused.
+      const email = lower(self ? viewer.email : raw.email);
+      if (!prev) {
+        if (!emailsIn.has(orgId)) {
+          const rows = await tx.select({ data: records.data }).from(records).where(and(eq(records.collection, COLLECTION), eq(records.orgId, orgId)));
+          emailsIn.set(orgId, new Set(rows.map((r) => lower(r.data.email))));
+        }
+        if (emailsIn.get(orgId)!.has(email)) {
+          refused++;
+          reason ??= "already_asked";
+          continue;
+        }
+      }
       let next = self ? asSelf(raw, prev, org, viewer) : null;
       if (!next && canManage(org, viewer)) next = asTeam(raw, prev, viewer);
       if (!next) {
@@ -135,6 +152,7 @@ export async function writeMemberships(db: Db, viewer: Viewer, ops: unknown): Pr
         .values({ collection: COLLECTION, id: id.data, orgId, data: next, updatedBy: viewer.id })
         .onConflictDoUpdate({ target: [records.collection, records.id], set: { data: next, orgId, updatedAt: new Date(), updatedBy: viewer.id } });
       byId.set(id.data, next);
+      emailsIn.get(orgId)?.add(lower(next.email));
 
       // Who to tell.
       const to = String(next.email);
@@ -158,7 +176,7 @@ export async function writeMemberships(db: Db, viewer: Viewer, ops: unknown): Pr
     }
   });
 
-  return { refused, value: await readMemberships(db, viewer), emails };
+  return { refused, reason, value: await readMemberships(db, viewer), emails };
 }
 
 // ---------- Invite codes ----------

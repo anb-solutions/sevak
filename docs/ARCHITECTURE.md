@@ -155,10 +155,21 @@ cancellation gives the spot back in the same transaction. A database rule
 ### 3.2 Sign-in and secure links (VOL-1, NFR-4, NFR-6)
 
 - **Sign-in:** the email contains a link and a 6-digit code. Both expire after 15 minutes and work
-  once. Only a hash is stored. Requests are rate-limited by email (5 an hour, in the database) and,
-  generously, by IP (100 an hour per server instance, since a whole venue can share one Wi-Fi). Five wrong codes and that code stops working. The link carries its
+  once. Only a hash is stored. Requests are rate-limited by email (5 an hour) and, generously, by
+  IP (100 an hour, since a whole venue can share one Wi-Fi). Each try is counted before the code
+  is checked, in one statement, so guesses sent all at once can't get past the limits: five tries
+  and that code stops working, and 30 tries a day for one address stop codes working for it (its
+  emailed link still works). The link carries its
   token after `#`, so it never reaches a server log or a link scanner; the sign-in page sends it.
   Links always point at `APP_URL`, never at the request's Host header.
+- **Limits** are counted in the database (`rate_limits`, `packages/core/src/limits.ts`), so they
+  hold across every server instance. The caller's address is the last one in `X-Forwarded-For`
+  that isn't private (Google's front end adds it; earlier entries are whatever the caller sent).
+  Besides sign-in: invite-code lookups (30 an hour per address, 20 a day per person), certificate
+  checks (60 an hour per address), saves (600 an hour and 50 MB a day per person), organizations
+  (10 per person), events (500 per organization), one membership per person and organization, and
+  three open certificate requests per person and organization. Invite codes are 8 characters
+  from a secure random source; the server refuses shorter new ones.
 - **Session:** a random id in a `__Host-` cookie (`Secure; HttpOnly; SameSite=Lax`), stored hashed
   in the database so it can be revoked. Lasts 30 days.
 - **Requests that change something** must come from Sevak's own pages (`Sec-Fetch-Site` or
@@ -205,6 +216,12 @@ Workspace would need either a key that can send as anyone in the company (domain
 or another licensed mailbox; Amazon SES would need an AWS account. Without a key (local
 development, or staging before email is set up) emails, including sign-in codes, are written to
 the server log; production refuses to run that way.
+
+**How many:** emails are limited per person whose change causes them (100 an hour, 300 a day;
+staff aside), per recipient (20 a day, sign-in emails aside) and per organization (30 a day until
+Sevak verifies it, then 1,000). Emails over a limit aren't sent; the change still saves. Names
+people typed (organizations, events, volunteers) go in on one line, without control characters,
+cut to 80 characters.
 
 **Who decides what's sent:** only the server. Pages never send email (so nobody can use Sevak to
 email whoever they like); each change's rules produce the emails it causes

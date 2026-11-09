@@ -94,10 +94,14 @@
 
   // ---------- Invite links ----------
 
+  // 8 characters from 32 (no 0/O or 1/I), from the browser's secure random
+  // source, so codes can't be guessed. The server refuses shorter new codes.
   function code() {
     var chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    var bytes = new Uint8Array(8);
+    window.crypto.getRandomValues(bytes);
     var out = "";
-    for (var i = 0; i < 6; i++) out += chars[Math.floor(Math.random() * chars.length)];
+    for (var i = 0; i < bytes.length; i++) out += chars[bytes[i] % chars.length];
     return out;
   }
 

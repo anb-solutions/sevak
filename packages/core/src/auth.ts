@@ -5,12 +5,14 @@ import { timingSafeEqual } from "node:crypto";
 import { and, desc, eq, gt, isNull, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { type Db, loginTokens, sessions, users } from "@sevak/db";
+import { DAY, HOUR, hit } from "./limits";
 import { hashToken, newCode, newToken } from "./tokens";
 
 export const CODE_MINUTES = 15;
 export const SESSION_DAYS = 30;
 export const MAX_REQUESTS_PER_HOUR = 5; // sign-in emails to one address
 export const MAX_CODE_ATTEMPTS = 5; // wrong codes before a code stops working
+export const MAX_CODE_TRIES_PER_DAY = 30; // codes tried for one address, all its codes together
 
 export const emailSchema = z
   .string()
@@ -37,12 +39,7 @@ const minutes = (n: number) => n * 60_000;
 // Refused after MAX_REQUESTS_PER_HOUR requests for one address in an hour.
 export async function requestSignIn(db: Db, rawEmail: string, now = new Date()) {
   const email = emailSchema.parse(rawEmail);
-  const hourAgo = new Date(now.getTime() - minutes(60));
-  const [recent] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(loginTokens)
-    .where(and(eq(loginTokens.email, email), gt(loginTokens.createdAt, hourAgo)));
-  if ((recent?.n ?? 0) >= MAX_REQUESTS_PER_HOUR) throw new AuthError("rate_limited");
+  if (!(await hit(db, `signin-email:${email}`, MAX_REQUESTS_PER_HOUR, HOUR, 1, now))) throw new AuthError("rate_limited");
 
   // Old requests for this address are no longer needed.
   await db.delete(loginTokens).where(and(eq(loginTokens.email, email), lt(loginTokens.createdAt, new Date(now.getTime() - minutes(24 * 60)))));
@@ -92,12 +89,18 @@ export async function verifySignIn(
       .where(and(eq(loginTokens.email, parsed.data), isNull(loginTokens.usedAt), gt(loginTokens.expiresAt, now)))
       .orderBy(desc(loginTokens.createdAt))
       .limit(1);
-    if (row && row.attempts < MAX_CODE_ATTEMPTS) {
-      if (sameHash(row.codeHash, hashToken(`${parsed.data}:${proof.code}`))) {
-        [tokenId, email] = [row.id, row.email];
-      } else {
-        await db.update(loginTokens).set({ attempts: sql`${loginTokens.attempts} + 1` }).where(eq(loginTokens.id, row.id));
-      }
+    if (row) {
+      // Count the try before checking it, in one statement, so guesses sent
+      // all at once can't get past the limit. A code stops working after
+      // MAX_CODE_ATTEMPTS tries, and an address after MAX_CODE_TRIES_PER_DAY
+      // (its emailed link still works).
+      const counted = await db
+        .update(loginTokens)
+        .set({ attempts: sql`${loginTokens.attempts} + 1` })
+        .where(and(eq(loginTokens.id, row.id), isNull(loginTokens.usedAt), lt(loginTokens.attempts, MAX_CODE_ATTEMPTS)))
+        .returning({ id: loginTokens.id });
+      const allowed = counted.length > 0 && (await hit(db, `code-try:${parsed.data}`, MAX_CODE_TRIES_PER_DAY, DAY, 1, now));
+      if (allowed && sameHash(row.codeHash, hashToken(`${parsed.data}:${proof.code}`))) [tokenId, email] = [row.id, row.email];
     }
   }
   if (!tokenId || !email) throw new AuthError("invalid");

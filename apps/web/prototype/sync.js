@@ -85,7 +85,9 @@
     full: "Sorry, that shift just filled up. Please choose another.",
     already: "You're already signed up for that shift.",
     not_member: "Join the organization first, then you can sign up for its shifts.",
-    hours_mismatch: "That certificate's hours don't match the approved hours on record. Reload the page and try again."
+    hours_mismatch: "That certificate's hours don't match the approved hours on record. Reload the page and try again.",
+    too_many: "That's more than Sevak allows for one person or organization. Contact Sevak if you need more.",
+    already_asked: "That has already been asked for. Reload the page to see where it stands."
   };
 
   function put(key, value) {
@@ -221,6 +223,8 @@
       notice("You've been signed out. Sign in again to save.");
     } else if (res.status === 413) {
       notice("That's too big to save. Try a smaller photo or file.");
+    } else if (res.status === 429) {
+      notice("That's a lot of saving in a short time. Wait a few minutes, then try again.");
     } else {
       notice("Couldn't save to Sevak just now. Check your connection and try again.");
     }

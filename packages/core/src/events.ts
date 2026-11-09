@@ -14,15 +14,17 @@
 //
 // Who changes what: the organization's team (Admins and Coordinators) adds
 // and edits events and main events; only Admins delete them (EVT-19).
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { type Db, records } from "@sevak/db";
 import type { Viewer } from "./auth";
 import { idSchema, type Json, lower, objectSchema, organizationsById, orgRole, tooBig } from "./records";
 
 const MAX_BYTES = 1_500_000; // room for a cover picture
+export const MAX_EVENTS_PER_ORG = 500; // events (and main events) one organization can have
 
 type Collection = "events" | "mainEvents";
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 async function activeMemberOf(db: Db, viewer: Viewer | null): Promise<Set<string>> {
   if (!viewer) return new Set();
@@ -73,10 +75,19 @@ export const orgOwnedOpsSchema = z.object({
 
 // Applies a screen's changes to events or main events. Each change is
 // checked on its own; what isn't allowed is left as it was.
-async function writeOrgOwned(db: Db, viewer: Viewer, collection: Collection, ops: unknown): Promise<number> {
+async function writeOrgOwned(db: Db, viewer: Viewer, collection: Collection, ops: unknown): Promise<{ refused: number; reason?: string }> {
   const { upsert, delete: remove } = orgOwnedOpsSchema.parse(ops);
   const orgs = await organizationsById(db);
   let refused = 0;
+  let reason: string | undefined;
+  const counts = new Map<string, number>();
+  const countFor = async (tx: Tx, orgId: string) => {
+    if (!counts.has(orgId)) {
+      const [row] = await tx.select({ n: sql<number>`count(*)::int` }).from(records).where(and(eq(records.collection, collection), eq(records.orgId, orgId)));
+      counts.set(orgId, row?.n ?? 0);
+    }
+    return counts.get(orgId)!;
+  };
   await db.transaction(async (tx) => {
     const ids = [...upsert.map((x) => String(x.id ?? "")), ...remove];
     const existing = ids.length
@@ -99,6 +110,14 @@ async function writeOrgOwned(db: Db, viewer: Viewer, collection: Collection, ops
         refused++;
         continue;
       }
+      if (!prev && !viewer.isPlatformAdmin) {
+        if ((await countFor(tx, orgId)) >= MAX_EVENTS_PER_ORG) {
+          refused++;
+          reason ??= "too_many";
+          continue;
+        }
+        counts.set(orgId, counts.get(orgId)! + 1);
+      }
       await tx
         .insert(records)
         .values({ collection, id: id.data, orgId, data: raw, updatedBy: viewer.id })
@@ -117,15 +136,15 @@ async function writeOrgOwned(db: Db, viewer: Viewer, collection: Collection, ops
       byId.delete(id);
     }
   });
-  return refused;
+  return { refused, reason };
 }
 
 export async function writeEvents(db: Db, viewer: Viewer, ops: unknown) {
-  const refused = await writeOrgOwned(db, viewer, "events", ops);
-  return { refused, value: (await readEventsAndMain(db, viewer)).events };
+  const result = await writeOrgOwned(db, viewer, "events", ops);
+  return { ...result, value: (await readEventsAndMain(db, viewer)).events };
 }
 
 export async function writeMainEvents(db: Db, viewer: Viewer, ops: unknown) {
-  const refused = await writeOrgOwned(db, viewer, "mainEvents", ops);
-  return { refused, value: (await readEventsAndMain(db, viewer)).mainEvents };
+  const result = await writeOrgOwned(db, viewer, "mainEvents", ops);
+  return { ...result, value: (await readEventsAndMain(db, viewer)).mainEvents };
 }
