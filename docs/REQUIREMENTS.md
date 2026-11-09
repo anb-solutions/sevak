@@ -1,6 +1,6 @@
 # Sevak: MVP Requirements
 
-**Version:** 2.34 (Sevak sends its emails from the server) · **Updated:** 2026-11-09 · **Status:** Draft for review
+**Version:** 2.35 (limits against guessing, flooding and filling the database) · **Updated:** 2026-11-09 · **Status:** Draft for review
 
 This replaces the original SRS outline, which is about six months old. That outline covered a full
 volunteer management system: background checks, GPS clock-in, CRM integrations and so on. This
@@ -385,7 +385,7 @@ This is the list of screens to build in Phase 1 with mock data.
 | NFR-3 | Availability | A 99.5% monthly uptime target. Failed email sends are retried. |
 | NFR-4 | Authentication | Everyone signs in with a passwordless one-time email link. **Platform admins must use 2FA.** 2FA for hosts is a Should. |
 | NFR-5 | Data protection | TLS everywhere, encryption at rest, and no secrets in the repository. An organization's data is only visible to that organization's team. |
-| NFR-6 | Abuse prevention | Rate limits and bot protection on public forms. Private and manage links use long tokens that can't be guessed. |
+| NFR-6 | Abuse prevention | Rate limits and bot protection on public forms. Private and manage links use long tokens that can't be guessed. Limits are kept in the database so they hold across server instances: sign-in tries per code and per address, invite-code lookups, saves, organizations per person, events per organization, and emails per sender, recipient and organization (far fewer until the organization is verified). |
 | NFR-7 | Privacy | Collect as little data as possible. Meet GDPR and CCPA basics: a privacy policy, consent for non-transactional email, and data export and deletion. Volunteer data is never sold or shared. |
 | NFR-8 | Minors | Deferred (see §4.10). The MVP collects no date of birth or age information. Under-age support must comply with COPPA when it is built. |
 | NFR-9 | Accessibility | WCAG 2.1 AA: fully usable by keyboard, with labelled controls and enough colour contrast. |

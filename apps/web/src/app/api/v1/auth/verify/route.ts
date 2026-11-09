@@ -16,7 +16,7 @@ export async function POST(req: Request) {
   if (!fromOurPages(req)) return refuse.crossSite();
   const parsed = body.safeParse(await readJson(req, 2_000));
   if (!parsed.success) return refuse.invalid();
-  if (tooMany(`verify:${clientIp(req)}`, 150, 60 * 60_000)) return json({ error: "rate_limited" }, 429);
+  if (await tooMany(`ip:verify:${clientIp(req)}`, 150, 60 * 60_000)) return json({ error: "rate_limited" }, 429);
   try {
     const db = await getDb();
     const { sessionToken, viewer } = await verifySignIn(db, parsed.data);

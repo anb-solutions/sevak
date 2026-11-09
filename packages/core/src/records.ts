@@ -20,7 +20,7 @@
 //
 // Records whose id starts with "demo-" are the screens' own demo data and
 // stay in each browser; they never reach the server.
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { type Db, records, users } from "@sevak/db";
 import type { Viewer } from "./auth";
@@ -52,6 +52,8 @@ export type Json = Record<string, unknown>;
 
 const MAX_PROFILE_BYTES = 1_500_000; // room for a profile photo
 const MAX_ORG_BYTES = 500_000;
+export const INVITE_CODE = /^[A-HJ-NP-Z2-9]{8,16}$/;
+export const MAX_ORGS_PER_PERSON = 10; // organizations one person can set up (staff aside)
 
 export const idSchema = z
   .string()
@@ -196,10 +198,11 @@ export const organizationOpsSchema = z.object({
 // Applies changes from a screen: organizations to add or update, and ids to
 // delete. Each one is checked on its own; what isn't allowed is left as it
 // was. Returns how many were refused and the organizations as you now see them.
-export async function writeOrganizations(db: Db, viewer: Viewer, ops: unknown): Promise<{ refused: number; value: Json[]; emails: Mail[] }> {
+export async function writeOrganizations(db: Db, viewer: Viewer, ops: unknown): Promise<{ refused: number; reason?: string; value: Json[]; emails: Mail[] }> {
   const { upsert, delete: remove } = organizationOpsSchema.parse(ops);
   const { addedToTeam, verificationDecided, verificationRequested } = await import("./notify");
   let refused = 0;
+  let reason: string | undefined;
   const emails: Mail[] = [];
 
   await db.transaction(async (tx) => {
@@ -218,6 +221,17 @@ export async function writeOrganizations(db: Db, viewer: Viewer, ops: unknown): 
       const prev = byId.get(id.data) ?? null;
       const role = prev ? orgRole(prev, viewer.email) : null;
       let next: Json;
+      if (!prev && !viewer.isPlatformAdmin) {
+        const [mine] = await tx
+          .select({ n: sql<number>`count(*)::int` })
+          .from(records)
+          .where(and(eq(records.collection, "organizations"), sql`lower(${records.data}->>'createdBy') = ${viewer.email}`));
+        if ((mine?.n ?? 0) >= MAX_ORGS_PER_PERSON) {
+          refused++;
+          reason ??= "too_many";
+          continue;
+        }
+      }
       if (!prev) {
         // Anyone signed in can set up an organization, and is its Admin.
         next = viewer.isPlatformAdmin ? { ...raw, createdBy: raw.createdBy ?? viewer.email } : keepStaffFields({ ...raw, createdBy: viewer.email }, null);
@@ -230,6 +244,14 @@ export async function writeOrganizations(db: Db, viewer: Viewer, ops: unknown): 
       } else {
         refused++;
         continue;
+      }
+      // A new invite code must be long enough not to be guessed.
+      if (next.inviteCode !== prev?.inviteCode && next.inviteCode !== undefined && !(typeof next.inviteCode === "string" && INVITE_CODE.test(next.inviteCode))) {
+        if (prev?.inviteCode !== undefined) next = { ...next, inviteCode: prev.inviteCode };
+        else {
+          next = { ...next };
+          delete next.inviteCode;
+        }
       }
       await tx
         .insert(records)
@@ -264,7 +286,7 @@ export async function writeOrganizations(db: Db, viewer: Viewer, ops: unknown): 
     }
   });
 
-  return { refused, value: await readOrganizations(db, viewer), emails };
+  return { refused, reason, value: await readOrganizations(db, viewer), emails };
 }
 
 // ---------- Everything a page loads ----------

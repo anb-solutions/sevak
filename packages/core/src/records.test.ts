@@ -22,7 +22,7 @@ const org = (extra: Record<string, unknown> = {}) => ({
   address: { line1: "1 Main St", city: "Houston", state: "TX", country: "US" },
   primaryContact: { name: "Asha", email: "asha@example.com", phone: { number: "+17135550100" } },
   team: [{ name: "Ravi", email: "ravi@example.com", role: "coordinator" }],
-  inviteCode: "SEVA42",
+  inviteCode: "SEVA4242",
   verificationStatus: "unverified",
   ...extra,
 });
@@ -60,7 +60,7 @@ describe("profile", () => {
 describe("organizations", () => {
   it("records who set one up, as its Admin", async () => {
     const [saved] = await readOrganizations(db, asha);
-    expect(saved).toMatchObject({ id: "org-temple", createdBy: "asha@example.com", inviteCode: "SEVA42" });
+    expect(saved).toMatchObject({ id: "org-temple", createdBy: "asha@example.com", inviteCode: "SEVA4242" });
   });
 
   it("shows only the public part to people not on the team, and to visitors", async () => {
@@ -68,9 +68,9 @@ describe("organizations", () => {
       const [seen] = await readOrganizations(db, viewer);
       expect(seen).toMatchObject({ id: "org-temple", name: "Temple Volunteers", public: true, address: { city: "Houston" } });
       const text = JSON.stringify(seen);
-      for (const secret of ["SEVA42", "asha@example.com", "ravi@example.com", "1 Main St", "+1713"]) expect(text).not.toContain(secret);
+      for (const secret of ["SEVA4242", "asha@example.com", "ravi@example.com", "1 Main St", "+1713"]) expect(text).not.toContain(secret);
     }
-    expect((await readOrganizations(db, ravi))[0]).toMatchObject({ inviteCode: "SEVA42" });
+    expect((await readOrganizations(db, ravi))[0]).toMatchObject({ inviteCode: "SEVA4242" });
   });
 
   it("lets its Admins change it", async () => {

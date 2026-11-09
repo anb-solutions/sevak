@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   if (!parsed.success) return refuse.invalid();
   // Per address, generous: a whole temple on one Wi-Fi signs in on event
   // day. The real limit is per email, in the database (5 an hour).
-  if (tooMany(`signin:${clientIp(req)}`, 100, 60 * 60_000)) return json({ error: "rate_limited" }, 429);
+  if (await tooMany(`ip:signin:${clientIp(req)}`, 100, 60 * 60_000)) return json({ error: "rate_limited" }, 429);
   try {
     const { email, code, token } = await requestSignIn(await getDb(), parsed.data.email);
     // The token is after #, so it never reaches a server (or a link scanner's log).

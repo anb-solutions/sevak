@@ -64,6 +64,8 @@ export async function approvedMinutes(db: Db, email: string, orgId: string, from
   return total;
 }
 
+export const MAX_OPEN_REQUESTS = 3; // open certificate requests per person and organization
+
 export const certificateOpsSchema = z.object({
   upsert: z.array(objectSchema).max(50).default([]),
   delete: z.array(z.string()).max(50).default([]),
@@ -86,6 +88,7 @@ export async function writeCertificates(db: Db, viewer: Viewer, ops: unknown): P
       ? await tx.select().from(records).where(and(eq(records.collection, COLLECTION), inArray(records.id, ids))).for("update")
       : [];
     const byId = new Map(existing.map((r) => [r.id, r.data]));
+    let openAsks: string[] | undefined; // organizations you have open requests with
 
     for (const raw of upsert) {
       const id = idSchema.safeParse(raw.id);
@@ -101,6 +104,15 @@ export async function writeCertificates(db: Db, viewer: Viewer, ops: unknown): P
       if (!prev) {
         // A volunteer asks for their own certificate.
         if (raw.status === "requested" && DAY.test(String(raw.from)) && DAY.test(String(raw.to)) && String(raw.from) <= String(raw.to)) {
+          // A few open requests per organization at a time.
+          openAsks ??= (await tx.select({ data: records.data }).from(records).where(eq(records.collection, COLLECTION))).filter(
+            (r) => lower(r.data.email) === viewer.email && r.data.status === "requested",
+          ).map((r) => String(r.data.orgId));
+          if (openAsks.filter((o) => o === orgId).length >= MAX_OPEN_REQUESTS) {
+            refuse("already_asked");
+            continue;
+          }
+          openAsks.push(orgId);
           next = {
             id: id.data,
             orgId,

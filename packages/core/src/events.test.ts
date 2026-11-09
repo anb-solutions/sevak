@@ -22,7 +22,7 @@ const temple = (extra: Record<string, unknown> = {}) => ({
   id: "org-temple",
   name: "Temple Volunteers",
   team: [{ email: "ravi@example.com", role: "coordinator" }],
-  inviteCode: "SEVA42",
+  inviteCode: "SEVA4242",
   ...extra,
 });
 
@@ -47,7 +47,7 @@ beforeEach(async () => {
   sam = await person("sam@example.com");
   staff = await person("staff@example.com", true);
   await writeOrganizations(db, asha, { upsert: [temple()] });
-  await joinWithCode(db, mei, "SEVA42", "");
+  await joinWithCode(db, mei, "SEVA4242", "");
 });
 
 describe("who sees which events", () => {

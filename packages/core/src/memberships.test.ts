@@ -25,7 +25,7 @@ beforeEach(async () => {
   mei = await person("mei@example.com");
   sam = await person("sam@example.com");
   await writeOrganizations(db, asha, {
-    upsert: [{ id: "org-temple", name: "Temple Volunteers", team: [{ email: "ravi@example.com", role: "coordinator" }], inviteCode: "SEVA42" }],
+    upsert: [{ id: "org-temple", name: "Temple Volunteers", team: [{ email: "ravi@example.com", role: "coordinator" }], inviteCode: "SEVA4242" }],
   });
   await writeProfile(db, mei, { firstName: "Mei", lastName: "Lin", photo: "data:image/png;base64,AAAA" });
 });
@@ -49,7 +49,7 @@ describe("asking to join", () => {
   });
 
   it("is approved straight away when the organization approves automatically", async () => {
-    await writeOrganizations(db, asha, { upsert: [{ id: "org-temple", name: "Temple Volunteers", team: [{ email: "ravi@example.com", role: "coordinator" }], inviteCode: "SEVA42", autoApprove: true }] });
+    await writeOrganizations(db, asha, { upsert: [{ id: "org-temple", name: "Temple Volunteers", team: [{ email: "ravi@example.com", role: "coordinator" }], inviteCode: "SEVA4242", autoApprove: true }] });
     await writeMemberships(db, mei, { upsert: [request("mem-1", "mei@example.com")] });
     expect((await readMemberships(db, mei))[0]).toMatchObject({ status: "active", how: "auto-approved" });
   });
@@ -85,19 +85,19 @@ describe("leaving and removing", () => {
 
 describe("invite codes", () => {
   it("say which organization is inviting, without giving away the code", async () => {
-    const org = await organizationForCode(db, " seva-42 ");
+    const org = await organizationForCode(db, " seva-4242 ");
     expect(org).toMatchObject({ id: "org-temple", name: "Temple Volunteers" });
-    expect(JSON.stringify(org)).not.toContain("SEVA42");
+    expect(JSON.stringify(org)).not.toContain("SEVA4242");
     expect(await organizationForCode(db, "NOPE99")).toBeNull();
     expect(await organizationForCode(db, "")).toBeNull();
   });
 
   it("join the organization straight away, with your profile", async () => {
-    const result = await joinWithCode(db, mei, "seva42", "Happy to help");
+    const result = await joinWithCode(db, mei, "seva4242", "Happy to help");
     expect(result?.organization).toMatchObject({ name: "Temple Volunteers" });
     expect((await readMemberships(db, asha))[0]).toMatchObject({ email: "mei@example.com", name: "Mei Lin", status: "active", how: "invitation", note: "Happy to help" });
     // Joining again keeps one record.
-    await joinWithCode(db, mei, "SEVA42", undefined);
+    await joinWithCode(db, mei, "SEVA4242", undefined);
     expect(await readMemberships(db, mei)).toHaveLength(1);
     expect(await joinWithCode(db, mei, "WRONG1", "")).toBeNull();
   });
@@ -105,7 +105,7 @@ describe("invite codes", () => {
 
 describe("what a page loads", () => {
   it("includes your memberships when signed in, none when signed out", async () => {
-    await joinWithCode(db, mei, "SEVA42", "");
+    await joinWithCode(db, mei, "SEVA4242", "");
     expect((await readSynced(db, mei))["sevak.memberships.v1"]).toHaveLength(1);
     expect((await readSynced(db, null))["sevak.memberships.v1"]).toEqual([]);
   });

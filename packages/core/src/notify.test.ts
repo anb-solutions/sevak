@@ -20,7 +20,7 @@ async function person(email: string, isPlatformAdmin = false): Promise<Viewer> {
   return { id: u!.id, email, isPlatformAdmin };
 }
 
-const temple = (extra: Record<string, unknown> = {}) => ({ id: "org-temple", name: "Temple", team: [], inviteCode: "SEVA42", website: "temple.example.org", ...extra });
+const temple = (extra: Record<string, unknown> = {}) => ({ id: "org-temple", name: "Temple", team: [], inviteCode: "SEVA4242", website: "temple.example.org", ...extra });
 const to = (mails: { to: string; subject: string }[]) => mails.map((m) => `${m.to}: ${m.subject}`);
 
 beforeEach(async () => {
@@ -51,7 +51,7 @@ describe("emails", () => {
   it("invites by email with the join link, and welcomes people who join", async () => {
     const r = await writeMemberships(db, asha, { upsert: [{ id: "mem-1", orgId: "org-temple", email: "mei@example.com", status: "invited" }] });
     expect(to(r.emails)).toEqual(["mei@example.com: You're invited to volunteer with Temple"]);
-    expect(r.emails[0]!.link).toBe("join.html?code=SEVA42");
+    expect(r.emails[0]!.link).toBe("join.html?code=SEVA4242");
     const [inv] = await readMemberships(db, mei);
     const accepted = await writeMemberships(db, mei, { upsert: [{ ...inv, status: "active" }] });
     expect(to(accepted.emails)).toEqual(["mei@example.com: Welcome to Temple"]);
@@ -66,13 +66,13 @@ describe("emails", () => {
   });
 
   it("welcomes people who join with a code, once", async () => {
-    expect(to((await joinWithCode(db, mei, "SEVA42", ""))!.emails)).toEqual(["mei@example.com: Welcome to Temple"]);
-    expect((await joinWithCode(db, mei, "SEVA42", ""))!.emails).toEqual([]);
+    expect(to((await joinWithCode(db, mei, "SEVA4242", ""))!.emails)).toEqual(["mei@example.com: Welcome to Temple"]);
+    expect((await joinWithCode(db, mei, "SEVA4242", ""))!.emails).toEqual([]);
   });
 
   it("confirms a sign-up, one email for several shifts", async () => {
     await writeEvents(db, asha, { upsert: [{ id: "ev-1", organizationId: "org-temple", title: "Seva", status: "published", roles: [{ id: "r", name: "Setup", shifts: [{ id: "s1", date: "2030-01-10", start: "09:00", end: "12:00", capacity: 5 }, { id: "s2", date: "2030-01-11", start: "09:00", end: "12:00", capacity: 5 }] }] }] });
-    await joinWithCode(db, mei, "SEVA42", "");
+    await joinWithCode(db, mei, "SEVA4242", "");
     const r = await writeSignups(db, mei, { upsert: ["s1", "s2"].map((s) => ({ id: "su-" + s, eventId: "ev-1", shiftId: s, email: "mei@example.com", status: "confirmed" })) });
     expect(to(r.emails)).toEqual(["mei@example.com: You're signed up: Seva"]);
     expect(r.emails[0]!.text).toContain("Thu, Jan 10, 09:00–12:00 · Setup; Fri, Jan 11, 09:00–12:00 · Setup");

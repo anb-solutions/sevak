@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { type Db, loginTokens, users } from "@sevak/db";
 import { createMemoryDb } from "@sevak/db/memory";
-import { AuthError, MAX_CODE_ATTEMPTS, MAX_REQUESTS_PER_HOUR, requestSignIn, sessionViewer, signOut, verifySignIn } from "./auth";
+import { AuthError, MAX_CODE_ATTEMPTS, MAX_CODE_TRIES_PER_DAY, MAX_REQUESTS_PER_HOUR, requestSignIn, sessionViewer, signOut, verifySignIn } from "./auth";
 
 let db: Db;
 const NOW = new Date("2026-11-08T12:00:00Z");
@@ -47,6 +47,28 @@ describe("sign-in with an emailed code", () => {
       await expect(verifySignIn(db, { email: "asha@example.com", code: wrong }, later(1))).rejects.toThrow(AuthError);
     }
     await expect(verifySignIn(db, { email: "asha@example.com", code }, later(1))).rejects.toThrow(AuthError);
+  });
+
+  it("counts guesses sent all at once", async () => {
+    const { code } = await requestSignIn(db, "asha@example.com", NOW);
+    const wrong = Array.from({ length: 40 }, (_, i) => String(i).padStart(6, "0")).filter((c) => c !== code);
+    const tries = [...wrong.slice(0, 30), code, ...wrong.slice(30)].map((c) => verifySignIn(db, { email: "asha@example.com", code: c }, later(1)));
+    const results = await Promise.allSettled(tries);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(0);
+    const [row] = await db.select().from(loginTokens).where(eq(loginTokens.email, "asha@example.com"));
+    expect(row!.attempts).toBe(MAX_CODE_ATTEMPTS);
+  });
+
+  it("limits code tries for one address across all its codes, but the link still works", async () => {
+    const codes = MAX_CODE_TRIES_PER_DAY / MAX_CODE_ATTEMPTS;
+    for (let i = 0; i < codes; i++) {
+      const { code } = await requestSignIn(db, "asha@example.com", later(i * 60));
+      const wrong = code === "000000" ? "111111" : "000000";
+      for (let j = 0; j < MAX_CODE_ATTEMPTS; j++) await verifySignIn(db, { email: "asha@example.com", code: wrong }, later(i * 60 + 1)).catch(() => {});
+    }
+    const last = await requestSignIn(db, "asha@example.com", later(codes * 60));
+    await expect(verifySignIn(db, { email: "asha@example.com", code: last.code }, later(codes * 60 + 1))).rejects.toThrow(AuthError);
+    await expect(verifySignIn(db, { token: last.token }, later(codes * 60 + 1))).resolves.toBeTruthy();
   });
 
   it("limits how many codes one address can be sent", async () => {

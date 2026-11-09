@@ -36,7 +36,7 @@ beforeEach(async () => {
   mei = await person("mei@example.com");
   ravi = await person("ravi@example.com");
   sam = await person("sam@example.com");
-  await writeOrganizations(db, asha, { upsert: [{ id: "org-temple", name: "Temple", team: [], inviteCode: "SEVA42" }] });
+  await writeOrganizations(db, asha, { upsert: [{ id: "org-temple", name: "Temple", team: [], inviteCode: "SEVA4242" }] });
   await writeEvents(db, asha, {
     upsert: [
       {
@@ -50,8 +50,8 @@ beforeEach(async () => {
       { id: "ev-draft", organizationId: "org-temple", title: "Draft", status: "draft", roles: [{ id: "r", shifts: [{ id: "s1", capacity: 5 }] }] },
     ],
   });
-  await joinWithCode(db, mei, "SEVA42", "");
-  await joinWithCode(db, ravi, "SEVA42", "");
+  await joinWithCode(db, mei, "SEVA4242", "");
+  await joinWithCode(db, ravi, "SEVA4242", "");
 });
 
 describe("signing up", () => {

@@ -39,7 +39,7 @@ async function signIn(email: string): Promise<string> {
 
 const ORGS = "sevak.organizations.v1";
 const PROFILE = "sevak.profile.v1";
-const temple = { id: "org-temple", name: "Temple Volunteers", inviteCode: "SEVA42", team: [] };
+const temple = { id: "org-temple", name: "Temple Volunteers", inviteCode: "SEVA4242", team: [] };
 
 describe("API", () => {
   let asha: string;
@@ -81,7 +81,7 @@ describe("API", () => {
     expect(created.status).toBe(200);
 
     const seen = await (await load(req("/api/v1/sync", { method: "GET", cookie: mei }))).json();
-    expect(JSON.stringify(seen.data[ORGS])).not.toContain("SEVA42");
+    expect(JSON.stringify(seen.data[ORGS])).not.toContain("SEVA4242");
 
     const takeover = await save(req(`/api/v1/sync/${ORGS}`, { body: { upsert: [{ ...temple, name: "Mine now" }], delete: [] }, cookie: mei }), params(ORGS));
     expect(takeover.status).toBe(403);
@@ -91,17 +91,17 @@ describe("API", () => {
   });
 
   it("lets people join with an invite code, and keeps the code itself private", async () => {
-    await save(req(`/api/v1/sync/${ORGS}`, { body: { upsert: [{ id: "org-pantry", name: "Pantry", inviteCode: "PANTRY", team: [] }] }, cookie: asha }), params(ORGS));
-    const found = await byCode(req("/api/v1/organizations/by-code/pantry", { method: "GET" }), { params: Promise.resolve({ code: "pantry" }) });
+    await save(req(`/api/v1/sync/${ORGS}`, { body: { upsert: [{ id: "org-pantry", name: "Pantry", inviteCode: "PANTRY42", team: [] }] }, cookie: asha }), params(ORGS));
+    const found = await byCode(req("/api/v1/organizations/by-code/pantry42", { method: "GET" }), { params: Promise.resolve({ code: "pantry42" }) });
     expect(found.status).toBe(200);
     const text = JSON.stringify(await found.json());
     expect(text).toContain("Pantry");
-    expect(text).not.toContain("PANTRY");
+    expect(text).not.toContain("PANTRY42");
     expect((await byCode(req("/api/v1/organizations/by-code/NOPE", { method: "GET" }), { params: Promise.resolve({ code: "NOPE" }) })).status).toBe(404);
 
-    expect((await joinRoute(req("/api/v1/memberships/join", { body: { code: "PANTRY" } }))).status).toBe(401);
-    expect((await joinRoute(req("/api/v1/memberships/join", { body: { code: "PANTRY" }, cookie: mei, site: "cross-site" }))).status).toBe(403);
-    const joined = await joinRoute(req("/api/v1/memberships/join", { body: { code: "PANTRY" }, cookie: mei }));
+    expect((await joinRoute(req("/api/v1/memberships/join", { body: { code: "PANTRY42" } }))).status).toBe(401);
+    expect((await joinRoute(req("/api/v1/memberships/join", { body: { code: "PANTRY42" }, cookie: mei, site: "cross-site" }))).status).toBe(403);
+    const joined = await joinRoute(req("/api/v1/memberships/join", { body: { code: "PANTRY42" }, cookie: mei }));
     expect(joined.status).toBe(200);
     expect((await joined.json()).value).toMatchObject([{ orgId: "org-pantry", status: "active" }]);
   });
@@ -161,5 +161,24 @@ describe("API", () => {
     expect(res.headers.get("set-cookie")).toContain("Max-Age=0");
     const after = await (await load(req("/api/v1/sync", { method: "GET", cookie: asha }))).json();
     expect(after.user).toBeNull();
+  });
+});
+
+describe("limits per address", () => {
+  it("use the address Google's front end saw, not one the caller made up", async () => {
+    const { clientIp } = await import("@/lib/http");
+    const at = (xff: string) => clientIp(new Request(BASE, { headers: { "x-forwarded-for": xff } }));
+    expect(at("203.0.113.7")).toBe("203.0.113.7");
+    expect(at("1.2.3.4, 203.0.113.7")).toBe("203.0.113.7");
+    expect(at("1.2.3.4, 203.0.113.7, 169.254.1.1")).toBe("203.0.113.7");
+  });
+
+  it("can't be dodged by changing X-Forwarded-For", async () => {
+    let limited = 0;
+    for (let i = 0; i < 40; i++) {
+      const r = new Request(`${BASE}/api/v1/organizations/by-code/NOPE${i}`, { headers: { "x-forwarded-for": `10.9.${i}.1, 198.51.100.9` } });
+      if ((await byCode(r, { params: Promise.resolve({ code: `NOPE${i}` }) })).status === 429) limited++;
+    }
+    expect(limited).toBe(10);
   });
 });

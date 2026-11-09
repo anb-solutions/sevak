@@ -102,6 +102,10 @@ If that step shows a warning, the deploy itself still succeeded; the warning say
 
 Cloud Run's built-in domain mapping is a preview feature. That's fine for staging. Production
 will use Firebase Hosting in front of Cloud Run (free), which Google supports for production use.
+Anything put in front of Cloud Run adds its own address to `X-Forwarded-For`, which Sevak's
+per-address limits read from the right: set `SEVAK_PROXY_HOPS` to how many addresses it adds
+after the person's plus one (see `clientIp` in `apps/web/src/lib/http.ts`), or everyone would
+share one limit.
 
 Once `GCP_DOMAIN` is set, links in Sevak's emails point at that address.
 

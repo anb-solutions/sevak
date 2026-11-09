@@ -13,6 +13,8 @@ export interface Mail {
   text: string;
   link?: string;
   linkText?: string;
+  // The organization it's on behalf of, for its sending limit (limits.ts).
+  orgId?: string;
 }
 
 export const STAFF = "@staff";
@@ -25,7 +27,15 @@ export function adminEmails(org: Json): string[] {
   return [...new Set(list.filter((e) => e.includes("@")))];
 }
 
-const name = (org: Json | undefined) => String(org?.name || "the organization");
+// Names people typed go into subjects and text: one line, no control
+// characters, not too long.
+export function clean(value: unknown, max = 80): string {
+  const s = String(value ?? "").replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g, " ").replace(/\s+/g, " ").trim();
+  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+}
+
+const name = (org: Json | undefined) => clean(org?.name) || "the organization";
+const of = (org: Json | undefined) => (org?.id ? { orgId: String(org.id) } : {});
 
 // ---------- Joining ----------
 
@@ -37,6 +47,7 @@ export function invited(org: Json, to: string): Mail {
     text: `${name(org)} has invited you to volunteer with them on Sevak. Use the link to join. If you already use Sevak, just sign in with this email.`,
     link: code ? `join.html?code=${encodeURIComponent(code)}` : "join.html",
     linkText: `Join ${name(org)}`,
+    ...of(org),
   };
 }
 
@@ -47,20 +58,27 @@ export function welcome(org: Json, to: string): Mail {
     text: `You're now a volunteer with ${name(org)} on Sevak. You can sign up for its events.`,
     link: "signup.html#my-orgs",
     linkText: "See its opportunities",
+    ...of(org),
   };
 }
 
-export function askedToJoin(org: Json, who: string): Mail[] {
+export function askedToJoin(org: Json, rawWho: string): Mail[] {
+  const who = clean(rawWho);
   return adminEmails(org).map((to) => ({
     to,
     subject: `${who} asked to volunteer with ${name(org)}`,
     text: `${who} asked to volunteer with ${name(org)}. Approve or decline them on the Volunteers page.`,
     link: "volunteers.html",
     linkText: "Review the request",
+    ...of(org),
   }));
 }
 
 export function decided(org: Json, to: string, approved: boolean): Mail {
+  return { ...decidedMail(org, to, approved), ...of(org) };
+}
+
+function decidedMail(org: Json, to: string, approved: boolean): Mail {
   return approved
     ? {
         to,
@@ -85,6 +103,7 @@ export function addedToTeam(org: Json, to: string, role: string): Mail {
     text: `You've been added to the team of ${name(org)} on Sevak as ${role === "admin" ? "an Admin" : "a Coordinator"}. Sign in with this email to manage its events and volunteers.`,
     link: "events.html",
     linkText: "Open Sevak",
+    ...of(org),
   };
 }
 
@@ -101,17 +120,18 @@ export function verificationRequested(org: Json): Mail {
 }
 
 export function verificationDecided(org: Json, verified: boolean, reason: string): Mail[] {
-  return adminEmails(org).map((to) =>
-    verified
+  return adminEmails(org).map((to) => ({
+    ...(verified
       ? { to, subject: `${name(org)} is verified`, text: `Sevak verified ${name(org)}. Its public events are now listed for everyone.`, link: "organization.html", linkText: "Your organization" }
       : {
           to,
           subject: `Your verification request for ${name(org)}`,
-          text: `Sevak couldn't verify ${name(org)} yet.${reason ? ` Reason: ${reason}` : ""} You can update its profile and ask again.`,
+          text: `Sevak couldn't verify ${name(org)} yet.${reason ? ` Reason: ${clean(reason, 300)}` : ""} You can update its profile and ask again.`,
           link: "organization.html",
           linkText: "Your organization",
-        },
-  );
+        }),
+    ...of(org),
+  }));
 }
 
 // ---------- Sign-ups ----------
@@ -119,10 +139,11 @@ export function verificationDecided(org: Json, verified: boolean, reason: string
 export function signedUp(event: Json, to: string, shiftLabels: string[]): Mail {
   return {
     to,
-    subject: `You're signed up: ${String(event.title || "Volunteer shift")}`,
-    text: `Thanks for signing up${event.organizationName ? ` with ${String(event.organizationName)}` : ""}. Your shift${shiftLabels.length > 1 ? "s" : ""}: ${shiftLabels.join("; ")}.`,
+    subject: `You're signed up: ${clean(event.title) || "Volunteer shift"}`,
+    text: `Thanks for signing up${event.organizationName ? ` with ${clean(event.organizationName)}` : ""}. Your shift${shiftLabels.length > 1 ? "s" : ""}: ${shiftLabels.join("; ")}.`,
     link: "signup.html?view=mine",
     linkText: "My sign-ups",
+    ...(event.organizationId ? { orgId: String(event.organizationId) } : {}),
   };
 }
 
@@ -138,7 +159,7 @@ export function shiftLabel(event: Json, shiftId: unknown): string {
       } catch {
         /* keep the plain date */
       }
-      return `${date}, ${String(s.start ?? "")}–${String(s.end ?? "")}${role.name ? ` · ${String(role.name)}` : ""}`;
+      return `${clean(date, 20)}, ${clean(s.start, 8)}–${clean(s.end, 8)}${role.name ? ` · ${clean(role.name)}` : ""}`;
     }
   }
   return "your shift";
@@ -146,13 +167,15 @@ export function shiftLabel(event: Json, shiftId: unknown): string {
 
 // ---------- Certificates ----------
 
-export function certificateRequested(org: Json, who: string): Mail[] {
+export function certificateRequested(org: Json, rawWho: string): Mail[] {
+  const who = clean(rawWho);
   return adminEmails(org).map((to) => ({
     to,
     subject: `Certificate request from ${who}`,
     text: `${who} asked ${name(org)} for a certificate of their volunteer hours. Review their approved hours and issue it on the Volunteers page.`,
     link: "volunteers.html#cert-requests",
     linkText: "Review the request",
+    ...of(org),
   }));
 }
 
@@ -163,6 +186,7 @@ export function certificateIssued(org: Json, to: string, id: string): Mail {
     text: `${name(org)} issued your certificate of volunteer service. It's saved in your Documents on Sevak.`,
     link: `certificate.html?id=${encodeURIComponent(id)}`,
     linkText: "View your certificate",
+    ...of(org),
   };
 }
 
@@ -170,8 +194,9 @@ export function certificateDeclined(org: Json, to: string, reason: string): Mail
   return {
     to,
     subject: `Your certificate request to ${name(org)}`,
-    text: `${name(org)} didn't issue the certificate you asked for.${reason ? ` Reason: ${reason}` : ""} You can ask again for a different period.`,
+    text: `${name(org)} didn't issue the certificate you asked for.${reason ? ` Reason: ${clean(reason, 300)}` : ""} You can ask again for a different period.`,
     link: "signup.html?view=mine#certificates",
     linkText: "Your certificates",
+    ...of(org),
   };
 }
