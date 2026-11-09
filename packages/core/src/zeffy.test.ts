@@ -50,6 +50,13 @@ describe("from a Zeffy event", () => {
   it("reads entities without letting markup through", () => {
     expect(htmlToText("&lt;b&gt;hi&lt;/b&gt; &#65;&#x42;")).toBe("<b>hi</b> AB");
   });
+
+  it("turns typographic codes into the characters they stand for", () => {
+    expect(htmlToText("1926&ndash;2026. 10:00&ndash;11:00 AM &mdash; it&rsquo;s &ldquo;free&rdquo;&hellip;")).toBe("1926–2026. 10:00–11:00 AM — it’s “free”…");
+    expect(htmlToText("Caf&eacute; &Uuml;ber &ntilde; &ccedil; &szlig; &euro;10 &rupee;500")).toBe("Café Über ñ ç ß €10 ₹500");
+    expect(htmlToText("10:00&amp;ndash;11:00")).toBe("10:00–11:00");
+    expect(htmlToText("&unknownthing; stays")).toBe("&unknownthing; stays");
+  });
 });
 
 describe("the Zeffy key", () => {
