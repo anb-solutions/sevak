@@ -12,6 +12,7 @@
 //                           (memberships.ts)
 //   sevak.events.v1,        events and main events (events.ts)
 //   sevak.mainEvents.v1
+//   sevak.signups.v1        sign-ups, check-ins and hours (signups.ts)
 //
 // Records whose id starts with "demo-" are the screens' own demo data and
 // stay in each browser; they never reach the server.
@@ -25,7 +26,8 @@ export const ORGANIZATIONS_KEY = "sevak.organizations.v1";
 export const MEMBERSHIPS_KEY = "sevak.memberships.v1";
 export const EVENTS_KEY = "sevak.events.v1";
 export const MAIN_EVENTS_KEY = "sevak.mainEvents.v1";
-export const SYNCED_KEYS = [PROFILE_KEY, ORGANIZATIONS_KEY, MEMBERSHIPS_KEY, EVENTS_KEY, MAIN_EVENTS_KEY] as const;
+export const SIGNUPS_KEY = "sevak.signups.v1";
+export const SYNCED_KEYS = [PROFILE_KEY, ORGANIZATIONS_KEY, MEMBERSHIPS_KEY, EVENTS_KEY, MAIN_EVENTS_KEY, SIGNUPS_KEY] as const;
 export type SyncedKey = (typeof SYNCED_KEYS)[number];
 
 export type Json = Record<string, unknown>;
@@ -236,6 +238,7 @@ export async function writeOrganizations(db: Db, viewer: Viewer, ops: unknown): 
 export async function readSynced(db: Db, viewer: Viewer | null): Promise<Record<SyncedKey, unknown>> {
   const { readMemberships } = await import("./memberships");
   const { readEventsAndMain } = await import("./events");
+  const { readSignups } = await import("./signups");
   const { events, mainEvents } = await readEventsAndMain(db, viewer);
   return {
     [PROFILE_KEY]: viewer ? await readProfile(db, viewer) : null,
@@ -243,6 +246,7 @@ export async function readSynced(db: Db, viewer: Viewer | null): Promise<Record<
     [MEMBERSHIPS_KEY]: viewer ? await readMemberships(db, viewer) : [],
     [EVENTS_KEY]: events,
     [MAIN_EVENTS_KEY]: mainEvents,
+    [SIGNUPS_KEY]: await readSignups(db, viewer),
   };
 }
 

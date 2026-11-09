@@ -1,6 +1,6 @@
 # Sevak: MVP Requirements
 
-**Version:** 2.30 (events on the server; staff review verification; address or phone) · **Updated:** 2026-11-08 · **Status:** Draft for review
+**Version:** 2.31 (sign-ups, check-ins and hours on the server) · **Updated:** 2026-11-09 · **Status:** Draft for review
 
 This replaces the original SRS outline, which is about six months old. That outline covered a full
 volunteer management system: background checks, GPS clock-in, CRM integrations and so on. This
