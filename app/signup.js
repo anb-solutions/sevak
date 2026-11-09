@@ -903,6 +903,16 @@
       hint.appendChild(edit);
     }
 
+    // The event's own page elsewhere (where it was imported from, such as
+    // Zeffy): tickets and the full details. Only https links are shown.
+    var source = event.source || {};
+    var page = typeof source.url === "string" && /^https:\/\//.test(source.url) ? source.url : "";
+    $("event-link").hidden = !page;
+    if (page) {
+      $("event-link-a").href = page;
+      $("event-link-a").textContent = source.kind === "zeffy" ? "Tickets and full details on Zeffy ↗" : "The event's own page ↗";
+    }
+
     // Everything else is folded under "About this event".
     var about = $("about-body");
     about.innerHTML = "";

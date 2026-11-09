@@ -64,5 +64,23 @@ const BASE = 'http://localhost:8765/app/'; const SP = process.argv[2];
   check((await p.textContent('#events')).includes('Location shared later'), 'events list says shared later');
   check(!(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth)), 'phone: no overflow');
 
+  // An event imported from Zeffy links volunteers back to its Zeffy page.
+  await p.evaluate(() => {
+    const list = JSON.parse(localStorage.getItem('sevak.events.v1'));
+    const ev = list.find(e => e.title === 'Private recital');
+    ev.source = { kind: 'zeffy', id: 'c-1', url: 'https://www.zeffy.com/en-US/ticketing/private-recital' };
+    list.push(Object.assign({}, ev, { id: 'ev-bad', title: 'Bad link', source: { kind: 'zeffy', url: 'javascript:alert(1)' } }));
+    localStorage.setItem('sevak.events.v1', JSON.stringify(list));
+  });
+  await p.goto(BASE + 'signup.html?event=' + saved.id);
+  await p.waitForSelector('#event-link:not([hidden])');
+  check((await p.getAttribute('#event-link-a', 'href')) === 'https://www.zeffy.com/en-US/ticketing/private-recital', 'volunteers see the link to the Zeffy page');
+  check((await p.textContent('#event-link-a')).includes('Zeffy'), 'says it is on Zeffy');
+  check((await p.getAttribute('#event-link-a', 'rel')).includes('noopener'), 'opens safely in a new tab');
+  await p.screenshot({ path: SP + '/event-zeffy-link.png' });
+  await p.goto(BASE + 'signup.html?event=ev-bad');
+  await p.waitForSelector('#event-title');
+  check(await p.isHidden('#event-link'), 'a link that isn\'t https is not shown');
+
   console.log(ok.length + ' ok'); console.log(errs.length ? 'FAIL\n' + errs.join('\n') : 'ALL PASS'); await b.close();
 })();
