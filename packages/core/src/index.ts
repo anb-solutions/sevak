@@ -7,3 +7,4 @@ export * from "./records";
 export * from "./google";
 export * from "./memberships";
 export * from "./events";
+export * from "./signups";

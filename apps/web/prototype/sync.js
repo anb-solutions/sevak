@@ -22,7 +22,8 @@
     "sevak.organizations.v1": "list",
     "sevak.memberships.v1": "list",
     "sevak.events.v1": "list",
-    "sevak.mainEvents.v1": "list"
+    "sevak.mainEvents.v1": "list",
+    "sevak.signups.v1": "list"
   };
   var SIGNED_OUT_KEY = "sevak.signedOut.v1";
 
@@ -62,7 +63,21 @@
   }
 
   // The pages' demo data stays in this browser (see demo-data.js).
-  function isDemo(item) { return item && String(item.id || "").indexOf("demo-") === 0; }
+  // Anything belonging to demo data: its own id, or its organization's or
+  // event's, starts with "demo-", or it's a dashboard sample.
+  function isDemo(item) {
+    if (!item) return false;
+    if (item.sample) return true;
+    return [item.id, item.orgId, item.organizationId, item.eventId].some(function (v) {
+      return String(v || "").indexOf("demo-") === 0;
+    });
+  }
+
+  var REFUSED = {
+    full: "Sorry, that shift just filled up. Please choose another.",
+    already: "You're already signed up for that shift.",
+    not_member: "Join the organization first, then you can sign up for its shifts."
+  };
 
   function put(key, value) {
     if (value === null || value === undefined) removeItem.call(storage, key);
@@ -155,7 +170,7 @@
       var value = res.data && "value" in res.data ? res.data.value : null;
       put(key, kind === "list" ? (value || []).concat(localDemo) : value);
       if (res.status === 403) {
-        notice("Some of that wasn't saved: only an organization's Admins can change it.");
+        notice(REFUSED[res.data && res.data.reason] || "Some of that wasn't saved: only the organization's team can change it.");
         throw new Error("Refused");
       }
       return;

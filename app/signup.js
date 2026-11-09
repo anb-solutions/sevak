@@ -1105,6 +1105,8 @@
     if (profile) {
       $("name").value = [profile.firstName, profile.lastName].filter(Boolean).join(" ");
       $("email").value = profile.email;
+      // With the server, a sign-up is always under the email you signed in with.
+      $("email").readOnly = !!window.SevakServer;
       F.setPhone($("phone"), profile.phone);
       $("who-name").textContent = $("name").value || profile.email;
       $("who-email").textContent = $("name").value ? "(" + profile.email + ")" : "";
@@ -1281,7 +1283,10 @@
       };
     }));
     if (!ok) {
-      $("status").textContent = "Couldn't save in this browser. Check that site storage is allowed.";
+      $("status").textContent = window.SevakServer
+        ? "That didn't go through. See the message at the bottom of the page."
+        : "Couldn't save in this browser. Check that site storage is allowed.";
+      if (window.SevakServer) { renderShifts(); }
       return;
     }
     // The confirmation email (prototype: to the outbox).

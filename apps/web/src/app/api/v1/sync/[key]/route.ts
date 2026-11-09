@@ -5,11 +5,13 @@ import {
   ORGANIZATIONS_KEY,
   PROFILE_KEY,
   RecordError,
+  SIGNUPS_KEY,
   writeEvents,
   writeMainEvents,
   writeMemberships,
   writeOrganizations,
   writeProfile,
+  writeSignups,
 } from "@sevak/core";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
@@ -23,6 +25,7 @@ export const dynamic = "force-dynamic";
 //   sevak.memberships.v1    {upsert: [membership], delete: [id]}
 //   sevak.events.v1         {upsert: [event], delete: [id]}
 //   sevak.mainEvents.v1     {upsert: [main event], delete: [id]}
+//   sevak.signups.v1        {upsert: [sign-up], delete: [id]}
 // Answers with the data as you may now see it, and how many changes were
 // refused (403 if any), so the page can show what was actually saved.
 export async function POST(req: Request, ctx: { params: Promise<{ key: string }> }) {
@@ -46,6 +49,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
       [MEMBERSHIPS_KEY]: writeMemberships,
       [EVENTS_KEY]: writeEvents,
       [MAIN_EVENTS_KEY]: writeMainEvents,
+      [SIGNUPS_KEY]: writeSignups,
     } as const;
     const writer = writers[key as keyof typeof writers];
     if (writer) {

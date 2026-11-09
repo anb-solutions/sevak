@@ -320,7 +320,8 @@ have already reviewed, and they move into React components and proper tables one
 | Organizations (`sevak.organizations.v1`) | Sign-in release | Everyone: name, description, website, city, charity status, verification. Its team and Sevak staff: everything | Admins; Coordinators can only leave the team; only Sevak staff verify |
 | Memberships (`sevak.memberships.v1`): who volunteers with which organization | Join release | You: your own. The organization's team and Sevak staff: theirs | You: ask to join, accept an invitation, leave. The team: approve, decline, invite, remove. Joining with an invite code goes through the server, which checks the code |
 | Events and main events (`sevak.events.v1`, `sevak.mainEvents.v1`) | Events release | The team: all of its events. Its volunteers: published, active ones (public or private). Everyone else: published, active, public events of verified organizations | The team adds and edits; only Admins delete |
-| Sign-ups, hours, certificates, documents | Next releases | | |
+| Sign-ups, check-ins and hours (`sevak.signups.v1`) | Sign-ups release | You: your own. The event's team: its sign-ups (the roster). Everyone else: only that a spot is taken, never names | You sign up yourself (volunteers and the team only, published events), cancel, check in and out, and log hours, which always wait for approval. The team approves hours and manages its roster. The server checks capacity with the event locked, so a shift is never overbooked (SGN-5) |
+| Certificates, documents | Next releases | | |
 
 Demo data (ids starting `demo-`) stays in each browser.
 
