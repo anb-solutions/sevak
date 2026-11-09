@@ -31,14 +31,16 @@ beforeEach(async () => {
 });
 
 describe("asking to join", () => {
-  it("is a request the organization's team sees and decides", async () => {
+  it("is a request the organization's Admins see and decide, not its Coordinators", async () => {
     expect((await writeMemberships(db, mei, { upsert: [request("mem-1", "mei@example.com")] })).refused).toBe(0);
-    expect(await readMemberships(db, ravi)).toMatchObject([{ id: "mem-1", status: "requested" }]);
+    expect(await readMemberships(db, asha)).toMatchObject([{ id: "mem-1", status: "requested" }]);
+    expect(await readMemberships(db, ravi)).toEqual([]);
     expect(await readMemberships(db, sam)).toEqual([]);
 
-    const approved = await writeMemberships(db, ravi, { upsert: [request("mem-1", "mei@example.com", { status: "active" })] });
+    expect((await writeMemberships(db, ravi, { upsert: [request("mem-1", "mei@example.com", { status: "active" })] })).refused).toBe(1);
+    const approved = await writeMemberships(db, asha, { upsert: [request("mem-1", "mei@example.com", { status: "active" })] });
     expect(approved.refused).toBe(0);
-    expect((await readMemberships(db, mei))[0]).toMatchObject({ status: "active", decidedBy: "ravi@example.com" });
+    expect((await readMemberships(db, mei))[0]).toMatchObject({ status: "active", decidedBy: "asha@example.com" });
   });
 
   it("can't approve yourself, or ask for someone else", async () => {
@@ -73,12 +75,13 @@ describe("invitations", () => {
 });
 
 describe("leaving and removing", () => {
-  it("lets the person leave and the team remove; nobody else", async () => {
+  it("lets the person leave and an Admin remove; nobody else", async () => {
     await writeMemberships(db, mei, { upsert: [request("mem-1", "mei@example.com"), ] });
     expect((await writeMemberships(db, sam, { delete: ["mem-1"] })).refused).toBe(1);
     expect((await writeMemberships(db, mei, { delete: ["mem-1"] })).refused).toBe(0);
     await writeMemberships(db, mei, { upsert: [request("mem-2", "mei@example.com")] });
-    expect((await writeMemberships(db, ravi, { delete: ["mem-2"] })).refused).toBe(0);
+    expect((await writeMemberships(db, ravi, { delete: ["mem-2"] })).refused).toBe(1);
+    expect((await writeMemberships(db, asha, { delete: ["mem-2"] })).refused).toBe(0);
     expect(await readMemberships(db, mei)).toEqual([]);
   });
 });

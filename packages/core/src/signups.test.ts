@@ -4,7 +4,7 @@ import { createMemoryDb } from "@sevak/db/memory";
 import type { Viewer } from "./auth";
 import { writeEvents } from "./events";
 import { joinWithCode } from "./memberships";
-import { writeOrganizations } from "./records";
+import { readOrganizations, writeOrganizations } from "./records";
 import { readSignups, writeSignups } from "./signups";
 
 let db: Db;
@@ -127,5 +127,26 @@ describe("after signing up", () => {
     expect((await writeSignups(db, mei, { upsert: [{ ...mine, shiftId: "s2" }] })).refused).toBe(1);
     expect((await writeSignups(db, mei, { delete: ["su-1"] })).refused).toBe(1);
     expect((await writeSignups(db, asha, { delete: ["su-1"] })).refused).toBe(0);
+  });
+});
+
+describe("who sees volunteers' sign-ups", () => {
+  it("an Admin sees every event's; a Coordinator only the events they run", async () => {
+    const cora = await person("cora@example.com");
+    const [org] = await readOrganizations(db, asha);
+    await writeOrganizations(db, asha, { upsert: [{ ...org, team: [{ email: "cora@example.com", role: "coordinator" }] }] });
+    await writeSignups(db, mei, { upsert: [signup("su-1", "mei@example.com")] });
+    const seen = async (who: Viewer) => (await readSignups(db, who)).find((s) => s.id === "su-1")!;
+
+    expect(await seen(asha)).toMatchObject({ name: "mei", email: "mei@example.com", phone: "+17135550100" });
+    // Not the event's admin: only that a spot is taken.
+    expect(await seen(cora)).toEqual({ id: "su-1", eventId: "ev-1", shiftId: "s1", status: "confirmed", anonymous: true });
+    expect((await writeSignups(db, cora, { upsert: [{ ...signup("su-1", "mei@example.com"), checkInAt: "2030-01-10T09:00:00Z" }] })).refused).toBe(1);
+    expect((await writeSignups(db, cora, { delete: ["su-1"] })).refused).toBe(1);
+
+    // Made the event's admin: its roster, to check people in.
+    await writeEvents(db, asha, { upsert: [{ id: "ev-1", organizationId: "org-temple", title: "Seva", status: "published", visibility: "public", eventAdmin: "cora@example.com", roles: [{ id: "r1", name: "Setup", shifts: [{ id: "s1", capacity: 2 }, { id: "s2", capacity: 1 }] }] }] });
+    expect(await seen(cora)).toMatchObject({ name: "mei", email: "mei@example.com", phone: "+17135550100" });
+    expect((await writeSignups(db, cora, { upsert: [{ ...(await seen(cora)), checkInAt: "2030-01-10T09:00:00Z" }] })).refused).toBe(0);
   });
 });

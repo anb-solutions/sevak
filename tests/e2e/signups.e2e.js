@@ -49,6 +49,20 @@ const ORG = "Temple Volunteers " + require("./helpers").RUN;
   await asha.goto(BASE + "/app/volunteers.html");
   await asha.evaluate((sid) => window.SevakSignups.decideHours(sid, { status: "approved", by: "asha" }), mine.id);
   check((await signups(mei))[0].hours.status === "approved", "the team approves hours");
-  check((await signups(asha))[0].name === "Mei Test", "the team sees the roster with names");
+  check((await signups(asha))[0].name === "Mei Test", "an Admin sees the roster with names");
+
+  // A Coordinator sees names only for events they run.
+  const cora = await person(t, "cora");
+  await asha.goto(BASE + "/app/organization.html");
+  await asha.evaluate(([orgId, email]) => {
+    const org = window.SevakOrgs.get(orgId);
+    window.SevakOrgs.save(Object.assign({}, org, { team: (org.team || []).concat([{ name: "Cora", email, role: "coordinator" }]) }));
+  }, [orgId, cora.address]);
+  const coraSees = await signups(cora);
+  check(coraSees.length === 1 && coraSees[0].anonymous === true && !JSON.stringify(coraSees).includes(mei.address), "a Coordinator not running the event sees no names");
+  check((await synced(cora)).data["sevak.memberships.v1"].length === 0, "or the organization's volunteers");
+  await asha.goto(BASE + "/app/events.html");
+  await asha.evaluate(([eventId, email]) => window.SevakEvents.save(Object.assign({}, window.SevakEvents.get(eventId), { eventAdmin: email })), [eventId, cora.address]);
+  check((await signups(cora))[0].name === "Mei Test", "the event's Coordinator sees its roster");
   await t.done();
 })();

@@ -17,7 +17,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { type Db, records } from "@sevak/db";
 import type { Viewer } from "./auth";
-import { idSchema, type Json, lower, objectSchema, organizationsById, orgRole, publicOrganization, readProfile, tooBig } from "./records";
+import { idSchema, isOrgAdmin, type Json, lower, objectSchema, organizationsById, publicOrganization, readProfile, tooBig } from "./records";
 import { askedToJoin, decided, invited, type Mail, welcome } from "./notify";
 import { newToken } from "./tokens";
 
@@ -25,8 +25,10 @@ const COLLECTION = "memberships";
 const MAX_BYTES = 200_000; // includes a small profile photo
 const now = () => new Date().toISOString();
 
+// Who sees and decides an organization's memberships: its Admins and
+// Sevak staff (not Coordinators: volunteers' details stay with Admins).
 function canManage(org: Json | undefined, viewer: Viewer) {
-  return !!org && (viewer.isPlatformAdmin || orgRole(org, viewer.email) !== null);
+  return isOrgAdmin(org, viewer);
 }
 
 export async function readMemberships(db: Db, viewer: Viewer): Promise<Json[]> {

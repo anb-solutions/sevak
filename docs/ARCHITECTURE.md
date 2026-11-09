@@ -175,7 +175,8 @@ cancellation gives the spot back in the same transaction. A database rule
   three open certificate requests per person and organization. Invite codes are 8 characters
   from a secure random source; the server refuses shorter new ones.
 - **Session:** a random id in a `__Host-` cookie (`Secure; HttpOnly; SameSite=Lax`), stored hashed
-  in the database so it can be revoked. Lasts 30 days.
+  in the database so it can be revoked. It ends 24 hours after it was last used, and 30 days after
+  signing in at most.
 - **Requests that change something** must come from Sevak's own pages (`Sec-Fetch-Site` or
   `Origin`), so another site can't act for a signed-in browser.
 - **Continue with Google** (optional, per environment): OpenID Connect with the authorization

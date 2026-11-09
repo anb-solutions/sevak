@@ -135,6 +135,24 @@ export function publicOrganization(org: Json): Json {
   return pick;
 }
 
+// Who sees volunteers' details for an event: Sevak staff, the
+// organization's Admins, and the Coordinator chosen as its event admin
+// (its roster: names and the contact details given on each sign-up).
+// Other Coordinators run events without seeing who volunteers.
+export function runsEvent(org: Json | undefined, event: Json | undefined, viewer: Viewer | null): boolean {
+  if (!org || !viewer) return false;
+  if (viewer.isPlatformAdmin) return true;
+  const role = orgRole(org, viewer.email);
+  if (role === "admin") return true;
+  return role === "coordinator" && !!event && lower(event.eventAdmin) === viewer.email;
+}
+
+// The organization's Admins and Sevak staff: who sees its volunteers
+// (memberships, join requests, certificates).
+export function isOrgAdmin(org: Json | undefined, viewer: Viewer | null): boolean {
+  return !!org && !!viewer && (viewer.isPlatformAdmin || orgRole(org, viewer.email) === "admin");
+}
+
 function canSeeAll(org: Json, viewer: Viewer | null) {
   return !!viewer && (viewer.isPlatformAdmin || orgRole(org, viewer.email) !== null);
 }

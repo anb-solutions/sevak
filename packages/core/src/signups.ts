@@ -24,17 +24,13 @@ import { type Db, records } from "@sevak/db";
 import type { Viewer } from "./auth";
 import { readEventsAndMain } from "./events";
 import { type Mail, shiftLabel, signedUp } from "./notify";
-import { idSchema, type Json, lower, objectSchema, organizationsById, orgRole, tooBig } from "./records";
+import { idSchema, type Json, lower, objectSchema, organizationsById, runsEvent, tooBig } from "./records";
 
 const COLLECTION = "signups";
 const MAX_BYTES = 50_000;
 const now = () => new Date().toISOString();
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
-
-function isTeam(org: Json | undefined, viewer: Viewer | null) {
-  return !!org && !!viewer && (viewer.isPlatformAdmin || orgRole(org, viewer.email) !== null);
-}
 
 const isTaken = (s: Json) => s.status !== "cancelled";
 
@@ -45,12 +41,13 @@ export async function readSignups(db: Db, viewer: Viewer | null): Promise<Json[]
     organizationsById(db),
     readEventsAndMain(db, viewer),
   ]);
-  const orgOfEvent = new Map(eventRows.map((r) => [r.id, String(r.data.organizationId ?? "")]));
+  const eventsById = new Map(eventRows.map((r) => [r.id, r.data]));
   const visibleEvents = new Set(visible.events.map((e) => String(e.id)));
   const out: Json[] = [];
   for (const { data: s } of rows) {
     const eventId = String(s.eventId ?? "");
-    if ((viewer && lower(s.email) === viewer.email) || isTeam(orgs.get(orgOfEvent.get(eventId) ?? ""), viewer)) {
+    const event = eventsById.get(eventId);
+    if ((viewer && lower(s.email) === viewer.email) || runsEvent(orgs.get(String(event?.organizationId ?? "")), event, viewer)) {
       out.push(s);
     } else if (visibleEvents.has(eventId) && isTaken(s)) {
       out.push({ id: s.id, eventId, shiftId: s.shiftId, status: s.status, anonymous: true });
@@ -124,7 +121,9 @@ export async function writeSignups(db: Db, viewer: Viewer, ops: unknown): Promis
         refuse("invalid");
         continue;
       }
-      const team = isTeam(org, viewer);
+      // Those who run the event (its Admins, or the Coordinator who is its
+      // event admin) manage its sign-ups.
+      const team = runsEvent(org, event, viewer);
       // A sign-up is yours if it has your email; one with none is nobody's.
       const self = prev ? !!lower(prev.email) && lower(prev.email) === viewer.email : lower(raw.email) === viewer.email || !team;
       let next: Json;
@@ -205,7 +204,7 @@ export async function writeSignups(db: Db, viewer: Viewer, ops: unknown): Promis
       const prev = byId.get(id);
       if (!prev) continue;
       const event = events.get(String(prev.eventId ?? ""));
-      if (!isTeam(orgs.get(String(event?.organizationId ?? "")), viewer)) {
+      if (!runsEvent(orgs.get(String(event?.organizationId ?? "")), event, viewer)) {
         refuse("not_yours");
         continue;
       }
