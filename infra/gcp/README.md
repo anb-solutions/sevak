@@ -194,6 +194,19 @@ month.
 2. **In GitHub**, add the variable `GCP_FILES_BUCKET` to the `staging` environment with that
    value, and run the deploy. Until then, the Documents tabs say documents aren't set up yet.
 
+### 8. Events from Zeffy
+
+An organization's Admin can connect its Zeffy account (Manage → Events → **From Zeffy**) and
+start Sevak events from its Zeffy events. They paste the organization's Zeffy API key (in Zeffy:
+Settings → Integrations → API). Sevak stores it encrypted with `app-secrets-key`, a random key
+the setup script makes and keeps in Secret Manager; nobody sees it, and GitHub never has it.
+
+1. **Run the setup script once more** (`git pull` first). It makes `app-secrets-key` if it isn't
+   there. Run the deploy afterwards. Until then, From Zeffy says it isn't set up yet.
+
+Don't replace `app-secrets-key` once organizations have connected: the keys it encrypted would
+stop working, and each organization would need to connect again.
+
 Optional variables on the environment:
 
 - `SEVAK_PLATFORM_ADMINS`: emails of Sevak staff, separated by commas. They can verify

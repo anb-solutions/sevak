@@ -1111,3 +1111,12 @@ input[type="time"], input[type="number"] {
   body.printing-cert .cert-page { max-width: none; border: 0; border-radius: 0; box-shadow: none; page-break-after: always; break-after: page; }
   @page { size: A4; margin: 0; }
 }
+
+/* Events from Zeffy (zeffy.js) */
+.zeffy-panel { margin-top: 16px; }
+.zeffy-panel .field { margin: 12px 0; }
+.zeffy-panel .list-heading { margin: 0; font-size: 1rem; }
+.zeffy-panel .event-item h4 { margin: 0; font-size: 1rem; }
+.zeffy-panel .event-item { background: var(--surface); }
+.zeffy-source .fill-row { margin-top: 8px; }
+.zeffy-changes { margin: 6px 0 10px; padding-left: 1.2em; overflow-wrap: anywhere; }

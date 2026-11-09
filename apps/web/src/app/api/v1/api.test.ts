@@ -182,3 +182,23 @@ describe("limits per address", () => {
     expect(limited).toBe(10);
   });
 });
+
+describe("Zeffy connection", () => {
+  it("is only for the organization's team, and only its Admins connect it", async () => {
+    const { GET: status, PUT: connect } = await import("./organizations/[id]/zeffy/route");
+    const { GET: list } = await import("./organizations/[id]/zeffy/events/route");
+    const boss = await signIn("boss@example.com");
+    const other = await signIn("other@example.com");
+    await save(req(`/api/v1/sync/${ORGS}`, { body: { upsert: [{ id: "org-z", name: "Zeffy Org", team: [] }] }, cookie: boss }), params(ORGS));
+    const id = { params: Promise.resolve({ id: "org-z" }) };
+    const path = "/api/v1/organizations/org-z/zeffy";
+    expect((await status(req(path, { method: "GET" }), id)).status).toBe(401);
+    expect((await status(req(path, { method: "GET", cookie: other }), id)).status).toBe(403);
+    expect((await list(req(`${path}/events`, { method: "GET", cookie: other }), id)).status).toBe(403);
+    expect((await connect(req(path, { method: "PUT", body: { apiKey: "zeffy-key-123456" }, cookie: other }), id)).status).toBe(403);
+    expect((await connect(req(path, { method: "PUT", body: { apiKey: "zeffy-key-123456" }, cookie: boss, site: "cross-site" }), id)).status).toBe(403);
+    const mine = await status(req(path, { method: "GET", cookie: boss }), id);
+    expect(await mine.json()).toMatchObject({ available: true, connected: false, canConnect: true });
+    expect((await list(req(`${path}/events`, { method: "GET", cookie: boss }), id)).status).toBe(409);
+  });
+});

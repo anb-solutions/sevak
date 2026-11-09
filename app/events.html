@@ -15,6 +15,7 @@
   <script src="members-store.js" defer></script>
   <script src="nav.js" defer></script>
   <script src="events.js" defer></script>
+  <script src="zeffy.js" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -49,11 +50,13 @@
       <div class="section-head">
         <h2 class="section-title" id="events-title">Your events</h2>
         <div class="fill-row" id="create-buttons">
+          <button type="button" class="btn btn-secondary btn-small" id="zeffy-open" aria-expanded="false" aria-controls="zeffy-panel" hidden>From Zeffy</button>
           <a class="btn btn-secondary btn-small" id="create-main" href="main-event.html">+ Main event</a>
           <a class="btn btn-primary btn-small" id="create-event" href="event.html">+ Event</a>
         </div>
       </div>
       
+      <div class="section notice zeffy-panel" id="zeffy-panel" hidden></div>
       <p class="hint" id="events-help" style="margin-top:8px" hidden>Use a <strong>main event</strong> to group related events, such as a festival and its rehearsals. A one-off event doesn't need one.</p>
       <label class="show-inactive" id="show-inactive-wrap" hidden><input type="checkbox" id="show-inactive"><span>Show inactive events (<span id="inactive-count">0</span>)</span></label>
       <div id="main-groups"></div>

@@ -17,6 +17,7 @@
   <script src="members-store.js" defer></script>
   <script src="nav.js" defer></script>
   <script src="event.js" defer></script>
+  <script src="zeffy.js" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -51,6 +52,8 @@
       <p><strong>This event is inactive.</strong> It's hidden from volunteers, the Events list and the dashboard. Its sign-ups and documents are kept.</p>
       <p><button type="button" class="btn btn-secondary btn-small" id="reactivate">Reactivate event</button></p>
     </div>
+
+    <div class="section notice zeffy-source" id="zeffy-source" hidden></div>
 
     <div class="tabs" role="tablist" aria-label="Event sections" id="event-tabs">
       <button type="button" class="tab" role="tab" id="tab-details" aria-controls="event-form" aria-selected="true">Event details</button>

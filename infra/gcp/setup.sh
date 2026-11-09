@@ -24,6 +24,9 @@
 #     email, "google-client-secret" for Continue with Google). Their values
 #     come from GitHub: each deploy copies them in from the environment's
 #     secrets. Only the app can read them, and only the deploy can update them.
+#   - "app-secrets-key": a random key, made here, that encrypts what
+#     organizations connect (their Zeffy API keys). Only the app can read it.
+#   - A private Cloud Storage bucket for uploaded documents
 set -euo pipefail
 
 REGION="us-central1"
@@ -175,6 +178,22 @@ for name in resend-api-key google-client-secret; do
     gcloud secrets add-iam-policy-binding "$name" --member "serviceAccount:$DEPLOY_SA" --role "$role" >/dev/null
   done
 done
+
+# The key that encrypts what organizations connect (their Zeffy API keys).
+# Made here at random and never leaves Google Cloud: not in GitHub, not
+# shown. Only the app reads it; the deploy can only see that it exists.
+say "Encryption key for connected accounts (app-secrets-key)"
+exists gcloud secrets describe app-secrets-key || gcloud secrets create app-secrets-key --replication-policy automatic
+if [ -z "$(gcloud secrets versions list app-secrets-key --filter 'state=ENABLED' --format 'value(name)' --limit 1)" ]; then
+  openssl rand -base64 32 | tr -d '\n' | gcloud secrets versions add app-secrets-key --data-file=- >/dev/null
+  echo "Made a new one."
+else
+  echo "Already has one; left as it is (changing it would disconnect every organization)."
+fi
+gcloud secrets add-iam-policy-binding app-secrets-key --member "serviceAccount:$RUNTIME_SA" \
+  --role roles/secretmanager.secretAccessor >/dev/null
+gcloud secrets add-iam-policy-binding app-secrets-key --member "serviceAccount:$DEPLOY_SA" \
+  --role roles/secretmanager.viewer >/dev/null
 
 # Uploaded documents and certificate PDFs. Private: no public access, and
 # only the app's own account can read or write it; the app checks who may
