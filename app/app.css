@@ -1120,3 +1120,7 @@ input[type="time"], input[type="number"] {
 .zeffy-panel .event-item { background: var(--surface); }
 .zeffy-source .fill-row { margin-top: 8px; }
 .zeffy-changes { margin: 6px 0 10px; padding-left: 1.2em; overflow-wrap: anywhere; }
+
+/* Common roles to add in one tap (event.js) */
+.role-presets { margin-top: 16px; }
+.role-presets .fill-row { margin-top: 8px; }

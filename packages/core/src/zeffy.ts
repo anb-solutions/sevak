@@ -86,22 +86,46 @@ export async function removeZeffyConnection(db: Db, orgId: string) {
 // ---------- From a Zeffy campaign to a Sevak event ----------
 
 // Zeffy descriptions are formatted text (HTML); Sevak's are plain.
+const ENTITIES: Record<string, string> = {
+  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", ensp: " ", emsp: " ", thinsp: " ",
+  ndash: "–", mdash: "—", minus: "−", hellip: "…", bull: "•", middot: "·", deg: "°",
+  lsquo: "‘", rsquo: "’", sbquo: "‚", ldquo: "“", rdquo: "”", bdquo: "„", laquo: "«", raquo: "»",
+  prime: "′", Prime: "″", times: "×", divide: "÷", plusmn: "±", frac12: "½", frac14: "¼", frac34: "¾",
+  copy: "©", reg: "®", trade: "™", sect: "§", para: "¶", dagger: "†", Dagger: "‡",
+  cent: "¢", pound: "£", euro: "€", yen: "¥", rupee: "₹", iexcl: "¡", iquest: "¿",
+  shy: "", zwj: "\u200d", zwnj: "\u200c", rarr: "→", larr: "←", harr: "↔", hearts: "♥", star: "☆",
+};
+// Accented letters: &eacute; &Uuml; &ntilde; &ccedil; &aring; &oslash; …
+const ACCENTS: Record<string, string> = { acute: "\u0301", grave: "\u0300", circ: "\u0302", uml: "\u0308", tilde: "\u0303", ring: "\u030a", cedil: "\u0327" };
+
+function entity(name: string): string | null {
+  if (name[0] === "#") {
+    const n = name[1]?.toLowerCase() === "x" ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
+    return Number.isFinite(n) && n > 31 && n < 0x110000 && !(n >= 0xd800 && n <= 0xdfff) ? String.fromCodePoint(n) : "";
+  }
+  if (ENTITIES[name] !== undefined) return ENTITIES[name]!;
+  const accent = name.match(/^([A-Za-z])(acute|grave|circ|uml|tilde|ring|cedil)$/);
+  if (accent) return (accent[1]! + ACCENTS[accent[2]!]!).normalize("NFC");
+  if (name === "szlig") return "ß";
+  if (/^(aelig|AElig|oslash|Oslash)$/.test(name)) return { aelig: "æ", AElig: "Æ", oslash: "ø", Oslash: "Ø" }[name]!;
+  return null;
+}
+
+function decode(text: string): string {
+  return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]*);/gi, (m, e: string) => entity(e) ?? m);
+}
+
 export function htmlToText(html: unknown, max = 2000): string {
-  const named: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
-  const text = String(html ?? "")
+  let text = String(html ?? "")
     .replace(/<(script|style)[\s\S]*?<\/\1>/gi, "")
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/(p|div|h[1-6]|li|ul|ol|blockquote)>/gi, "\n")
     .replace(/<li[^>]*>/gi, "• ")
-    .replace(/<[^>]*>/g, "")
-    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
-      if (e[0] === "#") {
-        const n = e[1]?.toLowerCase() === "x" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
-        return Number.isFinite(n) && n > 31 && n < 0x110000 ? String.fromCodePoint(n) : "";
-      }
-      return named[e.toLowerCase()] ?? m;
-    })
-    .replace(/[ \t ]+/g, " ")
+    .replace(/<[^>]*>/g, "");
+  // Twice, for text that was encoded twice ("&amp;ndash;").
+  text = decode(decode(text));
+  text = text
+    .replace(/[ \t\u00a0]+/g, " ")
     .replace(/ *\n */g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();

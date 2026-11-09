@@ -61,6 +61,7 @@
   function placeText(event) {
     var loc = event.location || {};
     if (loc.type === "online") return "Online";
+    if (loc.type === "later") return "Location shared with volunteers";
     return [loc.venue, loc.line1, loc.city, loc.state, countryName(loc.country)].filter(Boolean).join(", ");
   }
 
@@ -909,6 +910,8 @@
     var loc = event.location || {};
     if (loc.type === "online") {
       about.appendChild(el("p", null, "Online. The meeting link is shared with volunteers who sign up."));
+    } else if (loc.type === "later") {
+      about.appendChild(el("p", null, loc.note || "Contact your event admin for location details."));
     } else if (placeText(event) && placeText(event) !== shortPlace(event)) {
       about.appendChild(el("p", null, "Address: " + placeText(event)));
     }

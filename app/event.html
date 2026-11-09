@@ -115,6 +115,7 @@
         <div class="choices">
           <label class="choice"><input type="radio" name="locationType" value="in-person" checked><span><strong>In person</strong><small>At a venue or address</small></span></label>
           <label class="choice"><input type="radio" name="locationType" value="online"><span><strong>Online</strong><small>Volunteers join remotely</small></span></label>
+          <label class="choice"><input type="radio" name="locationType" value="later"><span><strong>Shared later</strong><small>No address shown; volunteers get it from you</small></span></label>
         </div>
 
         <div id="in-person-fields" style="margin-top:16px">
@@ -151,6 +152,12 @@
           </div>
         </div>
 
+        <div class="field" id="later-fields" style="margin-top:16px" hidden>
+          <label for="locationNote">What volunteers see <span class="optional">(optional)</span></label>
+          <input id="locationNote" type="text" maxlength="200" placeholder="Contact your event admin for location details.">
+          <p class="hint">For private venues, or when you email the location to people who sign up. Leave it empty to say "Contact your event admin for location details."</p>
+        </div>
+
         <div class="field" id="online-fields" style="margin-top:16px" hidden>
           <label for="onlineUrl">Meeting link <span class="optional">(optional)</span></label>
           <input id="onlineUrl" type="url" inputmode="url" maxlength="300" placeholder="https://…">
@@ -166,6 +173,10 @@
         <p class="summary" id="roles-summary" aria-live="polite"></p>
         <div class="stack" id="role-list"></div>
         <p class="error" id="roles-error"></p>
+        <div class="role-presets" id="role-presets">
+          <p class="hint" id="role-presets-label">Add a common role, then change anything you like:</p>
+          <div class="fill-row" role="group" aria-labelledby="role-presets-label" id="role-preset-buttons"></div>
+        </div>
         <button type="button" class="btn btn-secondary" id="add-role" style="margin-top:12px">+ Add a role</button>
       </section>
 

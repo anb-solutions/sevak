@@ -118,7 +118,7 @@
     var meta = document.createElement("p");
     meta.className = "event-meta";
     var loc = event.location || {};
-    var where = loc.type === "online" ? "Online" : loc.venue || loc.city || "";
+    var where = loc.type === "online" ? "Online" : loc.type === "later" ? "Location shared later" : loc.venue || loc.city || "";
     meta.textContent = [rangeLabel(event.startDate, event.endDate), where,
       plural(t.shifts, "shift") + ", " + plural(t.volunteers, "volunteer spot")].filter(Boolean).join(" · ");
     info.appendChild(h3);

@@ -240,6 +240,67 @@
   }
 
   roleList.addEventListener("input", updateSummary);
+
+  // Common roles, to add in one tap and then adjust.
+  var PRESETS = [
+    { name: "Setup crew", description: "Set up tables, chairs, signs and decorations before the event.", bring: "Closed-toe shoes" },
+    { name: "Greeters", description: "Welcome guests at the entrance and point them the right way." },
+    { name: "Registration and check-in", description: "Check guests in, hand out passes and answer questions." },
+    { name: "Ushers", description: "Help guests find their seats and keep the aisles clear." },
+    { name: "Food service", description: "Serve food and drinks, and keep the serving area clean.", bring: "Closed-toe shoes; hair tied back" },
+    { name: "Parking", description: "Guide cars into the parking area and keep traffic moving.", bring: "Comfortable shoes and water" },
+    { name: "Cleanup crew", description: "Clear up, take out the trash and put everything away afterwards." },
+    { name: "Photography", description: "Take photos and short videos of the event to share afterwards.", bring: "A camera or phone, charged" },
+    { name: "Sound and tech", description: "Help with microphones, lights, the sound system and slides." },
+    { name: "Kids' activities", description: "Run crafts and games for children." }
+  ];
+
+  function hasRole(name) {
+    return Array.prototype.some.call(roleList.children, function (card) {
+      return card.querySelector('[data-key="name"]').value.trim().toLowerCase() === name.toLowerCase();
+    });
+  }
+
+  function renderPresets() {
+    var box = $("role-preset-buttons");
+    box.innerHTML = "";
+    var full = roleList.children.length >= MAX_ROLES;
+    PRESETS.forEach(function (p) {
+      if (hasRole(p.name)) return;
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "btn btn-secondary btn-small";
+      b.textContent = "+ " + p.name;
+      b.setAttribute("aria-label", "Add the role " + p.name);
+      b.disabled = full;
+      b.addEventListener("click", function () {
+        // Fill an empty role (a new event starts with one), or add a role.
+        var card = Array.prototype.filter.call(roleList.children, function (c) {
+          return ["name", "description", "bring"].every(function (k) { return !c.querySelector('[data-key="' + k + '"]').value.trim(); });
+        })[0];
+        if (card) {
+          card.querySelector('[data-key="name"]').value = p.name;
+          card.querySelector('[data-key="description"]').value = p.description;
+          card.querySelector('[data-key="bring"]').value = p.bring || "";
+          F.setError(card.querySelector('[data-key="name"]'), "");
+          updateSummary();
+        } else {
+          card = addRole({ name: p.name, description: p.description, bring: p.bring || "" });
+          if (!card) return;
+        }
+        if (!card.querySelector(".shift-row")) addShift(card);
+        refreshDays();
+        renderPresets();
+        var first = card.querySelector('.shift-row select');
+        (first || card.querySelector('[data-key="name"]')).focus();
+        $("status").textContent = "Added " + p.name + ". Set its shift times and how many people you need.";
+      });
+      box.appendChild(b);
+    });
+    $("role-presets").hidden = !box.children.length;
+  }
+  roleList.addEventListener("input", renderPresets);
+  roleList.addEventListener("click", function (e) { if (e.target.closest(".remove-role")) setTimeout(renderPresets, 0); });
   $("add-role").addEventListener("click", function () {
     var card = addRole();
     if (card) card.querySelector('[data-key="name"]').focus();
@@ -274,9 +335,10 @@
   // ---------- Location and visibility ----------
 
   function applyLocationType() {
-    var online = locationType() === "online";
-    $("in-person-fields").hidden = online;
-    $("online-fields").hidden = !online;
+    var type = locationType();
+    $("in-person-fields").hidden = type !== "in-person";
+    $("online-fields").hidden = type !== "online";
+    $("later-fields").hidden = type !== "later";
   }
   form.querySelectorAll('input[name="locationType"]').forEach(function (r) { r.addEventListener("change", applyLocationType); });
 
@@ -370,7 +432,7 @@
 
   function readForm() {
     var v = function (id) { return $(id).value.trim(); };
-    var online = locationType() === "online";
+    var type = locationType();
     return {
       id: eventId || E.newId("event"),
       organizationId: org.id,
@@ -381,8 +443,10 @@
       startDate: v("startDate"),
       endDate: v("endDate") || v("startDate"),
       timezone: $("timezone").value,
-      location: online
+      location: type === "online"
         ? { type: "online", url: v("onlineUrl") }
+        : type === "later"
+        ? { type: "later", note: v("locationNote") }
         : {
             type: "in-person",
             venue: v("venue"),
@@ -417,13 +481,24 @@
       sel.appendChild(o);
     };
     add("", "Any Admin of " + ((org && org.name) || "the organization"));
-    var team = (org && org.team) || [];
+    // Everyone who can run the organization's events: the Team tab, its
+    // primary contact and whoever set it up (both Admins).
+    var people = ((org && org.team) || []).map(function (m) { return { email: m.email, name: m.name, admin: m.role === "admin" }; });
+    if (org && org.primaryContact && org.primaryContact.email) people.push({ email: org.primaryContact.email, name: org.primaryContact.name, admin: true });
+    if (org && org.createdBy) people.push({ email: org.createdBy, admin: true });
     var seen = {};
-    team.forEach(function (m) {
-      var key = String(m.email || "").toLowerCase();
-      if (!key || seen[key]) return;
+    var byEmail = {};
+    people.forEach(function (p) {
+      var key = String(p.email || "").trim().toLowerCase();
+      if (!key) return;
+      var known = byEmail[key];
+      if (known) { known.admin = known.admin || p.admin; known.name = known.name || p.name; return; }
+      byEmail[key] = { email: key, name: p.name, admin: p.admin };
+    });
+    Object.keys(byEmail).forEach(function (key) {
+      var p = byEmail[key];
       seen[key] = true;
-      add(m.email, (m.name || m.email) + " (" + (m.role === "admin" ? "Admin" : "Coordinator") + ")");
+      add(p.email, (p.name || p.email) + " (" + (p.admin ? "Admin" : "Coordinator") + ")");
     });
     if (selected && !seen[String(selected).toLowerCase()]) add(selected, selected + " (no longer on the team)");
     sel.value = selected || "";
@@ -439,9 +514,11 @@
     set("endDate", event.endDate);
     fillTimezones(event.timezone);
     var loc = event.location || {};
-    form.querySelector('input[name="locationType"][value="' + (loc.type === "online" ? "online" : "in-person") + '"]').checked = true;
+    form.querySelector('input[name="locationType"][value="' + (loc.type === "online" || loc.type === "later" ? loc.type : "in-person") + '"]').checked = true;
     if (loc.type === "online") {
       set("onlineUrl", loc.url);
+    } else if (loc.type === "later") {
+      set("locationNote", loc.note);
     } else {
       set("venue", loc.venue);
       if (loc.country) $("country").value = loc.country;
@@ -602,6 +679,7 @@
   applyStatus();
   updateCounter();
   refreshDays();
+  renderPresets();
 
   var docs = window.SevakDocs.mount($("panel-documents"), {
     owner: eventId ? "event:" + eventId : null,
