@@ -46,22 +46,35 @@ function shiftDate(event: Json, shiftId: unknown): string | null {
   return null;
 }
 
-// Approved minutes on record for a volunteer with an organization, between
-// two dates (inclusive), the way app/signups-store.js credits them.
-export async function approvedMinutes(db: Db, email: string, orgId: string, from: string, to: string): Promise<number> {
+// Approved hours on record for a volunteer with an organization, between
+// two dates (inclusive), the way app/signups-store.js credits them: the
+// minutes, how many shifts, and the events they were at.
+export async function approvedRecord(db: Db, email: string, orgId: string, from: string, to: string): Promise<{ minutes: number; shifts: number; events: Json[] }> {
   const events = await db.select().from(records).where(and(eq(records.collection, "events"), eq(records.orgId, orgId)));
   const byId = new Map(events.map((e) => [e.id, e.data]));
   const signups = await db.select().from(records).where(and(eq(records.collection, "signups"), eq(records.orgId, orgId)));
-  let total = 0;
+  let minutes = 0;
+  let shifts = 0;
+  const seen = new Map<string, Json>();
   for (const { data: s } of signups) {
     const h = s.hours as Json | undefined;
     if (lower(s.email) !== lower(email) || s.status === "cancelled" || !h || h.status !== "approved") continue;
     const event = byId.get(String(s.eventId));
     const date = event && shiftDate(event, s.shiftId);
-    if (!date || date < from || date > to) continue;
-    total += Number(h.approvedMinutes ?? h.minutes ?? 0);
+    if (!event || !date || date < from || date > to) continue;
+    const m = Number(h.approvedMinutes ?? h.minutes ?? 0);
+    minutes += m;
+    shifts++;
+    const e = seen.get(String(s.eventId)) ?? { id: String(s.eventId), title: String(event.title ?? "").slice(0, 200), minutes: 0, shifts: 0 };
+    e.minutes = Number(e.minutes) + m;
+    e.shifts = Number(e.shifts) + 1;
+    seen.set(String(s.eventId), e);
   }
-  return total;
+  return { minutes, shifts, events: [...seen.values()] };
+}
+
+export async function approvedMinutes(db: Db, email: string, orgId: string, from: string, to: string): Promise<number> {
+  return (await approvedRecord(db, email, orgId, from, to)).minutes;
 }
 
 export const MAX_OPEN_REQUESTS = 3; // open certificate requests per person and organization
@@ -140,12 +153,21 @@ export async function writeCertificates(db: Db, viewer: Viewer, ops: unknown): P
             refuse("invalid");
             continue;
           }
-          // The certificate says what the organization approved, no more.
-          const onRecord = await approvedMinutes(tx as unknown as Db, String(prev.email), orgId, String(prev.from), String(prev.to));
-          if (Number(data.minutes) !== onRecord || onRecord <= 0) {
+          // The certificate says what the organization approved, no more,
+          // and who issued it comes from Sevak's records, not the page.
+          const onRecord = await approvedRecord(tx as unknown as Db, String(prev.email), orgId, String(prev.from), String(prev.to));
+          if (Number(data.minutes) !== onRecord.minutes || onRecord.minutes <= 0) {
             refuse("hours_mismatch");
             continue;
           }
+          const place = (data.org as Json | undefined)?.place;
+          const facts: Json = {
+            org: { name: String(org.name ?? ""), ...(typeof place === "string" ? { place: place.slice(0, 200) } : {}), verified: org.verificationStatus === "verified" },
+            volunteer: String(prev.name || prev.email),
+            minutes: onRecord.minutes,
+            shifts: onRecord.shifts,
+            events: onRecord.events,
+          };
           next = {
             ...prev,
             status: "issued",
@@ -154,7 +176,7 @@ export async function writeCertificates(db: Db, viewer: Viewer, ops: unknown): P
             decidedAt: now(),
             decidedBy: viewer.email,
             signer: raw.signer,
-            data: { ...data, from: prev.from, to: prev.to, issuedAt: now() },
+            data: { ...data, ...facts, from: prev.from, to: prev.to, issuedAt: now() },
             docIds: Array.isArray(raw.docIds) ? raw.docIds.slice(0, 50) : [],
           };
         }
@@ -207,13 +229,18 @@ export async function verifyCertificate(db: Db, code: unknown): Promise<Json | n
   const rec = rows.map((r) => r.data).find((c) => c.status === "issued" && c.code === want);
   if (!rec) return null;
   const d = (rec.data ?? {}) as Json;
+  const issuedBy = (d.org ?? {}) as Json;
+  // Whether Sevak has verified the organization: as it is now, or as it was
+  // when the certificate was issued if the organization is gone.
+  const [org] = await db.select().from(records).where(and(eq(records.collection, "organizations"), eq(records.id, String(rec.orgId))));
+  const verified = org ? org.data.verificationStatus === "verified" : issuedBy.verified === true;
   return {
     code: rec.code,
     issuedAt: rec.issuedAt,
     status: "issued",
     data: {
       volunteer: d.volunteer,
-      org: { name: (d.org as Json | undefined)?.name },
+      org: { name: issuedBy.name, verified },
       from: d.from,
       to: d.to,
       minutes: d.minutes,

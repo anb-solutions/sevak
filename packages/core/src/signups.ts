@@ -125,10 +125,17 @@ export async function writeSignups(db: Db, viewer: Viewer, ops: unknown): Promis
         continue;
       }
       const team = isTeam(org, viewer);
-      const self = lower(prev?.email ?? raw.email) === viewer.email || (!prev && !team);
+      // A sign-up is yours if it has your email; one with none is nobody's.
+      const self = prev ? !!lower(prev.email) && lower(prev.email) === viewer.email : lower(raw.email) === viewer.email || !team;
       let next: Json;
 
       if (team) {
+        // Hours for one sign-up are at most a day.
+        const h = raw.hours as Json | undefined;
+        if (h && [h.minutes, h.approvedMinutes].some((m) => m !== undefined && m !== null && !(typeof m === "number" && m >= 0 && m <= 24 * 60))) {
+          refuse("invalid");
+          continue;
+        }
         next = { ...raw };
       } else if (self) {
         if (!prev) {

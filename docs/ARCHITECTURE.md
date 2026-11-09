@@ -195,7 +195,21 @@ cancellation gives the spot back in the same transaction. A database rule
 
 - Every host API call checks the person's role in that organization (Admin or Coordinator) through
   one shared function, and every query on organization data is limited to that organization.
-- Public pages show counts ("4 of 6 spots left"), never names.
+- Public pages show counts ("4 of 6 spots left"), never names. People outside an event's team
+  don't see who on the team runs it.
+- **Deleted ids stay taken.** Sign-ups, certificates and documents point at organizations and
+  events by id, so deleting one keeps a marker (collection `deleted` in `records`) and nobody can
+  create a new one with that id. Deleting an organization also deletes its events and
+  memberships; sign-ups (with their hours), certificates and documents stay with their people.
+- **Certificates say what Sevak knows.** When one is issued, the server sets the organization's
+  name and verification, the hours, shifts and events from its own records; the page can't
+  choose them. The check page says whether Sevak has verified the organization. Hours for one
+  sign-up are at most 24.
+- **Verification is redone after a change** to what Sevak checked (name, website, registration
+  number, tax status): the organization goes back to pending and staff are asked again.
+- **Documents:** the email in `profile:<email>` is lowercased and trimmed, so each person has one
+  quota. An Admin can add a certificate's PDF only to someone who asked their organization for
+  one, and upload it once. Organizations get 50 MB until verified, then 500 MB.
 - Automated tests check these rules on every pull request: for example, a volunteer can't read
   another volunteer's sign-up, and a Coordinator of one organization can't see another's roster.
 

@@ -18,7 +18,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { type Db, records } from "@sevak/db";
 import type { Viewer } from "./auth";
-import { idSchema, type Json, lower, objectSchema, organizationsById, orgRole, tooBig } from "./records";
+import { buried, bury, idSchema, type Json, lower, objectSchema, organizationsById, orgRole, tooBig } from "./records";
 
 const MAX_BYTES = 1_500_000; // room for a cover picture
 export const MAX_EVENTS_PER_ORG = 500; // events (and main events) one organization can have
@@ -63,9 +63,16 @@ export async function readEventsAndMain(db: Db, viewer: Viewer | null): Promise<
     return e.visibility !== "private" && org?.verificationStatus === "verified";
   };
   const visible = events.filter(canSee);
-  const mainIds = new Set(visible.map((e) => String(e.mainEventId ?? "")));
-  const visibleMains = mains.filter((m) => isTeam(orgs.get(String(m.organizationId ?? "")), viewer) || mainIds.has(String(m.id)));
-  return { events: visible, mainEvents: visibleMains };
+  // A main event is shown with its own organization's events only.
+  const mainIds = new Set(visible.map((e) => `${String(e.organizationId ?? "")} ${String(e.mainEventId ?? "")}`));
+  const visibleMains = mains.filter((m) => isTeam(orgs.get(String(m.organizationId ?? "")), viewer) || mainIds.has(`${String(m.organizationId ?? "")} ${String(m.id)}`));
+  // Who on the team runs an event is the team's business.
+  const forViewer = (e: Json) => {
+    if (isTeam(orgs.get(String(e.organizationId ?? "")), viewer)) return e;
+    const { eventAdmin: _admin, ...rest } = e;
+    return rest;
+  };
+  return { events: visible.map(forViewer), mainEvents: visibleMains };
 }
 
 export const orgOwnedOpsSchema = z.object({
@@ -94,6 +101,7 @@ async function writeOrgOwned(db: Db, viewer: Viewer, collection: Collection, ops
       ? await tx.select().from(records).where(and(eq(records.collection, collection), inArray(records.id, ids))).for("update")
       : [];
     const byId = new Map(existing.map((r) => [r.id, r.data]));
+    const gone = await buried(tx, collection, ids);
 
     for (const raw of upsert) {
       const id = idSchema.safeParse(raw.id);
@@ -103,6 +111,7 @@ async function writeOrgOwned(db: Db, viewer: Viewer, collection: Collection, ops
       // the one it belonged to (so events can't be moved to take them over).
       const allowed =
         id.success &&
+        !(!prev && gone.has(id.data)) &&
         !tooBig(raw, MAX_BYTES) &&
         isTeam(orgs.get(orgId), viewer) &&
         (!prev || isTeam(orgs.get(String(prev.organizationId ?? "")), viewer));
@@ -133,6 +142,7 @@ async function writeOrgOwned(db: Db, viewer: Viewer, collection: Collection, ops
         continue;
       }
       await tx.delete(records).where(and(eq(records.collection, collection), eq(records.id, id)));
+      await bury(tx, collection, id, viewer);
       byId.delete(id);
     }
   });

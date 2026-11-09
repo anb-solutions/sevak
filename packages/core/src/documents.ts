@@ -5,13 +5,15 @@
 //
 // A document belongs to an owner:
 //   "profile:<email>"  a person's own documents: only they see and change
-//                      them; an organization's Admins can add a certificate
-//                      they issued to that person (source "certificate")
+//                      them; an organization's Admins can add the PDF of a
+//                      certificate that person asked them for (source
+//                      "certificate"), once
 //   "org:<id>"         an organization's: its team
 //   "event:<id>"       an event's: its organization's team
 //
 // Limits (checked when the file is uploaded): 10 MB a file; 100 MB of files
-// per person; 500 MB per organization (its own and its events' documents).
+// per person; 500 MB per organization (its own and its events' documents),
+// 50 MB until Sevak verifies it.
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { type Db, records } from "@sevak/db";
@@ -22,6 +24,7 @@ const COLLECTION = "documents";
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 export const PERSON_QUOTA_BYTES = 100 * 1024 * 1024;
 export const ORG_QUOTA_BYTES = 500 * 1024 * 1024;
+export const UNVERIFIED_ORG_QUOTA_BYTES = 50 * 1024 * 1024;
 
 // Fields only the server sets, from the file actually stored.
 const STORED_FIELDS = ["storedBytes", "storedType", "storedAt"] as const;
@@ -29,11 +32,27 @@ const STORED_FIELDS = ["storedBytes", "storedType", "storedAt"] as const;
 interface Context {
   orgs: Map<string, Json>;
   eventOrg: Map<string, string>; // event id → organization id
+  asked: Set<string>; // "<email> <organization id>" for certificates asked for or issued
 }
 
 async function context(db: Db): Promise<Context> {
-  const [orgs, events] = await Promise.all([organizationsById(db), db.select().from(records).where(eq(records.collection, "events"))]);
-  return { orgs, eventOrg: new Map(events.map((e) => [e.id, String(e.data.organizationId ?? "")])) };
+  const [orgs, events, certs] = await Promise.all([
+    organizationsById(db),
+    db.select().from(records).where(eq(records.collection, "events")),
+    db.select().from(records).where(eq(records.collection, "certificates")),
+  ]);
+  return {
+    orgs,
+    eventOrg: new Map(events.map((e) => [e.id, String(e.data.organizationId ?? "")])),
+    asked: new Set(certs.filter((c) => c.data.status === "requested" || c.data.status === "issued").map((c) => `${lower(c.data.email)} ${String(c.data.orgId)}`)),
+  };
+}
+
+// "profile:<email>" with the email lowercased and trimmed, so each person
+// has one set of documents (and one quota).
+export function normalOwner(owner: unknown): string {
+  const s = String(owner ?? "");
+  return s.startsWith("profile:") ? `profile:${lower(s.slice(8))}` : s;
 }
 
 // The organization a document belongs to (for org and event documents).
@@ -51,10 +70,19 @@ export function canSeeDocument(doc: Json, viewer: Viewer, ctx: Context): boolean
   return !!org && (viewer.isPlatformAdmin || orgRole(org, viewer.email) !== null);
 }
 
-// Adding a certificate to the person it was issued to.
+// Adding a certificate's PDF to the person who asked the organization for it.
 function isIssuedCertificate(doc: Json, viewer: Viewer, ctx: Context): boolean {
-  const org = ctx.orgs.get(String(doc.orgId ?? ""));
-  return doc.source === "certificate" && !!org && orgRole(org, viewer.email) === "admin";
+  const orgId = String(doc.orgId ?? "");
+  const org = ctx.orgs.get(orgId);
+  const owner = normalOwner(doc.owner);
+  return (
+    doc.source === "certificate" &&
+    owner.startsWith("profile:") &&
+    String(doc.name ?? "").startsWith("Certificate") &&
+    !!org &&
+    (viewer.isPlatformAdmin || orgRole(org, viewer.email) === "admin") &&
+    ctx.asked.has(`${owner.slice(8)} ${orgId}`)
+  );
 }
 
 export async function readDocuments(db: Db, viewer: Viewer): Promise<Json[]> {
@@ -92,13 +120,14 @@ export async function writeDocuments(db: Db, viewer: Viewer, ops: unknown): Prom
     for (const raw of upsert) {
       const id = idSchema.safeParse(raw.id);
       const prev = id.success ? (byId.get(id.data) ?? null) : null;
-      const owner = String(raw.owner ?? "");
+      const owner = normalOwner(raw.owner);
+      raw.owner = owner;
       const allowed =
         id.success &&
         !tooBig(raw, 20_000) &&
         /^(profile|org|event):/.test(owner) &&
         (canSeeDocument(raw, viewer, ctx) || (!prev && isIssuedCertificate(raw, viewer, ctx))) &&
-        (!prev || canSeeDocument(prev, viewer, ctx) || isIssuedCertificate(prev, viewer, ctx));
+        (!prev || canSeeDocument(prev, viewer, ctx));
       if (!allowed) {
         refused++;
         continue;
@@ -180,18 +209,21 @@ export async function acceptUpload(db: Db, viewer: Viewer, id: string, bytes: Ui
   const ctx = await context(db);
   const rows = await db.select().from(records).where(eq(records.collection, COLLECTION));
   const row = rows.find((r) => r.id === id);
-  if (!row || !(canSeeDocument(row.data, viewer, ctx) || isIssuedCertificate(row.data, viewer, ctx))) throw new UploadRefused("not_found");
+  // An Admin adding a certificate to someone's documents can upload it once.
+  const asIssuer = !!row && !canSeeDocument(row.data, viewer, ctx) && isIssuedCertificate(row.data, viewer, ctx) && row.data.storedAt === undefined;
+  if (!row || !(canSeeDocument(row.data, viewer, ctx) || asIssuer)) throw new UploadRefused("not_found");
   if (bytes.length === 0) throw new UploadRefused("empty");
   if (bytes.length > MAX_FILE_BYTES) throw new UploadRefused("too_large");
   const type = sniffType(bytes);
   if (!type) throw new UploadRefused("type");
 
   // Room left for this person, or this organization.
-  const owner = String(row.data.owner);
+  const owner = normalOwner(row.data.owner);
   const orgId = orgOf(owner, ctx);
-  const sameGroup = (d: Json) => (orgId ? orgOf(String(d.owner ?? ""), ctx) === orgId : d.owner === owner);
+  const sameGroup = (d: Json) => (orgId ? orgOf(normalOwner(d.owner), ctx) === orgId : normalOwner(d.owner) === owner);
   const used = rows.filter((r) => r.id !== id && sameGroup(r.data)).reduce((n, r) => n + Number(r.data.storedBytes ?? 0), 0);
-  if (used + bytes.length > (orgId ? ORG_QUOTA_BYTES : PERSON_QUOTA_BYTES)) throw new UploadRefused("quota");
+  const orgQuota = orgId && ctx.orgs.get(orgId)?.verificationStatus === "verified" ? ORG_QUOTA_BYTES : UNVERIFIED_ORG_QUOTA_BYTES;
+  if (used + bytes.length > (orgId ? orgQuota : PERSON_QUOTA_BYTES)) throw new UploadRefused("quota");
 
   const doc = { ...row.data, storedBytes: bytes.length, storedType: type, storedAt: new Date().toISOString() };
   await db.update(records).set({ data: doc, updatedAt: new Date(), updatedBy: viewer.id }).where(and(eq(records.collection, COLLECTION), eq(records.id, id)));

@@ -2,19 +2,21 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { type Db, users } from "@sevak/db";
 import { createMemoryDb } from "@sevak/db/memory";
 import type { Viewer } from "./auth";
-import { acceptUpload, documentFor, MAX_FILE_BYTES, ORG_QUOTA_BYTES, readDocuments, sniffType, UploadRefused, writeDocuments } from "./documents";
+import { acceptUpload, documentFor, MAX_FILE_BYTES, ORG_QUOTA_BYTES, readDocuments, sniffType, UNVERIFIED_ORG_QUOTA_BYTES, UploadRefused, writeDocuments } from "./documents";
+import { writeCertificates } from "./certificates";
 import { writeEvents } from "./events";
-import { writeOrganizations } from "./records";
+import { readOrganizations, writeOrganizations } from "./records";
 
 let db: Db;
 let asha: Viewer; // Admin
 let ravi: Viewer; // Coordinator
 let mei: Viewer; // volunteer
 let sam: Viewer;
+let staff: Viewer;
 
-async function person(email: string): Promise<Viewer> {
+async function person(email: string, isPlatformAdmin = false): Promise<Viewer> {
   const [u] = await db.insert(users).values({ email }).returning();
-  return { id: u!.id, email, isPlatformAdmin: false };
+  return { id: u!.id, email, isPlatformAdmin };
 }
 
 const enc = (s: string) => new TextEncoder().encode(s);
@@ -35,6 +37,7 @@ beforeEach(async () => {
   ravi = await person("ravi@example.com");
   mei = await person("mei@example.com");
   sam = await person("sam@example.com");
+  staff = await person("staff@example.com", true);
   await writeOrganizations(db, asha, { upsert: [{ id: "org-temple", name: "Temple", team: [{ email: "ravi@example.com", role: "coordinator" }] }] });
   await writeEvents(db, asha, { upsert: [{ id: "ev-1", organizationId: "org-temple", title: "Seva", status: "draft", roles: [] }] });
 });
@@ -56,10 +59,14 @@ describe("who sees and changes documents", () => {
   });
 
   it("lets an Admin add a certificate they issued to a volunteer's documents, and nothing else", async () => {
-    expect((await writeDocuments(db, asha, { upsert: [doc("d-cert", "profile:mei@example.com", { source: "certificate", orgId: "org-temple" })] })).refused).toBe(0);
+    const cert = (id: string) => doc(id, "profile:mei@example.com", { name: "Certificate · Temple", source: "certificate", orgId: "org-temple" });
+    // Only once Mei has asked the organization for one.
+    expect((await writeDocuments(db, asha, { upsert: [cert("d-early")] })).refused).toBe(1);
+    await writeCertificates(db, mei, { upsert: [{ id: "c-1", orgId: "org-temple", name: "Mei", from: "2030-01-01", to: "2030-01-31", status: "requested" }] });
+    expect((await writeDocuments(db, asha, { upsert: [cert("d-cert")] })).refused).toBe(0);
     expect((await readDocuments(db, mei)).map((d) => d.id)).toEqual(["d-cert"]);
     expect((await writeDocuments(db, asha, { upsert: [doc("d-plain", "profile:mei@example.com")] })).refused).toBe(1);
-    expect((await writeDocuments(db, ravi, { upsert: [doc("d-cert2", "profile:mei@example.com", { source: "certificate", orgId: "org-temple" })] })).refused).toBe(1);
+    expect((await writeDocuments(db, ravi, { upsert: [cert("d-cert2")] })).refused).toBe(1);
   });
 
   it("keeps what the server stored, whatever the page sends", async () => {
@@ -94,10 +101,14 @@ describe("uploads", () => {
     await writeDocuments(db, asha, { upsert: docs.slice(40) });
     const nearly = new Uint8Array(MAX_FILE_BYTES);
     nearly.set(pdf);
-    let last = "ok";
-    for (let i = 0; i < 51 && last === "ok"; i++) last = await reason(acceptUpload(db, asha, `d-org-${i}`, nearly));
-    expect(last).toBe("quota");
-    expect(ORG_QUOTA_BYTES / MAX_FILE_BYTES).toBe(50);
+    // Until Sevak verifies the organization, it has less room.
+    let stored = 0;
+    while ((await reason(acceptUpload(db, asha, `d-org-${stored}`, nearly))) === "ok") stored++;
+    expect(stored).toBe(UNVERIFIED_ORG_QUOTA_BYTES / MAX_FILE_BYTES);
+    const [org] = await readOrganizations(db, asha);
+    await writeOrganizations(db, staff, { upsert: [{ ...org, verificationStatus: "verified" }] });
+    while ((await reason(acceptUpload(db, asha, `d-org-${stored}`, nearly))) === "ok") stored++;
+    expect(stored).toBe(ORG_QUOTA_BYTES / MAX_FILE_BYTES);
   });
 });
 
