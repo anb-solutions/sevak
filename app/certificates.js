@@ -66,10 +66,12 @@
   // ---------- Who approves and who issues ----------
 
   // The event's admin approves its volunteers' hours; the organization's
-  // Admins can too. Signed out (previewing Manage pages), anyone can.
+  // Admins can too. Signed out (previewing Manage pages in the plain
+  // prototype), anyone can; with Sevak's server, never, and the server
+  // checks every approval and certificate anyway.
   function canApprove(event) {
     if (!event) return false;
-    if (!F.session.signedIn()) return true;
+    if (!F.session.signedIn()) return !window.SevakServer;
     var org = O.get(event.organizationId);
     if (!org || !O.roleFor(org)) return false;
     if (O.isAdmin(org)) return true;
@@ -80,7 +82,8 @@
   // Admins issue certificates for their organization.
   function canIssue(org) {
     if (!org) return false;
-    return !F.session.signedIn() || O.isAdmin(org);
+    if (!F.session.signedIn()) return !window.SevakServer;
+    return O.isAdmin(org);
   }
 
   // ---------- Hours ----------
@@ -211,8 +214,15 @@
       .sort(function (a, b) { return (a.requestedAt || "").localeCompare(b.requestedAt || ""); });
   }
 
+  // An issued certificate by its number. With Sevak's server, the server's
+  // record is the proof (it shows only what proves the certificate).
   function byCode(code) {
     var c = String(code || "").trim().toUpperCase();
+    var server = window.SevakServer;
+    if (server && !server.offline) {
+      var res = server.call("GET", "/api/v1/certificates/verify/" + encodeURIComponent(c));
+      return res.status === 200 && res.data ? res.data.certificate : null;
+    }
     return all().filter(function (x) { return x.status === "issued" && x.code === c; })[0] || null;
   }
 
@@ -643,7 +653,8 @@
           description: (forEvent ? "Issued to " + d.volunteer + ". " : "From " + d.org.name + ". ") + durationLabel(d.minutes) + " approved, " + period + ". No. " + d.code,
           fileName: fileName(d),
           uploadedBy: (d.signer.name || "Admin") + " (issued)",
-          source: "certificate"
+          source: "certificate",
+          orgId: rec.orgId
         };
       };
       var saves = [D.addFile(D.profileOwner(rec.email), blob, meta(false))];

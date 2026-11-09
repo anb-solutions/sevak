@@ -1,5 +1,6 @@
 import { readSynced } from "@sevak/core";
 import { getDb } from "@/lib/db";
+import { fileStore } from "@/lib/files";
 import { googleEnabled } from "@/lib/google";
 import { json, viewerFor } from "@/lib/http";
 
@@ -13,6 +14,7 @@ export async function GET(req: Request) {
   return json({
     user: viewer ? { email: viewer.email, isPlatformAdmin: viewer.isPlatformAdmin } : null,
     signIn: { google: googleEnabled() },
+    features: { documents: !!fileStore() },
     data,
   });
 }

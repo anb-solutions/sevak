@@ -155,8 +155,8 @@ cancellation gives the spot back in the same transaction. A database rule
 ### 3.2 Sign-in and secure links (VOL-1, NFR-4, NFR-6)
 
 - **Sign-in:** the email contains a link and a 6-digit code. Both expire after 15 minutes and work
-  once. Only a hash is stored. Requests are rate-limited by email (5 an hour, in the database) and
-  by IP (per server instance). Five wrong codes and that code stops working. The link carries its
+  once. Only a hash is stored. Requests are rate-limited by email (5 an hour, in the database) and,
+  generously, by IP (100 an hour per server instance, since a whole venue can share one Wi-Fi). Five wrong codes and that code stops working. The link carries its
   token after `#`, so it never reaches a server log or a link scanner; the sign-in page sends it.
   Links always point at `APP_URL`, never at the request's Host header.
 - **Session:** a random id in a `__Host-` cookie (`Secure; HttpOnly; SameSite=Lax`), stored hashed
@@ -326,7 +326,8 @@ have already reviewed, and they move into React components and proper tables one
 | Memberships (`sevak.memberships.v1`): who volunteers with which organization | Join release | You: your own. The organization's team and Sevak staff: theirs | You: ask to join, accept an invitation, leave. The team: approve, decline, invite, remove. Joining with an invite code goes through the server, which checks the code |
 | Events and main events (`sevak.events.v1`, `sevak.mainEvents.v1`) | Events release | The team: all of its events. Its volunteers: published, active ones (public or private). Everyone else: published, active, public events of verified organizations | The team adds and edits; only Admins delete |
 | Sign-ups, check-ins and hours (`sevak.signups.v1`) | Sign-ups release | You: your own. The event's team: its sign-ups (the roster). Everyone else: only that a spot is taken, never names | You sign up yourself (volunteers and the team only, published events), cancel, check in and out, and log hours, which always wait for approval. The team approves hours and manages its roster. The server checks capacity with the event locked, so a shift is never overbooked (SGN-5) |
-| Certificates, documents | Next releases | | |
+| Certificates and signatures (`sevak.certificates.v1`, `sevak.signatures.v1`) | Certificates release | You: your requests and certificates, your own signature. The organization's team: its organization's | You ask for one or withdraw your request. Only Admins issue or decline; the hours must equal the approved hours on record; numbers are unique; issued certificates can't change. Anyone checks one by number (`/api/v1/certificates/verify/{code}`), which shows only what proves it |
+| Documents (`sevak.documents.v1`) and their files | Certificates release | Your own; an organization's and its events' documents: its team | The same people; Admins add certificates they issue to the volunteer's documents. Files go in a private Cloud Storage bucket per environment and are served only through `/api/v1/files/{id}` after the same check, always as downloads. 10 MB a file; 100 MB per person, 500 MB per organization; PDFs, pictures, Office and text files only, checked by content |
 
 Demo data (ids starting `demo-`) stays in each browser.
 

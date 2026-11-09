@@ -65,7 +65,7 @@ INSTANCE="sevak-db"
 CONNECTION=""
 
 say "Turning on the Google Cloud services Sevak uses"
-gcloud services enable run.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com \
+gcloud services enable run.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com storage.googleapis.com \
   iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com cloudresourcemanager.googleapis.com
 if [ "$DATABASE" = "cloudsql" ]; then gcloud services enable sqladmin.googleapis.com; fi
 
@@ -176,6 +176,17 @@ for name in resend-api-key google-client-secret; do
   done
 done
 
+# Uploaded documents and certificate PDFs. Private: no public access, and
+# only the app's own account can read or write it; the app checks who may
+# see each file before serving it.
+BUCKET="$PROJECT-sevak-files"
+say "Private bucket for uploaded documents: $BUCKET"
+exists gcloud storage buckets describe "gs://$BUCKET" ||
+  gcloud storage buckets create "gs://$BUCKET" --location "$REGION" \
+    --uniform-bucket-level-access --public-access-prevention
+gcloud storage buckets add-iam-policy-binding "gs://$BUCKET" --member "serviceAccount:$RUNTIME_SA" \
+  --role roles/storage.objectAdmin >/dev/null
+
 if [ -n "$BUDGET" ]; then
   say "Budget alert: emails billing admins at 50%, 90% and 100% of \$$BUDGET a month"
   gcloud services enable billingbudgets.googleapis.com
@@ -201,6 +212,7 @@ echo "  GCP_WIF_PROVIDER       $POOL/providers/github-actions"
 echo "  GCP_DEPLOY_SA          $DEPLOY_SA"
 echo "  GCP_RUNTIME_SA         $RUNTIME_SA"
 if [ -n "$CONNECTION" ]; then echo "  GCP_CLOUDSQL_INSTANCE  $CONNECTION"; fi
+echo "  GCP_FILES_BUCKET       $BUCKET"
 echo
 echo "None of these are secrets. No keys were created."
 echo "Keys for email and Google sign-in go in the GitHub environment's secrets (infra/gcp/README.md)."

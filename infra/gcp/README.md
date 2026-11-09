@@ -177,6 +177,19 @@ get their own Google sign-in setup, in their own Google Cloud project. About 10 
 If Google shows **redirect_uri_mismatch**, the address in step 4 doesn't exactly match
 `GCP_DOMAIN` (check `https://`, no trailing slash).
 
+### 7. Documents (uploaded files and certificate PDFs)
+
+Files go in a private Cloud Storage bucket, one per environment: no public access, and only the
+app can read or write it. The app checks who may see each file before serving it, and limits
+uploads to 10 MB a file, 100 MB per person and 500 MB per organization, of PDFs, pictures, Office
+and text files (checked by what the file really is, not its name). Cost: about $0.02 per GB a
+month.
+
+1. **Run the setup script once more** in Cloud Shell (`git pull` first; everything already set
+   up is left as it is). It creates the bucket and prints `GCP_FILES_BUCKET`.
+2. **In GitHub**, add the variable `GCP_FILES_BUCKET` to the `staging` environment with that
+   value, and run the deploy. Until then, the Documents tabs say documents aren't set up yet.
+
 Optional variables on the environment:
 
 - `SEVAK_PLATFORM_ADMINS`: emails of Sevak staff, separated by commas. They can verify

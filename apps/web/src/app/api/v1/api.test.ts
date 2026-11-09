@@ -7,6 +7,7 @@ import { POST as verify } from "./auth/verify/route";
 import { POST as save } from "./sync/[key]/route";
 import { POST as joinRoute } from "./memberships/join/route";
 import { GET as byCode } from "./organizations/by-code/[code]/route";
+import { GET as getFile, PUT as putFile } from "./files/[id]/route";
 import { GET as load } from "./sync/route";
 
 const BASE = "http://localhost:3000";
@@ -122,6 +123,31 @@ describe("API", () => {
     expect(takeover.status).toBe(403);
     expect((await save(req(`/api/v1/sync/${EV}`, { body: { delete: ["ev-1"] }, cookie: mei }), params(EV))).status).toBe(403);
     expect((await save(req(`/api/v1/sync/${EV}`, { body: { upsert: [ev] } }), params(EV))).status).toBe(401);
+  });
+
+  it("uploads files only for your own documents, of accepted kinds, and serves them as downloads", async () => {
+    const DOCS = "sevak.documents.v1";
+    const fileReq = (id: string, body: BodyInit | null, opts: { cookie?: string; site?: string; method?: string } = {}) => {
+      const headers: Record<string, string> = { "sec-fetch-site": opts.site ?? "same-origin" };
+      if (opts.cookie) headers.cookie = opts.cookie;
+      return new Request(`${BASE}/api/v1/files/${id}`, { method: opts.method ?? "PUT", headers, body });
+    };
+    const fileParams = (id: string) => ({ params: Promise.resolve({ id }) });
+    await save(req(`/api/v1/sync/${DOCS}`, { body: { upsert: [{ id: "doc-mei", owner: "profile:mei@example.com", name: "ID", fileName: "id.pdf" }] }, cookie: mei }), params(DOCS));
+
+    const pdf = new TextEncoder().encode("%PDF-1.4 test");
+    expect((await putFile(fileReq("doc-mei", pdf), fileParams("doc-mei"))).status).toBe(401);
+    expect((await putFile(fileReq("doc-mei", pdf, { cookie: mei, site: "cross-site" }), fileParams("doc-mei"))).status).toBe(403);
+    expect((await putFile(fileReq("doc-mei", pdf, { cookie: asha }), fileParams("doc-mei"))).status).toBe(404);
+    expect((await putFile(fileReq("doc-mei", new TextEncoder().encode("<html><script>x</script>"), { cookie: mei }), fileParams("doc-mei"))).status).toBe(415);
+    expect((await putFile(fileReq("doc-mei", pdf, { cookie: mei }), fileParams("doc-mei"))).status).toBe(200);
+
+    const got = await getFile(fileReq("doc-mei", null, { cookie: mei, method: "GET" }), fileParams("doc-mei"));
+    expect(got.status).toBe(200);
+    expect(got.headers.get("content-disposition")).toMatch(/^attachment;/);
+    expect(got.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(new TextDecoder().decode(await got.arrayBuffer())).toBe("%PDF-1.4 test");
+    expect((await getFile(fileReq("doc-mei", null, { cookie: asha, method: "GET" }), fileParams("doc-mei"))).status).toBe(404);
   });
 
   it("refuses data it doesn't know and bodies that aren't JSON", async () => {

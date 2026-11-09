@@ -23,7 +23,10 @@
     "sevak.memberships.v1": "list",
     "sevak.events.v1": "list",
     "sevak.mainEvents.v1": "list",
-    "sevak.signups.v1": "list"
+    "sevak.signups.v1": "list",
+    "sevak.certificates.v1": "list",
+    "sevak.signatures.v1": "object",
+    "sevak.documents.v1": "list"
   };
   var SIGNED_OUT_KEY = "sevak.signedOut.v1";
   var PRIVATE_PAGES = {
@@ -72,6 +75,7 @@
   function isDemo(item) {
     if (!item) return false;
     if (item.sample) return true;
+    if (/:demo-/.test(String(item.owner || ""))) return true;
     return [item.id, item.orgId, item.organizationId, item.eventId].some(function (v) {
       return String(v || "").indexOf("demo-") === 0;
     });
@@ -80,7 +84,8 @@
   var REFUSED = {
     full: "Sorry, that shift just filled up. Please choose another.",
     already: "You're already signed up for that shift.",
-    not_member: "Join the organization first, then you can sign up for its shifts."
+    not_member: "Join the organization first, then you can sign up for its shifts.",
+    hours_mismatch: "That certificate's hours don't match the approved hours on record. Reload the page and try again."
   };
 
   function put(key, value) {
@@ -141,6 +146,7 @@
   if (!server.offline && loaded.data) {
     server.user = loaded.data.user;
     server.signIn = loaded.data.signIn || {};
+    server.features = loaded.data.features || {};
     claimBrowser(server.user && server.user.email);
     Object.keys(SYNCED).forEach(function (key) {
       var value = loaded.data.data[key];
