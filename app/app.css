@@ -1124,3 +1124,6 @@ input[type="time"], input[type="number"] {
 /* Common roles to add in one tap (event.js) */
 .role-presets { margin-top: 16px; }
 .role-presets .fill-row { margin-top: 8px; }
+
+/* The event's own page elsewhere, e.g. Zeffy (signup.js) */
+.event-link { margin: 6px 0 0; font-weight: 600; overflow-wrap: anywhere; }
