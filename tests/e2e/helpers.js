@@ -69,8 +69,10 @@ async function person(t, name, { profile = true } = {}) {
     await page.fill("#lastName", "Test");
     await page.fill("#phone", "7135550100");
     await page.check("input[name=availability][value=anytime]", { force: true }).catch(() => {});
+    // Saving leaves the form, and the next page says it's saved.
     await page.click("#save");
-    await page.waitForFunction(() => /saved/i.test(document.getElementById("status").textContent));
+    await page.waitForURL((u) => !/profile\.html/.test(String(u)));
+    await page.waitForSelector("#saved-flash");
   }
   page.address = address;
   return page;

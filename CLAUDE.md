@@ -58,6 +58,10 @@ There are no preview deployments.
 - Database migrations must work while the previous version is still running: add first, remove in
   a later release. Never edit a merged migration.
 - Phone first: check pages at 390px wide. Accessible: labels, keyboard use, contrast.
+- Wherever "Add to calendar" appears (pages or emails), offer both an .ics file and a Google Calendar
+  link, in the event's time zone (SGN-9).
+- A successful Save leaves the form for the page it belongs to, which says what was saved
+  (`SevakNav.flashAndGo`, NFR-17). A failed save stays on the form with the error.
 - Keep `docs/REQUIREMENTS.md` in step with features: add or update the requirement ID, and bump the
   version line at the top.
 - Match the surrounding code's style. Prefer small, focused pull requests.

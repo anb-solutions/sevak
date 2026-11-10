@@ -92,7 +92,12 @@
       });
       var signups = F.load("sevak.signups.v1") || [];
       n += signups.filter(function (su) {
-        return mine[su.eventId] && su.status !== "cancelled" && su.hours && su.hours.minutes && su.hours.status !== "approved" && su.hours.status !== "rejected";
+        if (!mine[su.eventId] || su.status === "cancelled" || !su.hours || !su.hours.minutes || su.hours.status === "approved" || su.hours.status === "rejected") return false;
+        // Never your own hours; an Admin's only for another Admin (ATT-3).
+        var who = String(su.email || "").toLowerCase();
+        if (who && who === me) return false;
+        var ev = E.get(su.eventId);
+        return !(who && O.roleOf(O.get(ev.organizationId), who) === "admin" && !admin[ev.organizationId]);
       }).length;
     }
     var certs = F.load("sevak.certificates.v1") || [];
@@ -530,5 +535,66 @@
   announceCertificates();
   if (M) render();   // invitations accepted just now change the counts
 
-  window.SevakNav = { render: render, guard: guard };
+  // ---------- "Saved" after leaving a form ----------
+  // Saving a form takes you back to where it belongs (staying on the form
+  // makes people press Save again). The page leaving sets a one-time
+  // message; the next page shows it at the top, highlights what was saved
+  // and moves keyboard focus to the message so it's announced.
+
+  var FLASH_KEY = "sevak.flash.v1";
+
+  // message: the text; opts: { href, linkText } a link (e.g. open it again),
+  // { highlight } a CSS selector for what was saved on the next page.
+  function flashAndGo(url, message, opts) {
+    opts = opts || {};
+    try {
+      sessionStorage.setItem(FLASH_KEY, JSON.stringify({ text: message, href: opts.href || "", linkText: opts.linkText || "", highlight: opts.highlight || "" }));
+    } catch (e) { /* storage blocked: still go */ }
+    location.href = url;
+  }
+
+  function showFlash() {
+    var f = null;
+    try {
+      f = JSON.parse(sessionStorage.getItem(FLASH_KEY));
+      sessionStorage.removeItem(FLASH_KEY);
+    } catch (e) { return; }
+    if (!f || !f.text) return;
+    var main = document.querySelector("main");
+    if (!main) return;
+    var box = el("div", "section notice saved-flash");
+    box.id = "saved-flash";
+    box.setAttribute("role", "status");
+    box.tabIndex = -1;
+    var p = el("p");
+    p.appendChild(el("span", "saved-flash-icon", "✓"));
+    p.firstChild.setAttribute("aria-hidden", "true");
+    p.appendChild(el("strong", null, f.text));
+    // Only a page of this app (page.html?...), never another site or a script.
+    if (f.href && /^[\w-]+\.html(\?[^#]*)?(#[\w-]*)?$/.test(f.href)) {
+      p.appendChild(document.createTextNode(" "));
+      p.appendChild(link(f.href, f.linkText || "Open it", false));
+    }
+    box.appendChild(p);
+    var close = el("button", "btn btn-link", "Dismiss");
+    close.type = "button";
+    close.addEventListener("click", function () { box.remove(); });
+    box.appendChild(close);
+    var banner = main.querySelector(".banner");
+    if (banner) banner.insertAdjacentElement("afterend", box);
+    else main.insertBefore(box, main.firstChild);
+    // After the page has drawn its content.
+    document.addEventListener("DOMContentLoaded", function () {
+      if (f.highlight) {
+        var item = null;
+        try { item = document.querySelector(f.highlight); } catch (e) { /* bad selector */ }
+        if (item) item.classList.add("just-saved");
+      }
+      box.focus();
+    });
+  }
+
+  showFlash();
+
+  window.SevakNav = { render: render, guard: guard, flashAndGo: flashAndGo };
 })();

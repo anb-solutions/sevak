@@ -68,7 +68,13 @@ describe("certificates", () => {
     const [mine] = await readSignups(db, evil).then((l) => l.filter((s) => s.id === "su-a"));
     // Hours for one sign-up are at most a day.
     expect((await writeSignups(db, evil, { upsert: [{ ...mine, hours: { minutes: 600_000, status: "approved", approvedMinutes: 600_000 } }] })).refused).toBe(1);
-    await writeSignups(db, evil, { upsert: [{ ...mine, hours: { minutes: 180, status: "approved", approvedMinutes: 180 } }] });
+    // Nobody approves their own hours (ATT-3), so an accomplice Admin does.
+    const approved = { ...mine, hours: { minutes: 180, status: "approved", approvedMinutes: 180 } };
+    expect(await writeSignups(db, evil, { upsert: [approved] })).toMatchObject({ refused: 1, reason: "own_hours" });
+    const ally = await person("ally@example.com");
+    const orgA = (await readOrganizations(db, evil)).find((o) => o.id === "org-a")!;
+    await writeOrganizations(db, evil, { upsert: [{ ...orgA, team: [{ email: ally.email, role: "admin" }] }] });
+    expect((await writeSignups(db, ally, { upsert: [approved] })).refused).toBe(0);
     await writeCertificates(db, evil, { upsert: [{ id: "cert-a", orgId: "org-a", name: "Jane Q. Public", from: "2030-01-01", to: "2030-01-31", status: "requested" }] });
     const [req] = await readCertificates(db, evil);
     const forged = { code: "SVK-AAAA-BBBB", minutes: 180, org: { name: "American Red Cross", verified: true }, events: [{ title: "Anything" }] };

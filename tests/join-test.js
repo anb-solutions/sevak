@@ -40,7 +40,9 @@ const B = 'http://localhost:8765/'; const A = B + 'app/'; const SP = process.arg
   await p.fill('#firstName', 'Vera'); await p.fill('#lastName', 'Vol'); await p.fill('#email', 'vera@example.com'); await p.fill('#phone', '5125550101');
   await p.check('input[name=availability][value=anytime]', { force: true });
   await p.click('#save');
-  check((await p.textContent('#join-notice')).includes("You're now a volunteer with Eastside Food Pantry"), 'joined by invitation');
+  await p.waitForURL(/signup\.html/);
+  check((await p.textContent('#saved-flash')).includes("You're now a volunteer with Eastside Food Pantry"), 'joined by invitation: on to its opportunities, saying so');
+  await p.goto(A + 'profile.html');
   check((await p.textContent('#volunteer-list')).includes('Eastside Food Pantry') && (await p.textContent('#volunteer-list')).includes('Volunteer'), 'profile lists it');
   check((await mails()).some(m => m.to === 'vera@example.com' && m.subject.startsWith('Welcome to Eastside')), 'welcome email in outbox');
 

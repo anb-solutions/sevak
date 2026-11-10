@@ -108,6 +108,7 @@
     var t = totals(event);
     var li = document.createElement("li");
     li.className = "event-item";
+    li.dataset.eventId = event.id;
 
     var info = document.createElement("div");
     var h3 = document.createElement("h3");

@@ -623,6 +623,11 @@ input[type="time"], input[type="number"] {
   font-weight: 800;
 }
 .my-shifts { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.calendar-add { margin-top: 16px; padding-top: 4px; }
+.calendar-add .subhead { margin-top: 0; }
+.calendar-add .hint { margin: 8px 0 0; }
+.calendar-google { display: grid; gap: 4px; margin: 4px 0 0; padding: 0; list-style: none; }
+.calendar-google a { display: inline-block; padding: 6px 0; font-weight: 600; overflow-wrap: anywhere; }
 .my-shift { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; }
 .my-shift div { display: grid; gap: 2px; }
 .my-shift.is-cancelled strong { text-decoration: line-through; color: var(--muted); }
@@ -1127,3 +1132,11 @@ input[type="time"], input[type="number"] {
 
 /* The event's own page elsewhere, e.g. Zeffy (signup.js) */
 .event-link { margin: 6px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+
+/* ---------- "Saved" after leaving a form (nav.js) ---------- */
+.saved-flash { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; border: 1px solid var(--primary); background: var(--primary-soft); }
+.saved-flash p { margin: 0; overflow-wrap: anywhere; }
+.saved-flash p a { font-weight: 600; margin-left: 4px; }
+.saved-flash-icon { display: inline-grid; place-items: center; width: 1.4em; height: 1.4em; margin-right: 8px; border-radius: 50%; background: var(--primary); color: var(--on-primary); font-weight: 700; font-size: 0.85em; vertical-align: 0.1em; }
+.saved-flash:focus { outline: 3px solid var(--focus); outline-offset: 2px; }
+.just-saved { outline: 2px solid var(--primary); outline-offset: 2px; background: var(--primary-soft); }

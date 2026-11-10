@@ -79,6 +79,19 @@
     return !!(m && event.eventAdmin && norm(event.eventAdmin) === norm(m.email));
   }
 
+  // Whether you may approve, adjust or not approve these hours: never your
+  // own, and an Admin's only if you're an Admin too (ATT-3; the server
+  // checks the same, packages/core/src/signups.ts).
+  function canApproveHours(event, su) {
+    if (!canApprove(event) || !su) return false;
+    if (!F.session.signedIn()) return true;
+    var m = me();
+    var org = O.get(event.organizationId);
+    if (m && norm(su.email) === norm(m.email)) return false;
+    if (O.roleOf(org, su.email) === "admin") return O.isAdmin(org);
+    return true;
+  }
+
   // Admins issue certificates for their organization.
   function canIssue(org) {
     if (!org) return false;
@@ -705,6 +718,7 @@
     forOrg: forOrg,
     byCode: byCode,
     canApprove: canApprove,
+    canApproveHours: canApproveHours,
     canIssue: canIssue,
     hoursRows: hoursRows,
     coverage: coverage,

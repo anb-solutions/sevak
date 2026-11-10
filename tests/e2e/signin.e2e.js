@@ -21,6 +21,7 @@ const { BASE, start, person, signIn, synced, email } = require("./helpers");
 
   // A new person: code, then their profile, email locked.
   const asha = await person(t, "asha");
+  await asha.goto(BASE + "/app/profile.html"); // saving left the form
   check((await asha.getAttribute("#email", "readonly")) !== null, "profile email is the signed-in one, read-only");
   const me = await synced(asha);
   check(me.user && me.user.email === asha.address, "server knows who you are");
