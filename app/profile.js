@@ -178,7 +178,9 @@
     var org = window.SevakOrgs.get(i.orgId);
     if (!org) return null;
     var rec = M.isMember(org.id) ? { status: "active" } : M.request(org.id, i.note, i.way === "invite", i.code);
-    if (rec && rec.status === "active") return { url: i.returnTo || "signup.html#my-orgs", text: "Welcome! You're now a volunteer with " + org.name + "." };
+    // Back to the event they started from, but only one of this app's.
+    var back = /^signup\.html\?event=[\w-]+$/.test(i.returnTo || "") ? i.returnTo : "signup.html#my-orgs";
+    if (rec && rec.status === "active") return { url: back, text: "Welcome! You're now a volunteer with " + org.name + "." };
     return { url: "signup.html#all-orgs", text: "Request sent to " + org.name + ". You can sign up for its events once they approve you." };
   }
 

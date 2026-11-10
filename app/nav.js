@@ -570,7 +570,8 @@
     p.appendChild(el("span", "saved-flash-icon", "✓"));
     p.firstChild.setAttribute("aria-hidden", "true");
     p.appendChild(el("strong", null, f.text));
-    if (f.href) {
+    // Only a page of this app (page.html?...), never another site or a script.
+    if (f.href && /^[\w-]+\.html(\?[^#]*)?(#[\w-]*)?$/.test(f.href)) {
       p.appendChild(document.createTextNode(" "));
       p.appendChild(link(f.href, f.linkText || "Open it", false));
     }
