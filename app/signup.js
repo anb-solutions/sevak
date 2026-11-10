@@ -713,7 +713,63 @@
       box.appendChild(ul);
     });
     $("mine-empty").hidden = order.length > 0;
+    renderLeading();
     renderCertificates();
+  }
+
+  // ---------- Tasks you lead (EVT-21) ----------
+  // For each task you lead in an event that hasn't ended: its shifts, who
+  // signed up for each, and how to reach them. (With Sevak's server, only
+  // you and those who run the event get these details.)
+  function renderLeading() {
+    var box = $("leading");
+    var email = norm((F.session.profile() || {}).email);
+    var today = todayString();
+    var tasks = [];
+    if (email && F.session.signedIn()) {
+      E.all().forEach(function (ev) {
+        if (ev.status !== "published" || !E.isActive(ev) || (ev.endDate || ev.startDate || "") < today) return;
+        (ev.roles || []).forEach(function (role) { if (norm(role.lead) === email) tasks.push({ event: ev, role: role }); });
+      });
+    }
+    tasks.sort(function (a, b) { return (a.event.startDate || "").localeCompare(b.event.startDate || ""); });
+    box.hidden = !tasks.length;
+    var list = $("lead-list");
+    list.innerHTML = "";
+    tasks.forEach(function (t) {
+      var li = el("li", "lead-task");
+      li.appendChild(el("h3", null, (t.role.name || "Task") + " · " + (t.event.title || "Event")));
+      var where = placeText(t.event);
+      li.appendChild(el("p", "event-meta", [E.rangeLabel(t.event.startDate, t.event.endDate), where].filter(Boolean).join(" · ")));
+      var shifts = (t.role.shifts || []).slice().sort(function (a, b) { return ((a.date || "") + (a.start || "")).localeCompare((b.date || "") + (b.start || "")); });
+      shifts.forEach(function (sh) {
+        var people = S.all().filter(function (s) { return s.eventId === t.event.id && s.shiftId === sh.id && s.status !== "cancelled" && !s.anonymous; });
+        var head = el("p", "lead-shift");
+        head.appendChild(el("strong", null, E.dayLabel(sh.date) + " · " + E.timeLabel(sh.start) + "–" + E.timeLabel(sh.end)));
+        head.appendChild(document.createTextNode(" · " + people.length + " of " + (Number(sh.capacity) || 0) + " signed up"));
+        li.appendChild(head);
+        if (!people.length) { li.appendChild(el("p", "hint", "No one yet.")); return; }
+        var ul = el("ul", "lead-roster");
+        people.forEach(function (s) {
+          var row = el("li");
+          row.appendChild(el("span", "lead-name", (s.name || s.email) + (norm(s.email) === email ? " (you)" : "")));
+          var number = s.phone && (s.phone.number || s.phone);
+          if (typeof number === "string" && /^\+?[0-9 ()-]{5,20}$/.test(number)) {
+            var tel = el("a", null, number);
+            tel.href = "tel:" + number.replace(/[^0-9+]/g, "");
+            row.appendChild(tel);
+          }
+          if (s.email) {
+            var mail = el("a", null, s.email);
+            mail.href = "mailto:" + encodeURIComponent(s.email).replace(/%40/g, "@");
+            row.appendChild(mail);
+          }
+          ul.appendChild(row);
+        });
+        li.appendChild(ul);
+      });
+      list.appendChild(li);
+    });
   }
 
   // ---------- Certificates: ask an organization, for a period ----------

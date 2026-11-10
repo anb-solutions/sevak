@@ -5,6 +5,8 @@
 // Who sees what:
 //   - your own sign-ups, in full
 //   - the event's team (and Sevak staff): its sign-ups in full (the roster)
+//   - a task's lead (EVT-21): its roster (name, email, phone, shift, status)
+//     for the shifts of that task, not hours or anything else
 //   - everyone else: only that a spot is taken (id, event, shift, status),
 //     so pages can show "3 of 5 spots left" without names (§5)
 //
@@ -26,7 +28,7 @@ import { type Db, records } from "@sevak/db";
 import type { Viewer } from "./auth";
 import { readEventsAndMain } from "./events";
 import { type Mail, shiftLabel, signedUp } from "./notify";
-import { emailIs, idSchema, inOrgs, type Json, lower, objectSchema, organizationsById, orgRole, type ReadContext, readContext, runsEvent, tooBig } from "./records";
+import { emailIs, idSchema, inOrgs, type Json, lower, objectSchema, organizationsById, orgRole, type ReadContext, readContext, runsEvent, taskLeadOf, tooBig } from "./records";
 
 const COLLECTION = "signups";
 const MAX_BYTES = 50_000;
@@ -57,6 +59,10 @@ export async function readSignups(db: Db, viewer: Viewer | null, ctx?: ReadConte
     const event = eventsById.get(eventId);
     if ((viewer && lower(s.email) === viewer.email) || runsEvent(orgs.get(String(event?.organizationId ?? "")), event, viewer)) {
       out.push(s);
+    } else if (viewer && event && isTaken(s) && taskLeadOf(event, s.shiftId) === viewer.email) {
+      // The event as this person sees it keeps a task's lead only for the
+      // lead, while they belong to the organization (events.ts).
+      out.push({ id: s.id, eventId, shiftId: s.shiftId, status: s.status, name: s.name, email: s.email, phone: s.phone, roster: true });
     } else if (visibleEvents.has(eventId) && isTaken(s)) {
       out.push({ id: s.id, eventId, shiftId: s.shiftId, status: s.status, anonymous: true });
     }
