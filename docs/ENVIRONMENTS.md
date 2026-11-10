@@ -76,6 +76,7 @@ It sets up, in that project:
 - **Workload Identity Federation:** GitHub can deploy without a stored key, and only from this
   environment's branch.
 - **A budget alert** at 50%, 90% and 100% of `--budget` dollars a month.
+- **A "site is down" alert** (once the app has been deployed): see step 8.
 
 At the end it prints the values for step 2. Keep the window open.
 
@@ -176,7 +177,29 @@ In the **environment's own** Google Cloud project:
 Staff verify organizations (the Review page) and can manage any organization, so keep the list
 short. Deploy.
 
-### 8. Check it works
+### 8. Alerts (about 5 minutes)
+
+Two alerts, kept cheap, both emailed:
+
+| Alert | What it watches | Cost |
+|---|---|---|
+| **Sevak is down** | Google checks `https://DOMAIN/api/v1/health` every 5 minutes from several places; an email when it fails from more than one, and another when it's back | Free checks; about $1.50 a month for the alert |
+| **New errors** | Error Reporting groups errors from the app's log, and emails the first time a new kind appears | Free |
+
+The budget alert (step 1) covers cost.
+
+1. **Run the setup script again** once the address works (step 4), so the check uses it. It
+   emails the account running it; pass `--alert-email someone@theanbgroup.com` for another
+   address.
+2. **New errors** can only be set up in the console: **Error Reporting → Configure
+   notifications**, then tick the **Sevak alerts** channel the script made.
+3. To see them work: **Monitoring → Uptime checks** shows *Sevak health* passing, and
+   **Monitoring → Alerting** shows *Sevak is down*.
+
+More alerts are worth adding when there's budget: floods of refused requests, sign-in emails
+failing, the database filling up. See [When to add a firewall](#when-to-add-a-firewall).
+
+### 9. Check it works
 
 Do these on a phone-sized screen:
 
@@ -188,6 +211,7 @@ Do these on a phone-sized screen:
 - [ ] Events → From Zeffy shows "Connect Zeffy" (needs `app-secrets-key`, made in step 1).
 - [ ] Staff: My profile shows "Review verification requests".
 - [ ] Production: the yellow "Staging" banner is **not** shown.
+- [ ] Monitoring → Uptime checks: *Sevak health* is passing.
 
 ## Everything in one place
 
@@ -271,6 +295,10 @@ identical, when any of these happen:
 - There's revenue or a grant to cover it.
 - Someone attacks it: floods of requests, or repeated attempts on sign-in.
 - Google retires the address mapping we use now (it's still a preview feature).
+
+At the same time, add the alerts that wait for budget (each about $1.50 a month): floods of
+refused requests (a sign of an attack), sign-in emails failing, and the database's storage or CPU
+above 80%.
 
 Firebase Hosting is a free alternative front door, supported for production. But it has no
 firewall, it only passes one cookie (named `__session`, so Sevak's `__Host-` sign-in cookie would
