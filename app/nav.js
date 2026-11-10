@@ -92,7 +92,12 @@
       });
       var signups = F.load("sevak.signups.v1") || [];
       n += signups.filter(function (su) {
-        return mine[su.eventId] && su.status !== "cancelled" && su.hours && su.hours.minutes && su.hours.status !== "approved" && su.hours.status !== "rejected";
+        if (!mine[su.eventId] || su.status === "cancelled" || !su.hours || !su.hours.minutes || su.hours.status === "approved" || su.hours.status === "rejected") return false;
+        // Never your own hours; an Admin's only for another Admin (ATT-3).
+        var who = String(su.email || "").toLowerCase();
+        if (who && who === me) return false;
+        var ev = E.get(su.eventId);
+        return !(who && O.roleOf(O.get(ev.organizationId), who) === "admin" && !admin[ev.organizationId]);
       }).length;
     }
     var certs = F.load("sevak.certificates.v1") || [];

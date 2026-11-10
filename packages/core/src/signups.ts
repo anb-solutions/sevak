@@ -15,6 +15,8 @@
 //   - you cancel, check in and out, and log hours (always "pending")
 //   - the event's team changes anything on its events' sign-ups (hours
 //     decisions, adding people) but still can't overbook
+//   - nobody decides on their own hours: an Admin's hours need a different
+//     Admin (or Sevak staff), anyone else's the event's team (ATT-3)
 //
 // Capacity is checked inside a transaction that first locks the event's
 // record, so two people can't take the last spot at the same time (SGN-5).
@@ -24,7 +26,7 @@ import { type Db, records } from "@sevak/db";
 import type { Viewer } from "./auth";
 import { readEventsAndMain } from "./events";
 import { type Mail, shiftLabel, signedUp } from "./notify";
-import { emailIs, idSchema, inOrgs, type Json, lower, objectSchema, organizationsById, type ReadContext, readContext, runsEvent, tooBig } from "./records";
+import { emailIs, idSchema, inOrgs, type Json, lower, objectSchema, organizationsById, orgRole, type ReadContext, readContext, runsEvent, tooBig } from "./records";
 
 const COLLECTION = "signups";
 const MAX_BYTES = 50_000;
@@ -60,6 +62,25 @@ export async function readSignups(db: Db, viewer: Viewer | null, ctx?: ReadConte
     }
   }
   return out;
+}
+
+// A decision on logged hours (approved, possibly adjusted, or not approved),
+// as a comparable key; null while they're waiting.
+function hoursDecision(hours: unknown): string | null {
+  const h = hours as Json | undefined;
+  if (!h || (h.status !== "approved" && h.status !== "rejected")) return null;
+  return JSON.stringify([h.status, h.minutes ?? null, h.approvedMinutes ?? null, h.reason ?? null, h.from ?? null, h.to ?? null]);
+}
+
+// Whether `viewer` (who runs the event) may decide on the hours of the
+// volunteer with this email: never their own, and an Admin's only if the
+// viewer is also an Admin (or Sevak staff).
+export function mayDecideHours(org: Json, viewer: Viewer, volunteerEmail: string): boolean {
+  const who = lower(volunteerEmail);
+  if (who && who === viewer.email) return false;
+  if (viewer.isPlatformAdmin) return true;
+  if (who && orgRole(org, who) === "admin") return orgRole(org, viewer.email) === "admin";
+  return true;
 }
 
 function shiftOf(event: Json, shiftId: unknown): Json | null {
@@ -139,6 +160,15 @@ export async function writeSignups(db: Db, viewer: Viewer, ops: unknown): Promis
         const h = raw.hours as Json | undefined;
         if (h && [h.minutes, h.approvedMinutes].some((m) => m !== undefined && m !== null && !(typeof m === "number" && m >= 0 && m <= 24 * 60))) {
           refuse("invalid");
+          continue;
+        }
+        // Approving, adjusting or not approving hours (or moving a decided
+        // sign-up to someone else) must be allowed for whoever it's for.
+        const decision = hoursDecision(raw.hours);
+        const changed = decision !== hoursDecision(prev?.hours) || lower(raw.email) !== lower(prev?.email);
+        const people = [...new Set([prev?.email, raw.email].map(lower).filter(Boolean))];
+        if (decision !== null && changed && !people.every((who) => mayDecideHours(org, viewer, who))) {
+          refuse("own_hours");
           continue;
         }
         next = { ...raw };

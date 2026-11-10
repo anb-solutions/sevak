@@ -85,10 +85,14 @@
     return String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
   }
 
-  // Returns "admin", "coordinator" or null.
+  // Returns "admin", "coordinator" or null: your role (the profile saved in
+  // this browser) with roleFor, anyone's by email with roleOf.
   function roleFor(org) {
+    return roleOf(org, profileEmail());
+  }
+
+  function roleOf(org, email) {
     if (!org) return null;
-    var email = profileEmail();
     var roles = [];
     if (email) {
       (org.team || []).forEach(function (m) { if (same(m.email, email)) roles.push(m.role || "coordinator"); });
@@ -317,6 +321,7 @@
     renderSwitcher: renderSwitcher,
     renderHeader: renderHeader,
     roleFor: roleFor,
+    roleOf: roleOf,
     isAdmin: isAdmin,
     accessible: accessible,
     myTeams: myTeams,

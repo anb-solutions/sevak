@@ -120,16 +120,25 @@ const B = 'http://localhost:8765/app/'; const SP = process.argv[2];
   const durMode = await p.$(fairCard + ' input[value=duration]');
   if (durMode) { await p.check(fairCard + ' input[value=duration]', { force: true }); await p.fill(fairCard + ' input[id$=-hours]', '4'); await p.fill(fairCard + ' input[id$=-minutes]', '0'); }
   await p.click(fairCard + ' button:has-text("Save hours")');
-  check((await p.textContent('#mine-status')).includes("waiting for the event admin's approval") && (await p.textContent(fairCard)).includes('Waiting for approval'), 'logged hours wait for approval');
+  check((await p.textContent('#mine-status')).includes("waiting for the event admin's approval") && (await p.textContent(fairCard)).includes('Waiting for another Admin'), 'an Admin\'s logged hours wait for another Admin');
   check(await p.isVisible('#certificates'), 'certificates area appears once hours are logged');
   await p.click('#cert-new');
   check((await p.textContent('#cert-coverage')).includes('No approved hours') && (await p.textContent('#cert-coverage')).includes('waiting for approval'), 'coverage: nothing approved yet');
   await p.click('#cert-send');
   check((await p.textContent('#cert-status')).includes('no approved hours'), 'cannot ask without approved hours');
   await p.click('#cert-cancel');
-  // Approve own hours (Bala is an Admin)
+  // Bala is an Admin: he can't approve his own hours; another Admin does (ATT-3)
   await p.goto(B + 'volunteers.html');
-  await p.click('#hours-list button:has-text("Approve") >> nth=0');
+  check(!(await p.textContent('#hours-section')).includes('bala@example.com') && (await p.textContent('#hours-others')).includes('Your own hours (1 shift) need another Admin'), 'own hours: not in your list, waiting for another Admin');
+  // Only the demo's two requests to join are waiting on Bala, not his own hours.
+  check((await p.textContent('#app-nav a[href="volunteers.html"] .nav-count')) === '2', 'own hours: not counted as waiting on you: ' + await p.textContent('#app-nav a[href="volunteers.html"]'));
+  await p.evaluate(() => { const l = JSON.parse(localStorage.getItem('sevak.organizations.v1')); const o = l.find(x => x.id === 'demo-org'); o.team = o.team.concat([{ name: 'Ann B', email: 'ann@example.com', role: 'admin' }]); localStorage.setItem('sevak.organizations.v1', JSON.stringify(l)); });
+  await signInAs('Ann', 'B', 'ann@example.com');
+  await p.goto(B + 'volunteers.html');
+  check((await p.textContent('#hours-list')).includes('bala@example.com'), 'another Admin sees his hours');
+  await p.click('#hours-list .person:has-text("bala@example.com") button:has-text("Approve")');
+  check((await ls('sevak.signups.v1')).find(s => s.email === 'bala@example.com' && s.eventId === 'demo-ev-fair').hours.decidedBy === 'ann@example.com', 'approved by the other Admin');
+  await signInAs('Bala', 'A', 'bala@example.com');
   await p.goto(B + 'signup.html?view=mine');
   check((await p.textContent(fairCard)).includes('Approved'), 'approved shows on the card');
   await p.click('#cert-new');

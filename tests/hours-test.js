@@ -61,7 +61,8 @@ const B = 'http://localhost:8765/app/'; const SP = process.argv[2];
   check(s.hours.minutes === 330 && s.hours.method === 'times', 'times saved');
   check((await p.textContent('#hours-summary')).includes('8 h 17 min') && (await p.textContent('#hours-summary')).includes('2 shifts logged'), 'summary total');
   check((await p.textContent(fair + ' > .badges .badge')) === 'Done', 'badge Done');
-  check((await p.textContent(fair + ' .hours-row')).includes('Waiting for approval'), 'logged hours wait for approval');
+  // The demo makes you its Admin, and an Admin's hours need another Admin (ATT-3).
+  check((await p.textContent(fair + ' .hours-row')).includes('Waiting for another Admin'), 'logged hours wait for another Admin');
 
   // ----- Edit: duration -----
   await p.click(fair + ' button[aria-label^="Edit hours"]');

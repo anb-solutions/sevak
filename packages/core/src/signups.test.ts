@@ -130,6 +130,74 @@ describe("after signing up", () => {
   });
 });
 
+describe("nobody approves their own hours (ATT-3)", () => {
+  let bea: Viewer; // a second Admin
+  let cora: Viewer; // Coordinator, the event's admin
+
+  const logged = { hours: { minutes: 60, method: "duration" } };
+  const decide = (s: Record<string, unknown> | undefined, by: string, status = "approved") => ({
+    ...s,
+    hours: { ...(s!.hours as object), status, decidedBy: by },
+  });
+  const find = async (who: Viewer, id: string) => (await readSignups(db, who)).find((x) => x.id === id);
+
+  beforeEach(async () => {
+    bea = await person("bea@example.com");
+    cora = await person("cora@example.com");
+    const [org] = await readOrganizations(db, asha);
+    await writeOrganizations(db, asha, {
+      upsert: [{ ...org, team: [{ email: "bea@example.com", role: "admin" }, { email: "cora@example.com", role: "coordinator" }] }],
+    });
+    await writeEvents(db, asha, {
+      upsert: [{ id: "ev-1", organizationId: "org-temple", title: "Seva", status: "published", visibility: "public", eventAdmin: "cora@example.com",
+        roles: [{ id: "r1", name: "Setup", shifts: [{ id: "s1", capacity: 5 }, { id: "s2", capacity: 1 }] }] }],
+    });
+    // Asha (an Admin) volunteers too, and logs her hours; so does Mei.
+    await writeSignups(db, asha, { upsert: [signup("su-asha", "asha@example.com", logged)] });
+    await writeSignups(db, mei, { upsert: [signup("su-mei", "mei@example.com")] });
+    await writeSignups(db, mei, { upsert: [{ ...(await find(mei, "su-mei")), ...logged }] });
+  });
+
+  it("refuses an Admin approving or not approving their own hours", async () => {
+    const mine = await find(asha, "su-asha");
+    expect(mine).toMatchObject({ hours: { minutes: 60 } });
+    expect(await writeSignups(db, asha, { upsert: [decide(mine, "asha@example.com")] })).toMatchObject({ refused: 1, reason: "own_hours" });
+    expect(await writeSignups(db, asha, { upsert: [decide(mine, "asha@example.com", "rejected")] })).toMatchObject({ refused: 1, reason: "own_hours" });
+    expect((await find(asha, "su-asha"))!.hours).not.toMatchObject({ status: "approved" });
+  });
+
+  it("refuses an Admin adding themselves with hours already approved", async () => {
+    const r = await writeSignups(db, asha, { upsert: [signup("su-new", "asha@example.com", { shiftId: "s2", hours: { minutes: 60, status: "approved" } })] });
+    expect(r).toMatchObject({ refused: 1, reason: "own_hours" });
+  });
+
+  it("lets a different Admin approve an Admin's hours, but not a Coordinator", async () => {
+    const hers = await find(bea, "su-asha");
+    expect(await writeSignups(db, cora, { upsert: [decide(hers, "cora@example.com")] })).toMatchObject({ refused: 1, reason: "own_hours" });
+    expect((await writeSignups(db, bea, { upsert: [decide(hers, "bea@example.com")] })).refused).toBe(0);
+    expect(await find(asha, "su-asha")).toMatchObject({ hours: { status: "approved", decidedBy: "bea@example.com" } });
+  });
+
+  it("lets Sevak staff approve an Admin's hours (an organization with one Admin)", async () => {
+    const staff: Viewer = { ...(await person("staff@sevak.example")), isPlatformAdmin: true };
+    expect((await writeSignups(db, staff, { upsert: [decide(await find(staff, "su-asha"), "staff@sevak.example")] })).refused).toBe(0);
+  });
+
+  it("still lets the event's Coordinator approve a volunteer's hours, and an Admin log their own", async () => {
+    expect((await writeSignups(db, cora, { upsert: [decide(await find(cora, "su-mei"), "cora@example.com")] })).refused).toBe(0);
+    const mine = await find(asha, "su-asha");
+    const edited = { ...mine, hours: { minutes: 75, method: "duration", status: "pending" } };
+    expect((await writeSignups(db, asha, { upsert: [edited] })).refused).toBe(0);
+    expect(await find(asha, "su-asha")).toMatchObject({ hours: { minutes: 75, status: "pending" } });
+  });
+
+  it("refuses moving someone else's approved sign-up to yourself", async () => {
+    await writeSignups(db, cora, { upsert: [decide(await find(cora, "su-mei"), "cora@example.com")] });
+    const meis = await find(asha, "su-mei");
+    expect(await writeSignups(db, asha, { upsert: [{ ...meis, email: "asha@example.com", name: "asha" }] })).toMatchObject({ refused: 1, reason: "own_hours" });
+  });
+});
+
 describe("who sees volunteers' sign-ups", () => {
   it("an Admin sees every event's; a Coordinator only the events they run", async () => {
     const cora = await person("cora@example.com");

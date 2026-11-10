@@ -540,6 +540,12 @@
     return b;
   }
 
+  // Admins' own hours are approved by a different Admin (ATT-3).
+  function isAdminOf(su) {
+    var ev = su ? E.get(su.eventId) : null;
+    return !!(ev && O.isAdmin(O.get(ev.organizationId)));
+  }
+
   // One shift on a My sign-ups card, with its hours.
   function shiftItem(su, sh) {
     var li = el("li", "signup-shift");
@@ -571,7 +577,8 @@
       var st = S.hoursStatus(su);
       row.appendChild(st === "approved"
         ? E.badge(h.approvedMinutes != null ? "Approved as " + durationLabel(h.approvedMinutes) : "Approved", "published")
-        : st === "rejected" ? E.badge("Not approved", "inactive") : E.badge("Waiting for approval", "draft"));
+        : st === "rejected" ? E.badge("Not approved", "inactive")
+        : E.badge(isAdminOf(su) ? "Waiting for another Admin" : "Waiting for approval", "draft"));
       var edit = actionButton("Edit", "btn-link", function () {
         if (st === "approved" && !window.confirm("These hours are approved. If you change them, they'll need approving again.")) return;
         openForm(su, sh, li);
