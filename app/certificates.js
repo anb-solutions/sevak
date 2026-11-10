@@ -99,6 +99,19 @@
     return O.isAdmin(org);
   }
 
+  // Whether this request is your own: nobody issues or declines their own
+  // certificate, so an Admin's needs a different Admin (the server checks
+  // the same, packages/core/src/certificates.ts).
+  function isOwn(rec) {
+    var m = me();
+    return !!(rec && m && norm(rec.email) === norm(m.email));
+  }
+
+  // Whether you may issue (or decline) this request.
+  function canIssueFor(org, rec) {
+    return canIssue(org) && !!rec && !isOwn(rec);
+  }
+
   // ---------- Hours ----------
 
   function shiftOf(event, shiftId) {
@@ -651,6 +664,7 @@
     var org = rec && O.get(rec.orgId);
     if (!rec || !org) return Promise.reject(new Error("missing"));
     if (rec.status === "issued") return Promise.resolve(rec);
+    if (isOwn(rec)) return Promise.reject(new Error("own"));
     var d = snapshot(rec, signerFor(org));
     if (!d.shifts) return Promise.reject(new Error("no-hours"));
     d.code = newCode();
@@ -695,7 +709,7 @@
   function decline(id, reason) {
     var rec = get(id);
     var org = rec && O.get(rec.orgId);
-    if (!rec || rec.status !== "requested") return null;
+    if (!rec || rec.status !== "requested" || isOwn(rec)) return null;
     var m = me() || {};
     var done = put(Object.assign({}, rec, { status: "declined", decidedAt: now(), decidedBy: m.email || "", reason: String(reason || "").trim().slice(0, 300) }));
     if (done) {
@@ -720,6 +734,8 @@
     canApprove: canApprove,
     canApproveHours: canApproveHours,
     canIssue: canIssue,
+    canIssueFor: canIssueFor,
+    isOwn: isOwn,
     hoursRows: hoursRows,
     coverage: coverage,
     myOrgsWithHours: myOrgsWithHours,

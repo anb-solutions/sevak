@@ -152,21 +152,40 @@ const B = 'http://localhost:8765/app/'; const SP = process.argv[2];
   await p.click('#cert-send');
   check((await p.textContent('#cert-status')).includes('Request sent to Riverside') && (await p.textContent('#cert-list')).includes('Requested'), 'request sent');
   check((await outbox())[0].subject === 'Certificate request from Bala A', 'admin emailed');
-  // Decline, then ask again and issue
+  check((await p.textContent('#cert-list')).includes('Waiting for another Admin to issue it.'), 'own request: says another Admin issues it');
+  // Bala is an Admin: he can't issue or decline his own certificate; Ann does.
   await p.goto(B + 'volunteers.html');
+  const ownReq = '#certreq-list .person:has-text("bala@example.com")';
+  check((await p.textContent(ownReq)).includes('Your own request: nobody issues their own certificate, so another Admin issues it.') &&
+    await p.isVisible(ownReq + ' button:has-text("Preview")') && !(await p.$(ownReq + ' button:has-text("Issue")')) && !(await p.$(ownReq + ' button:has-text("Decline")')), 'own request: listed to preview, no Issue or Decline');
+  check((await p.textContent('#certreq-title')) === 'Certificate requests' && (await p.textContent('#app-nav a[href="volunteers.html"] .nav-count')) === '2', 'own request: not counted as waiting on you');
+  const firstReq = (await ls('sevak.certificates.v1')).filter(c => c.email === 'bala@example.com' && c.status === 'requested')[0];
+  check(await p.evaluate(id => SevakCerts.decline(id, 'Mine') === null, firstReq.id), 'own request: decline refused');
+  check(await p.evaluate(id => SevakCerts.issue(id).then(() => false, e => e.message === 'own'), firstReq.id), 'own request: issue refused');
+  await p.goto(B + 'certificate.html?id=' + firstReq.id);
+  check((await p.textContent('#cert-intro')).includes('when another Admin issues it') && await p.isHidden('#cert-issue'), 'own request: preview without Issue');
+  // Ann declines it, Bala asks again, Ann issues it.
+  await signInAs('Ann', 'B', 'ann@example.com');
+  await p.goto(B + 'volunteers.html');
+  check((await p.textContent('#certreq-title')) === 'Certificate requests (1)' && await p.isVisible(ownReq + ' button:has-text("Issue")'), 'another Admin can issue it');
   await p.click('#certreq-list button:has-text("Decline")');
   await p.fill('#certreq-list .inline-form textarea', 'Please ask for this calendar year only.');
   await p.click('#certreq-list .inline-form button[type=submit]');
+  check((await ls('sevak.certificates.v1')).find(c => c.id === firstReq.id).decidedBy === 'ann@example.com', 'declined by the other Admin');
+  await signInAs('Bala', 'A', 'bala@example.com');
   await p.goto(B + 'signup.html?view=mine');
   check((await p.textContent('#cert-list')).includes('Not issued: Please ask for this calendar year only.'), 'declined with reason');
   await p.click('#cert-new');
   await p.click('.cert-presets [data-preset=year]');
   await p.click('#cert-send');
   const mineReq = (await ls('sevak.certificates.v1')).filter(c => c.email === 'bala@example.com' && c.status === 'requested')[0];
+  await signInAs('Ann', 'B', 'ann@example.com');
   await p.goto(B + 'volunteers.html');
   await p.click('#certreq-list button:has-text("Issue")');
   await p.waitForFunction(() => /Certificate issued/.test(document.getElementById('vol-status').textContent));
   check((await p.textContent('#issued-summary')) === '2 certificates issued', 'issued list');
+  check((await ls('sevak.certificates.v1')).find(c => c.id === mineReq.id).decidedBy === 'ann@example.com', 'issued by the other Admin');
+  await signInAs('Bala', 'A', 'bala@example.com');
   await p.goto(B + 'certificate.html?id=' + mineReq.id);
   await p.waitForSelector('.cert-page');
   check((await p.textContent('#cert-text-body')).includes('4 h'), 'own certificate: 4 h');

@@ -148,8 +148,9 @@
     stop("There are no approved hours between " + day(rec.from) + " and " + day(rec.to) + " yet. Approve the volunteer's hours on the Volunteers page first.");
     return;
   }
-  var canIssue = C.canIssue(org);
-  $("cert-intro").textContent = "Not issued yet. This is how it will look" + (canIssue ? ", signed by you." : " when an Admin issues it.") +
+  var canIssue = C.canIssueFor(org, rec);
+  var whoIssues = C.canIssue(org) && C.isOwn(rec) ? " when another Admin issues it (nobody issues their own certificate)." : " when an Admin issues it.";
+  $("cert-intro").textContent = "Not issued yet. This is how it will look" + (canIssue ? ", signed by you." : whoIssues) +
     " It covers " + C.durationLabel(preview.minutes) + " of approved hours between " + day(rec.from) + " and " + day(rec.to) + ".";
   $("cert-tools").hidden = false;
   $("cert-download").hidden = true;

@@ -4,7 +4,9 @@
 //
 // A volunteer asks an organization for a certificate covering a period; one
 // of its Admins issues it (or declines). Issuing is checked here:
-//   - only the organization's Admins issue or decline
+//   - only the organization's Admins issue or decline, and never their own
+//     request: an Admin's certificate needs a different Admin, or Sevak
+//     staff (like their hours, signups.ts)
 //   - the certificate's hours must equal the approved hours on record for
 //     that volunteer, organization and period, so a certificate can't claim
 //     more than the organization approved
@@ -142,6 +144,11 @@ export async function writeCertificates(db: Db, viewer: Viewer, ops: unknown): P
           };
         }
       } else if (prev.status === "requested" && isAdmin(org, viewer)) {
+        // Nobody issues (or declines) their own certificate.
+        if ((raw.status === "declined" || raw.status === "issued") && lower(prev.email) === viewer.email) {
+          refuse("own_certificate");
+          continue;
+        }
         if (raw.status === "declined") {
           next = { ...prev, status: "declined", decidedAt: now(), decidedBy: viewer.email, reason: typeof raw.reason === "string" ? raw.reason.slice(0, 300) : "" };
         } else if (raw.status === "issued") {
