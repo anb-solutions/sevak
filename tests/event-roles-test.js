@@ -22,12 +22,12 @@ const BASE = 'http://localhost:8765/app/'; const SP = process.argv[2];
   await p.goto(BASE + 'event.html#roles');   // the Roles step
   check(await p.isVisible('#role-presets'), 'common roles offered');
   await p.click('#role-presets summary');   // folded away until asked for
-  await p.click('button[aria-label="Add the role Greeters"]');
+  await p.click('button[aria-label="Add the task Greeters"]');
   check((await p.$$('.role-card')).length === 1, 'fills the empty first role instead of adding one');
   check((await p.inputValue('.role-card [data-key="name"]')) === 'Greeters', 'role name filled in');
   check((await p.inputValue('.role-card [data-key="description"]')).includes('Welcome guests'), 'description filled in');
-  check(!(await p.isVisible('button[aria-label="Add the role Greeters"]')), 'a role already added is no longer offered');
-  await p.click('button[aria-label="Add the role Parking"]');
+  check(!(await p.isVisible('button[aria-label="Add the task Greeters"]')), 'a task already added is no longer offered');
+  await p.click('button[aria-label="Add the task Parking"]');
   check((await p.$$('.role-card')).length === 2, 'the next common role is added as a new role');
   check((await p.$$('.role-card:nth-child(2) .shift-row')).length === 1, 'with a shift to fill in');
   check((await p.inputValue('.role-card:nth-child(2) [data-key="bring"]')).includes('water'), 'with what to bring');

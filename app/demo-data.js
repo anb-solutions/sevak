@@ -172,7 +172,7 @@
       id: ORG_ID,
       name: "Riverside Community Arts (demo)",
       website: "https://example.org",
-      description: "A demo organization for testing Sevak. Its events, roles and sign-ups are made up.",
+      description: "A demo organization for testing Sevak. Its events, tasks and sign-ups are made up.",
       address: { country: "US", line1: "200 Elm Street", city: "Austin", state: "TX", postalCode: "78701" },
       taxStatus: "charity",
       primaryContact: { name: "Demo Coordinator", title: "Volunteer Coordinator", email: "coordinator@example.org", phone: { country: "US", number: "+15125550100" } },
