@@ -321,7 +321,19 @@ volunteer's calendar entry and a cancellation removes it.
 
 ### 4.3 The app
 
-- HTTPS everywhere, strict security headers (including a Content Security Policy).
+- HTTPS everywhere, and strict security headers on every response (`apps/web/next.config.ts`),
+  checked by `tests/e2e/security.e2e.js`:
+  - **Content Security Policy:** scripts only from Sevak (no inline scripts), nothing framed
+    (`frame-ancestors 'none'`), forms only to Sevak, no plugins. Styles still allow inline style
+    attributes, which the pages use; moving those to classes would let that go too.
+  - **HSTS** for two years; `X-Content-Type-Options: nosniff`; `X-Frame-Options: DENY`;
+    `Referrer-Policy: strict-origin-when-cross-origin`.
+  - **Cross-Origin-Opener-Policy** and **Cross-Origin-Resource-Policy** `same-origin`: other
+    sites' windows can't reach into Sevak's, and can't load its responses.
+  - **Permissions-Policy:** the camera for taking a profile photo here; no microphone, location,
+    payments or USB.
+  - **Uploaded files** are always downloads (`Content-Disposition: attachment`), never cached, and
+    have their own policy, `default-src 'none'; sandbox`, so nothing in one can run.
 - Every input is checked on the server (Zod), whatever the page already checked.
 - Cloudflare Turnstile and rate limits on public forms (SGN-8).
 - Protection against cross-site request forgery: `SameSite` cookies plus an origin check on every

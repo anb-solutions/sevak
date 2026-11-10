@@ -53,6 +53,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       "Content-Disposition": `attachment; filename="${name}"`,
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
+      // If a browser ever shows a file instead of downloading it, nothing
+      // in it runs.
+      "Content-Security-Policy": "default-src 'none'; sandbox",
     },
   });
 }

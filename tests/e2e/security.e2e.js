@@ -57,6 +57,10 @@ const { BASE, start, person, signIn, email } = require("./helpers");
   const csp = res.headers()["content-security-policy"] || "";
   const scriptSrc = (csp.split(";").map((d) => d.trim()).find((d) => d.startsWith("script-src")) || "");
   check(scriptSrc === "script-src 'self'", "scripts only from Sevak: " + scriptSrc);
+  const h = res.headers();
+  check(h["cross-origin-opener-policy"] === "same-origin" && h["cross-origin-resource-policy"] === "same-origin", "other sites can't reach into Sevak's windows or load its responses");
+  check(/geolocation=\(\)/.test(h["permissions-policy"] || "") && /microphone=\(\)/.test(h["permissions-policy"] || ""), "no location or microphone: " + h["permissions-policy"]);
+  check(h["x-frame-options"] === "DENY" && /frame-ancestors 'none'/.test(csp) && h["x-content-type-options"] === "nosniff", "can't be framed; no type guessing");
   await p.evaluate(() => { const s = document.createElement("script"); s.textContent = "window.__injected = true"; document.body.appendChild(s); });
   check((await p.evaluate(() => window.__injected)) !== true, "injected inline script blocked");
 
