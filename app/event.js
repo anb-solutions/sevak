@@ -136,6 +136,7 @@
         if (value[k] != null) card.querySelector('[data-key="' + k + '"]').value = value[k];
       });
     }
+    fillLead(card, value && value.lead);
     card.querySelector(".remove-role").addEventListener("click", function () {
       card.remove();
       renumberRoles();
@@ -191,13 +192,18 @@
 
   function readRole(card) {
     var get = function (k) { return card.querySelector('.grid [data-key="' + k + '"]').value.trim(); };
-    return {
+    var role = {
       id: card.dataset.id,
       name: get("name"),
       description: get("description"),
       bring: get("bring"),
       shifts: Array.prototype.map.call(card.querySelectorAll(".shift-row"), readShift)
     };
+    // Only Admins choose; for anyone else the lead stays as it was (and the
+    // server keeps it as it was whatever the page sends).
+    var lead = canChooseLeads ? get("lead") : card.dataset.lead;
+    if (lead) role.lead = lead;
+    return role;
   }
 
   // Copies the shifts on the event's first day to every other day,
@@ -471,37 +477,85 @@
 
   // Who approves volunteers' hours: someone on the organization's team, or
   // (by default) any of its Admins.
-  function fillEventAdmin(selected) {
-    var sel = $("eventAdmin");
-    sel.innerHTML = "";
-    var add = function (value, text) {
-      var o = document.createElement("option");
-      o.value = value;
-      o.textContent = text;
-      sel.appendChild(o);
-    };
-    add("", "Any Admin of " + ((org && org.name) || "the organization"));
-    // Everyone who can run the organization's events: the Team tab, its
-    // primary contact and whoever set it up (both Admins).
+  // Everyone who can run the organization's events: the Team tab, its
+  // primary contact and whoever set it up (both Admins), once each.
+  function teamPeople() {
     var people = ((org && org.team) || []).map(function (m) { return { email: m.email, name: m.name, admin: m.role === "admin" }; });
     if (org && org.primaryContact && org.primaryContact.email) people.push({ email: org.primaryContact.email, name: org.primaryContact.name, admin: true });
     if (org && org.createdBy) people.push({ email: org.createdBy, admin: true });
-    var seen = {};
     var byEmail = {};
+    var order = [];
     people.forEach(function (p) {
       var key = String(p.email || "").trim().toLowerCase();
       if (!key) return;
       var known = byEmail[key];
       if (known) { known.admin = known.admin || p.admin; known.name = known.name || p.name; return; }
       byEmail[key] = { email: key, name: p.name, admin: p.admin };
+      order.push(key);
     });
-    Object.keys(byEmail).forEach(function (key) {
-      var p = byEmail[key];
-      seen[key] = true;
-      add(p.email, (p.name || p.email) + " (" + (p.admin ? "Admin" : "Coordinator") + ")");
+    return order.map(function (key) { return byEmail[key]; });
+  }
+
+  function addOption(sel, value, text) {
+    var o = document.createElement("option");
+    o.value = value;
+    o.textContent = text;
+    sel.appendChild(o);
+  }
+
+  function fillEventAdmin(selected) {
+    var sel = $("eventAdmin");
+    sel.innerHTML = "";
+    addOption(sel, "", "Any Admin of " + ((org && org.name) || "the organization"));
+    var seen = {};
+    teamPeople().forEach(function (p) {
+      seen[p.email] = true;
+      addOption(sel, p.email, (p.name || p.email) + " (" + (p.admin ? "Admin" : "Coordinator") + ")");
     });
-    if (selected && !seen[String(selected).toLowerCase()]) add(selected, selected + " (no longer on the team)");
+    if (selected && !seen[String(selected).toLowerCase()]) addOption(sel, selected, selected + " (no longer on the team)");
     sel.value = selected || "";
+  }
+
+  // ---------- Task leads (EVT-21) ----------
+  // An Admin chooses each task's lead from the organization's team and its
+  // members. Anyone else sees the lead if they run the event, but can't
+  // change it. (Signed out, previewing the plain prototype, anyone can.)
+  var canChooseLeads = isAdmin || (!F.session.signedIn() && !window.SevakServer);
+
+  function leadCandidates() {
+    var list = teamPeople().map(function (p) { return { email: p.email, name: p.name, kind: p.admin ? "Admin" : "Coordinator" }; });
+    var seen = {};
+    list.forEach(function (p) { seen[p.email] = true; });
+    var M = window.SevakMembers;
+    var members = M && org ? M.forOrg(org.id).filter(function (m) { return m.status === "active"; }) : [];
+    members.map(function (m) { return { email: String(m.email || "").trim().toLowerCase(), name: m.name || "", kind: "member" }; })
+      .filter(function (m) { var fresh = m.email && !seen[m.email]; seen[m.email] = true; return fresh; })
+      .sort(function (a, b) { return (a.name || a.email).localeCompare(b.name || b.email); })
+      .forEach(function (m) { list.push(m); });
+    return list;
+  }
+
+  function fillLead(card, selected) {
+    var sel = card.querySelector('.grid [data-key="lead"]');
+    var hint = card.querySelector(".lead-hint");
+    hint.id = sel.id + "-hint";
+    sel.setAttribute("aria-describedby", hint.id);
+    selected = String(selected || "").trim().toLowerCase();
+    card.dataset.lead = selected;
+    sel.innerHTML = "";
+    var people = leadCandidates();
+    var label = function (p) { return (p.name || p.email) + " (" + (p.kind === "member" ? p.email : p.kind) + ")"; };
+    var known = people.filter(function (p) { return p.email === selected; })[0];
+    if (!canChooseLeads) {
+      sel.disabled = true;
+      addOption(sel, selected, selected ? (known ? label(known) : selected) : "Chosen by an Admin");
+      hint.textContent = "Only the organization's Admins choose task leads.";
+      return;
+    }
+    addOption(sel, "", "No task lead yet");
+    people.forEach(function (p) { addOption(sel, p.email, label(p)); });
+    if (selected && !known) addOption(sel, selected, selected + " (no longer a member)");
+    sel.value = selected;
   }
 
   function fill(event) {

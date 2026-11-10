@@ -135,6 +135,16 @@ export function publicOrganization(org: Json): Json {
   return pick;
 }
 
+// The Task Lead of the task (an event's role) a shift belongs to, if any
+// (EVT-21): a member of the organization, or someone on its team, chosen
+// by an Admin, who sees that task's roster and nothing else.
+export function taskLeadOf(event: Json | undefined, shiftId: unknown): string {
+  for (const role of (event?.roles as Json[] | undefined) ?? []) {
+    if (((role?.shifts as Json[] | undefined) ?? []).some((s) => s && s.id === shiftId)) return lower(role.lead);
+  }
+  return "";
+}
+
 // Who sees volunteers' details for an event: Sevak staff, the
 // organization's Admins, and the Coordinator chosen as its event admin
 // (its roster: names and the contact details given on each sign-up).

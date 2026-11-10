@@ -14,6 +14,12 @@
 //
 // Who changes what: the organization's team (Admins and Coordinators) adds
 // and edits events and main events; only Admins delete them (EVT-19).
+//
+// Task leads (EVT-21): each task (role) can have a lead, chosen only by the
+// organization's Admins (and Sevak staff) from its team and its active
+// members. Anyone else's save keeps each task's lead as it was. Who leads a
+// task is seen by those who run the event (runsEvent) and by the lead,
+// for their own task; not by other Coordinators, volunteers or the public.
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { type Db, records } from "@sevak/db";
@@ -31,6 +37,7 @@ import {
   orgRole,
   type ReadContext,
   readContext,
+  runsEvent,
   tooBig,
 } from "./records";
 
@@ -52,6 +59,55 @@ function isTeam(org: Json | undefined, viewer: Viewer | null) {
 
 function isAdmin(org: Json | undefined, viewer: Viewer) {
   return !!org && (viewer.isPlatformAdmin || orgRole(org, viewer.email) === "admin");
+}
+
+// An event without the leads of tasks this person doesn't lead. `belongs`:
+// whether they're on the organization's team or one of its members, since
+// a lead who has left sees nothing.
+function withoutTaskLeads(event: Json, viewer: Viewer | null, belongs: boolean): Json {
+  if (!Array.isArray(event.roles) || !(event.roles as unknown[]).some((r) => r && typeof r === "object" && "lead" in (r as Json))) return event;
+  const roles = (event.roles as unknown[]).map((r) => {
+    if (!r || typeof r !== "object" || !("lead" in (r as Json))) return r;
+    const role = r as Json;
+    if (belongs && viewer && lower(role.lead) === viewer.email) return role;
+    const { lead: _lead, ...rest } = role;
+    return rest;
+  });
+  return { ...event, roles };
+}
+
+async function mayLead(tx: Tx, org: Json, email: string): Promise<boolean> {
+  if (orgRole(org, email) !== null) return true;
+  const rows = await tx.select().from(records).where(and(eq(records.collection, "memberships"), eq(records.orgId, String(org.id ?? ""))));
+  return rows.some((r) => lower(r.data.email) === email && r.data.status === "active");
+}
+
+// The event as it's saved, with each task's lead: as the Admins chose it
+// (someone on the team or an active member), or as it was for anyone else.
+// null if an Admin chose someone who can't lead.
+async function withTaskLeads(tx: Tx, raw: Json, prev: Json | null, org: Json | undefined, viewer: Viewer): Promise<Json | null> {
+  if (!Array.isArray(raw.roles)) return raw;
+  const before = new Map<string, string>();
+  if (prev && prev.organizationId === raw.organizationId) {
+    for (const r of (prev.roles as Json[] | undefined) ?? []) if (r && r.id != null && lower(r.lead)) before.set(String(r.id), lower(r.lead));
+  }
+  const admin = isAdmin(org, viewer);
+  const roles: unknown[] = [];
+  for (const r of raw.roles as unknown[]) {
+    if (!r || typeof r !== "object" || Array.isArray(r)) {
+      roles.push(r);
+      continue;
+    }
+    const { lead: asked, ...rest } = r as Json;
+    const was = before.get(String(rest.id)) ?? "";
+    let lead = was;
+    if (admin) {
+      lead = typeof asked === "string" ? lower(asked) : "";
+      if (lead && lead !== was && !(org && (await mayLead(tx, org, lead)))) return null;
+    }
+    roles.push(lead ? { ...rest, lead } : rest);
+  }
+  return { ...raw, roles };
 }
 
 function isLive(event: Json) {
@@ -86,10 +142,15 @@ export async function readEventsAndMain(db: Db, viewer: Viewer | null, ctx?: Rea
   // A main event is shown with its own organization's events only.
   const mainIds = new Set(visible.map((e) => `${String(e.organizationId ?? "")} ${String(e.mainEventId ?? "")}`));
   const visibleMains = mains.filter((m) => isTeam(orgs.get(String(m.organizationId ?? "")), viewer) || mainIds.has(`${String(m.organizationId ?? "")} ${String(m.id)}`));
-  // Who on the team runs an event is the team's business.
+  // Who leads each task is for those who run the event, and each lead
+  // (their own task); who on the team runs it is the team's business.
   const forViewer = (e: Json) => {
-    if (isTeam(orgs.get(String(e.organizationId ?? "")), viewer)) return e;
-    const { eventAdmin: _admin, ...rest } = e;
+    const orgId = String(e.organizationId ?? "");
+    const org = orgs.get(orgId);
+    const team = isTeam(org, viewer);
+    const out = runsEvent(org, e, viewer) ? e : withoutTaskLeads(e, viewer, team || member.has(orgId));
+    if (team) return out;
+    const { eventAdmin: _admin, ...rest } = out;
     return rest;
   };
   return { events: visible.map(forViewer), mainEvents: visibleMains };
@@ -147,11 +208,17 @@ async function writeOrgOwned(db: Db, viewer: Viewer, collection: Collection, ops
         }
         counts.set(orgId, counts.get(orgId)! + 1);
       }
+      const data = collection === "events" ? await withTaskLeads(tx, raw, prev, orgs.get(orgId), viewer) : raw;
+      if (!data) {
+        refused++;
+        reason ??= "lead_not_member";
+        continue;
+      }
       await tx
         .insert(records)
-        .values({ collection, id: id.data, orgId, data: raw, updatedBy: viewer.id })
-        .onConflictDoUpdate({ target: [records.collection, records.id], set: { data: raw, orgId, updatedAt: new Date(), updatedBy: viewer.id } });
-      byId.set(id.data, raw);
+        .values({ collection, id: id.data, orgId, data, updatedBy: viewer.id })
+        .onConflictDoUpdate({ target: [records.collection, records.id], set: { data, orgId, updatedAt: new Date(), updatedBy: viewer.id } });
+      byId.set(id.data, data);
     }
 
     for (const id of remove) {

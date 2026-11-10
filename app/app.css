@@ -1141,6 +1141,17 @@ input[type="time"], input[type="number"] {
 .saved-flash:focus { outline: 3px solid var(--focus); outline-offset: 2px; }
 .just-saved { outline: 2px solid var(--primary); outline-offset: 2px; background: var(--primary-soft); }
 
+/* Tasks you lead (EVT-21) */
+.leading .lead-list { clear: both; list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.lead-task { padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; }
+.lead-task h3 { margin: 0; font-size: 1rem; }
+.lead-task .event-meta { margin: 2px 0 8px; }
+.lead-shift { margin: 10px 0 4px; }
+.lead-roster { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.lead-roster li { display: flex; flex-wrap: wrap; gap: 2px 12px; align-items: baseline; overflow-wrap: anywhere; }
+.lead-name { font-weight: 600; }
+.event-meta.lead-missing { margin-top: 2px; font-weight: 600; }
+
 /* Spacing and rows used in the pages' markup, instead of inline style
    attributes (the content security policy allows no inline styles). */
 .mt-8 { margin-top: 8px; }
