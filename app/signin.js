@@ -49,7 +49,7 @@
 
   // Already signed in: on to your page (or your profile, if it isn't filled in).
   if (server.user) {
-    location.replace(nextPage(F.session.signedIn()));
+    location.replace(nextPage(!!F.session.saved()));
     return;
   }
 

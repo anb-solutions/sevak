@@ -109,10 +109,14 @@ Branch ─► Build and try it locally ─► Pull request ─► CI checks ─�
    they pass.
 5. **Review.** At least one approval, and a code owner's for sensitive areas (§4.1).
 6. **Merge → staging.** Merging into `staging` deploys to **staging** (`staging.sevak.theanbgroup.com`)
-   within minutes. Try it there on a phone. Staging holds only demo data.
+   within minutes. Try it there on a phone. Staging holds only test data, never real people's.
 7. **Staging → production, by the owner only.** The owner opens a pull request from `staging` into
    `main`, merges it and approves the deploy. Nobody else can update `main`, and the production
    Google Cloud project only accepts deploys from it. `main` always holds what's live.
+
+Staging and production are built and run identically (same code, setup, database settings and
+checks); only their labels and production's approval step differ
+([`docs/ENVIRONMENTS.md`](ENVIRONMENTS.md)).
 
 Every deploy runs database migrations first, then starts the new version without traffic, checks
 its health, and only then switches users to it. A broken version never reaches anyone, and the
@@ -128,7 +132,7 @@ can be tried there first, then built into the real app.
 | Environment | Where | Data | Email |
 |---|---|---|---|
 | Local | Your laptop or Claude session (`pnpm dev`) | Fake demo data in PGlite | Shown in the console |
-| Staging | Google Cloud project for staging, from `staging` | Demo data only | Caught, shown in the outbox, never sent |
+| Staging | Google Cloud project for staging, from `staging` | Test data only | Sent through Resend, from staging's own address, subjects start with "[Staging]" |
 | Production | Separate Google Cloud project, from `main` | Real data | Sent through Resend |
 
 There are no per-pull-request previews: staging is where changes are tried before production.
@@ -155,12 +159,24 @@ cancellation gives the spot back in the same transaction. A database rule
 ### 3.2 Sign-in and secure links (VOL-1, NFR-4, NFR-6)
 
 - **Sign-in:** the email contains a link and a 6-digit code. Both expire after 15 minutes and work
-  once. Only a hash is stored. Requests are rate-limited by email (5 an hour, in the database) and
-  by IP (per server instance). Five wrong codes and that code stops working. The link carries its
+  once. Only a hash is stored. Requests are rate-limited by email (5 an hour) and, generously, by
+  IP (100 an hour, since a whole venue can share one Wi-Fi). Each try is counted before the code
+  is checked, in one statement, so guesses sent all at once can't get past the limits: five tries
+  and that code stops working, and 30 tries a day for one address stop codes working for it (its
+  emailed link still works). The link carries its
   token after `#`, so it never reaches a server log or a link scanner; the sign-in page sends it.
   Links always point at `APP_URL`, never at the request's Host header.
+- **Limits** are counted in the database (`rate_limits`, `packages/core/src/limits.ts`), so they
+  hold across every server instance. The caller's address is the last one in `X-Forwarded-For`
+  that isn't private (Google's front end adds it; earlier entries are whatever the caller sent).
+  Besides sign-in: invite-code lookups (30 an hour per address, 20 a day per person), certificate
+  checks (60 an hour per address), saves (600 an hour and 50 MB a day per person), organizations
+  (10 per person), events (500 per organization), one membership per person and organization, and
+  three open certificate requests per person and organization. Invite codes are 8 characters
+  from a secure random source; the server refuses shorter new ones.
 - **Session:** a random id in a `__Host-` cookie (`Secure; HttpOnly; SameSite=Lax`), stored hashed
-  in the database so it can be revoked. Lasts 30 days.
+  in the database so it can be revoked. It ends 24 hours after it was last used, and 30 days after
+  signing in at most.
 - **Requests that change something** must come from Sevak's own pages (`Sec-Fetch-Site` or
   `Origin`), so another site can't act for a signed-in browser.
 - **Continue with Google** (optional, per environment): OpenID Connect with the authorization
@@ -169,6 +185,11 @@ cancellation gives the spot back in the same transaction. A database rule
   email must be verified, and must be a Gmail address or a Google Workspace account (`hd`), as
   Google advises; other Google accounts use the emailed code. It signs in to the same account as
   the emailed code. Sevak stores no Google tokens.
+- **Shared devices:** everything Sevak keeps in a browser belongs to the person signed in. When
+  they sign out, or their session ends, it's all cleared on the next page (including stored
+  files), so the next person on the device starts clean (`apps/web/prototype/sync.js`).
+- **Pages for running organizations** (Manage, Review, Outbox) send signed-out visitors to sign in.
+  The server enforces access either way; this just doesn't show empty previews.
 - Code: `packages/core/src/auth.ts` and `google.ts`; routes under `apps/web/src/app/api/v1/auth/`.
 - **Manage-my-sign-up links:** long random tokens, stored hashed. A link opens only its own
   sign-up.
@@ -177,9 +198,30 @@ cancellation gives the spot back in the same transaction. A database rule
 
 ### 3.3 Who can see what (§5 of the requirements)
 
+- **Each page load reads only what the person may see.** It works out once which organizations
+  they're on the team of, an Admin of, or volunteer with, then asks the database only for those
+  organizations' rows (plus their own, and verified organizations' public events), and the rules
+  in `packages/core` still decide row by row (`readContext` in `records.ts`).
+  `visibility.test.ts` records exactly what each kind of person gets, so a change can't quietly
+  show anyone more.
+
 - Every host API call checks the person's role in that organization (Admin or Coordinator) through
   one shared function, and every query on organization data is limited to that organization.
-- Public pages show counts ("4 of 6 spots left"), never names.
+- Public pages show counts ("4 of 6 spots left"), never names. People outside an event's team
+  don't see who on the team runs it.
+- **Deleted ids stay taken.** Sign-ups, certificates and documents point at organizations and
+  events by id, so deleting one keeps a marker (collection `deleted` in `records`) and nobody can
+  create a new one with that id. Deleting an organization also deletes its events and
+  memberships; sign-ups (with their hours), certificates and documents stay with their people.
+- **Certificates say what Sevak knows.** When one is issued, the server sets the organization's
+  name and verification, the hours, shifts and events from its own records; the page can't
+  choose them. The check page says whether Sevak has verified the organization. Hours for one
+  sign-up are at most 24.
+- **Verification is redone after a change** to what Sevak checked (name, website, registration
+  number, tax status): the organization goes back to pending and staff are asked again.
+- **Documents:** the email in `profile:<email>` is lowercased and trimmed, so each person has one
+  quota. An Admin can add a certificate's PDF only to someone who asked their organization for
+  one, and upload it once. Organizations get 50 MB until verified, then 500 MB.
 - Automated tests check these rules on every pull request: for example, a volunteer can't read
   another volunteer's sign-up, and a Coordinator of one organization can't see another's roster.
 
@@ -187,6 +229,23 @@ cancellation gives the spot back in the same transaction. A database rule
 
 Each event stores its time zone (for example `America/Chicago`). Shift times are stored in UTC and
 shown in the event's time.
+
+### 3.4a Events from Zeffy (EVT-20)
+
+Zeffy's API (`https://api.zeffy.com/api/v1`, reference at `/api/docs`) gives each organization a
+key that reads, and can also change, its Zeffy data (payments, contacts, campaigns). Sevak only
+reads campaigns of type `ticketing`, and only on the server:
+
+- **The key** is checked against Zeffy, then sealed with AES-256-GCM using `SEVAK_SECRETS_KEY`
+  (Secret Manager `app-secrets-key`, made at random by the setup script; never in GitHub) and
+  stored in `records` (collection `integrations`, never sent to a page). Only the organization's
+  Admins connect or disconnect; its team lists and imports. Deleting the organization deletes it.
+- **Import** (`POST /api/v1/organizations/{id}/zeffy/events`) makes a draft event through the
+  usual event rules (`writeEvents`), with `source: {kind: "zeffy", id, url}`.
+- **Refresh** (`GET …/zeffy/events/{campaignId}`) returns what Zeffy says now; the editor shows
+  the differences and fills them in, and the team saves as usual.
+- Calls have a 10-second timeout, refuse redirects, and are limited per person. Tests use a
+  stand-in for Zeffy (`tests/e2e/fake-zeffy.js`, `ZEFFY_API_BASE`).
 
 ### 3.5 Email and calendars (COM-*, COM-10)
 
@@ -198,10 +257,25 @@ separate here too: staging sends from `staging.sevak.theanbgroup.com` (subjects 
 "[Staging]") and production from `sevak.theanbgroup.com`, each from its own Resend team and key. Sending through Google
 Workspace would need either a key that can send as anyone in the company (domain-wide delegation)
 or another licensed mailbox; Amazon SES would need an AWS account. Without a key (local
-development, or staging before email is set up) emails, including sign-in codes, are written to
-the server log; production refuses to run that way.
+development and tests) emails, including sign-in codes, are written to the server log; staging
+and production refuse to run that way.
 
-The app records each email and queues it in the same transaction as the change that caused it, so
+**How many:** emails are limited per person whose change causes them (100 an hour, 300 a day;
+staff aside), per recipient (20 a day, sign-in emails aside) and per organization (30 a day until
+Sevak verifies it, then 1,000). Emails over a limit aren't sent; the change still saves. Names
+people typed (organizations, events, volunteers) go in on one line, without control characters,
+cut to 80 characters.
+
+**Who decides what's sent:** only the server. Pages never send email (so nobody can use Sevak to
+email whoever they like); each change's rules produce the emails it causes
+(`packages/core/src/notify.ts`): an invitation, a welcome, a request to join (to the Admins), an
+approval or decline, being added to a team, a verification request (to Sevak staff) and its
+outcome, a sign-up confirmation (one per sign-up, listing its shifts), a certificate request (to
+the Admins), and the certificate issued or declined. The API route sends them after the change is
+saved; a failed email is logged and never undoes the change. The prototype's Outbox page is only
+used without the server.
+
+Later: the app records each email and queues it in the same transaction as the change that caused it, so
 an email is never sent for a sign-up that failed. The background job sends it and retries on
 failure. Shift emails carry a calendar invite with a stable id per shift, so a change updates the
 volunteer's calendar entry and a cancellation removes it.
@@ -242,7 +316,7 @@ volunteer's calendar entry and a cancellation removes it.
   Secret Manager and turns off the old copy; the app reads it from there. So a key is changed
   through GitHub, like everything else, and staging's and production's keys stay separate.
 - **Staging and production are separate Google Cloud projects.** Staging has no production
-  secrets and only demo data. Real data is never copied into staging or onto a laptop.
+  secrets and only test data. Real data is never copied into staging or onto a laptop.
 - The app runs as a non-root user in a minimal container, and has only the permissions it needs.
 
 ### 4.3 The app
@@ -263,7 +337,7 @@ volunteer's calendar entry and a cancellation removes it.
   Organizations in India would later get an India region, in line with India's data protection law
   (DPDP Act 2023).
 - Data is encrypted at rest and in transit (the database accepts only encrypted connections).
-- Production's database has nightly backups and deletion protection; restoring a backup is tested
+- Both databases have nightly backups and deletion protection; restoring a backup is tested
   every month.
 - An audit log of sensitive actions: who changed roles, approved hours, exported a roster.
 - Data export and deletion on request (VOL-6). The privacy policy is updated before the pilot.
@@ -318,7 +392,11 @@ have already reviewed, and they move into React components and proper tables one
 |---|---|---|---|
 | Profile (`sevak.profile.v1`) | Sign-in release | You | You |
 | Organizations (`sevak.organizations.v1`) | Sign-in release | Everyone: name, description, website, city, charity status, verification. Its team and Sevak staff: everything | Admins; Coordinators can only leave the team; only Sevak staff verify |
-| Events, sign-ups, memberships, hours, certificates, documents | Next releases | | |
+| Memberships (`sevak.memberships.v1`): who volunteers with which organization | Join release | You: your own. The organization's team and Sevak staff: theirs | You: ask to join, accept an invitation, leave. The team: approve, decline, invite, remove. Joining with an invite code goes through the server, which checks the code |
+| Events and main events (`sevak.events.v1`, `sevak.mainEvents.v1`) | Events release | The team: all of its events. Its volunteers: published, active ones (public or private). Everyone else: published, active, public events of verified organizations | The team adds and edits; only Admins delete |
+| Sign-ups, check-ins and hours (`sevak.signups.v1`) | Sign-ups release | You: your own. The event's team: its sign-ups (the roster). Everyone else: only that a spot is taken, never names | You sign up yourself (volunteers and the team only, published events), cancel, check in and out, and log hours, which always wait for approval. The team approves hours and manages its roster. The server checks capacity with the event locked, so a shift is never overbooked (SGN-5) |
+| Certificates and signatures (`sevak.certificates.v1`, `sevak.signatures.v1`) | Certificates release | You: your requests and certificates, your own signature. The organization's team: its organization's | You ask for one or withdraw your request. Only Admins issue or decline; the hours must equal the approved hours on record; numbers are unique; issued certificates can't change. Anyone checks one by number (`/api/v1/certificates/verify/{code}`), which shows only what proves it |
+| Documents (`sevak.documents.v1`) and their files | Certificates release | Your own; an organization's and its events' documents: its team | The same people; Admins add certificates they issue to the volunteer's documents. Files go in a private Cloud Storage bucket per environment and are served only through `/api/v1/files/{id}` after the same check, always as downloads. 10 MB a file; 100 MB per person, 500 MB per organization; PDFs, pictures, Office and text files only, checked by content |
 
 Demo data (ids starting `demo-`) stays in each browser.
 

@@ -28,8 +28,10 @@ const B = 'http://localhost:8765/app/'; const SP = process.argv[2];
   await p.fill('#firstName', 'Vera'); await p.fill('#lastName', 'Vol'); await p.fill('#email', 'vera@example.com'); await p.fill('#phone', '5125550101');
   await p.check('input[name=availability][value=anytime]', { force: true });
   await p.click('#save');
-  check((await p.textContent('#status')).includes('saved'), 'saved');
+  await p.waitForURL(u => !/profile\.html/.test(String(u)));
+  check((await p.textContent('#saved-flash')).includes('Your profile is saved'), 'saved, and left the form');
   check((await navText()) === 'Opportunities|My sign-ups|Profile', 'volunteer menu: ' + await navText());
+  await p.goto(B + 'profile.html');
   check(await p.isVisible('#team-empty') && await p.isVisible('#setup-org') && (await p.textContent('#join-email')) === 'vera@example.com', 'no teams + doors');
 
   // Manage pages show the way in

@@ -1,11 +1,15 @@
 # Deploying Sevak to Google Cloud
 
+This guide walks through staging step by step. For a checklist of everything an environment
+needs (production, or any other), with every variable and secret in one table, see
+[`docs/ENVIRONMENTS.md`](../../docs/ENVIRONMENTS.md).
+
 Sevak runs on **Cloud Run** (serverless: it scales to zero when idle) with **PostgreSQL on Cloud
 SQL**. There are two environments, each in its own Google Cloud project:
 
 | Environment | Deploys from | Address | Data |
 |---|---|---|---|
-| **Staging** | `staging` (the default branch), after each reviewed merge | `staging.sevak.theanbgroup.com` | Demo data |
+| **Staging** | `staging` (the default branch), after each reviewed merge | `staging.sevak.theanbgroup.com` | Test data people create |
 | **Production** | `main`, which only the owner can merge into | `sevak.theanbgroup.com` | Real data |
 
 GitHub Actions deploys ([`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml)). It
@@ -13,9 +17,12 @@ signs in to Google with short-lived credentials (no stored keys), and each proje
 deploys from its own branch. Each deploy:
 
 1. Builds the container image ([`Dockerfile`](../../Dockerfile)) and stores it in the project.
-2. Runs database migrations as a Cloud Run job. On staging, it also loads demo data.
-3. Starts the new version **without traffic**, checks its health and, on staging, that it reads
-   the demo event from the database. Only then are users switched to it. A broken version never
+2. Runs database migrations as a Cloud Run job (no environment gets demo data). The job takes
+   about 2 minutes to start, so it only runs when something that affects the database changed
+   since the live version (migrations, the schema, the task runner or dependencies).
+   To run it anyway: **Actions → Deploy → Run workflow**, tick **Run database migrations**.
+3. Starts the new version **without traffic**, checks its health and that it reads organizations
+   and events from the database. Only then are users switched to it. A broken version never
    reaches anyone.
 
 ## Cost
@@ -99,14 +106,18 @@ If that step shows a warning, the deploy itself still succeeded; the warning say
 
 Cloud Run's built-in domain mapping is a preview feature. That's fine for staging. Production
 will use Firebase Hosting in front of Cloud Run (free), which Google supports for production use.
+Anything put in front of Cloud Run adds its own address to `X-Forwarded-For`, which Sevak's
+per-address limits read from the right: set the GitHub variable `SEVAK_PROXY_HOPS` to how many
+addresses it adds after the person's plus one (see `clientIp` in `apps/web/src/lib/http.ts`), or everyone would
+share one limit.
 
 Once `GCP_DOMAIN` is set, links in Sevak's emails point at that address.
 
 ### 5. Send email (sign-in codes)
 
-People sign in with a code that Sevak emails them. Until email is set up, staging writes each
-code to its log instead: **Cloud Run → sevak-web → Logs**, search for `sign-in code`. That's fine
-for a first look; set up email before others test.
+People sign in with a code that Sevak emails them. Staging and production both need email: without
+it, no sign-in code can be sent, so nobody can sign in. Set it up before anyone uses the
+environment.
 
 Sevak sends through [Resend](https://resend.com) (why: [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md)
 §3.5). **Staging and production are kept apart:** staging sends from
@@ -174,6 +185,32 @@ get their own Google sign-in setup, in their own Google Cloud project. About 10 
 If Google shows **redirect_uri_mismatch**, the address in step 4 doesn't exactly match
 `GCP_DOMAIN` (check `https://`, no trailing slash).
 
+### 7. Documents (uploaded files and certificate PDFs)
+
+Files go in a private Cloud Storage bucket, one per environment: no public access, and only the
+app can read or write it. The app checks who may see each file before serving it, and limits
+uploads to 10 MB a file, 100 MB per person and 500 MB per organization, of PDFs, pictures, Office
+and text files (checked by what the file really is, not its name). Cost: about $0.02 per GB a
+month.
+
+1. **Run the setup script once more** in Cloud Shell (`git pull` first; everything already set
+   up is left as it is). It creates the bucket and prints `GCP_FILES_BUCKET`.
+2. **In GitHub**, add the variable `GCP_FILES_BUCKET` to the `staging` environment with that
+   value, and run the deploy. Until then, the Documents tabs say documents aren't set up yet.
+
+### 8. Events from Zeffy
+
+An organization's Admin can connect its Zeffy account (Manage → Events → **From Zeffy**) and
+start Sevak events from its Zeffy events. They paste the organization's Zeffy API key (in Zeffy:
+Settings → Integrations → API). Sevak stores it encrypted with `app-secrets-key`, a random key
+the setup script makes and keeps in Secret Manager; nobody sees it, and GitHub never has it.
+
+1. **Run the setup script once more** (`git pull` first). It makes `app-secrets-key` if it isn't
+   there. Run the deploy afterwards. Until then, From Zeffy says it isn't set up yet.
+
+Don't replace `app-secrets-key` once organizations have connected: the keys it encrypted would
+stop working, and each organization would need to connect again.
+
 Optional variables on the environment:
 
 - `SEVAK_PLATFORM_ADMINS`: emails of Sevak staff, separated by commas. They can verify
@@ -182,10 +219,13 @@ Optional variables on the environment:
 
 ## Set up production (later)
 
+The full checklist, with every variable and secret, is in
+[`docs/ENVIRONMENTS.md`](../../docs/ENVIRONMENTS.md). In short:
+
 1. Create a second Google Cloud project for production, and run the script with
-   `--env production --email resend` and the new project's ID. Production's database gets nightly
+   `--env production` and the new project's ID. Production's database gets nightly
    backups and deletion protection.
-   Production won't start without email. Set it up as in staging's step 5 (secrets on the
+   Production needs email, like staging. Set it up as in staging's step 5 (secrets on the
    `production` environment in GitHub), but in a separate
    Resend team, **Sevak Production** (or a second Resend account if your plan allows only one
    domain), with the domain `sevak.theanbgroup.com` and its own key. For Continue with Google,

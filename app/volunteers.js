@@ -157,9 +157,8 @@
 
   function renderHours() {
     var events = E.forOrg(org.id);
-    var mineToApprove = events.filter(function (ev) { return C.canApprove(ev); }).map(function (ev) { return ev.id; });
     var waiting = S.pendingHours(events.map(function (ev) { return ev.id; }));
-    var list = waiting.filter(function (su) { return mineToApprove.indexOf(su.eventId) !== -1; })
+    var list = waiting.filter(function (su) { return C.canApproveHours(E.get(su.eventId), su); })
       .map(function (su) {
         var ev = E.get(su.eventId);
         var found = shiftOf(ev, su.shiftId);
@@ -170,9 +169,22 @@
     $("hours-title").textContent = list.length ? "Hours to approve (" + list.length + ")" : "Hours to approve";
     $("hours-bulk").hidden = list.length < 2;
     $("approve-all").textContent = "Approve all " + list.length;
-    var others = waiting.length - list.length;
-    $("hours-others").hidden = !others;
-    $("hours-others").textContent = others ? E.plural(others, "shift") + " more " + (others === 1 ? "is" : "are") + " waiting for their event admin." : "";
+    // Your own hours wait for someone else: a different Admin, if you're one.
+    var own = waiting.filter(function (su) { return me() && String(su.email).toLowerCase() === me().toLowerCase(); });
+    var others = waiting.length - list.length - own.length;
+    var notes = [];
+    if (own.length) {
+      var seen = {};
+      var otherAdmins = (org.team || []).map(function (t) { return t.email; })
+        .concat([org.primaryContact && org.primaryContact.email, org.createdBy])
+        .map(function (e) { return String(e || "").trim().toLowerCase(); })
+        .filter(function (e) { var fresh = e && !seen[e]; seen[e] = true; return fresh && e !== me().toLowerCase() && O.roleOf(org, e) === "admin"; }).length;
+      notes.push("Your own hours (" + E.plural(own.length, "shift") + ") need " + (O.isAdmin(org) ? "another Admin" : "the event admin or an Admin") + " to approve them" +
+        (O.isAdmin(org) && !otherAdmins ? ". You're the only Admin, so add another on the Organization page's Team tab." : "."));
+    }
+    if (others > 0) notes.push(E.plural(others, "shift") + " more " + (others === 1 ? "is" : "are") + " waiting for " + (O.isAdmin(org) ? "an Admin or their event admin" : "their event admin or an Admin") + ".");
+    $("hours-others").hidden = !notes.length;
+    $("hours-others").textContent = notes.join(" ");
     var ul = $("hours-list");
     ul.innerHTML = "";
     list.forEach(function (x) {
@@ -222,8 +234,8 @@
   }
 
   $("approve-all").addEventListener("click", function () {
-    var events = E.forOrg(org.id).filter(function (ev) { return C.canApprove(ev); }).map(function (ev) { return ev.id; });
-    var list = S.pendingHours(events);
+    var list = S.pendingHours(E.forOrg(org.id).map(function (ev) { return ev.id; }))
+      .filter(function (su) { return C.canApproveHours(E.get(su.eventId), su); });
     if (!list.length || !window.confirm("Approve all " + list.length + " as logged?")) return;
     list.forEach(function (su) { S.decideHours(su.id, { status: "approved", by: me() }); });
     afterIn("hours-title", "Approved " + E.plural(list.length, "shift") + ".");

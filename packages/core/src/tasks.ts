@@ -4,16 +4,18 @@
 // into tasks.mjs.
 //
 //   migrate  apply pending migrations to DATABASE_URL
-//   seed     add demo data, on staging only (SEVAK_ENV=staging); production
-//            is never seeded: real people create organizations there
+//   seed     add demo data, by hand only, and only with SEVAK_ENV=staging;
+//            deploys never seed: staging and production hold only what
+//            people create there
+//   deploy   what each deploy runs: migrations (the same everywhere)
 import { connect, migrateDatabase } from "@sevak/db";
 import { seedBetaEvent } from "./seed";
 
 const command = process.argv[2];
 const url = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
 
-if (command !== "migrate" && command !== "seed") {
-  console.error("Usage: tasks migrate | tasks seed");
+if (command !== "migrate" && command !== "seed" && command !== "deploy") {
+  console.error("Usage: tasks migrate | tasks seed | tasks deploy");
   process.exit(2);
 }
 if (!url) {
@@ -21,10 +23,11 @@ if (!url) {
   process.exit(1);
 }
 
-if (command === "migrate") {
+if (command === "migrate" || command === "deploy") {
   await migrateDatabase(url);
   console.log("Migrations applied.");
-} else {
+}
+if (command === "seed") {
   const env = process.env.SEVAK_ENV ?? "";
   if (env !== "staging") {
     console.log(`Not seeding (SEVAK_ENV=${env || "unset"}). Only staging gets demo data.`);

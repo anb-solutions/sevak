@@ -89,6 +89,48 @@ jobs:
           SEVAK_ENV: staging
       - run: pnpm db:migrate
 
+  browser:
+    name: Browser tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Real browsers: the prototype's pages (tests/run.sh), then whole flows
+    # with several people against the built app and PostgreSQL 18
+    # (tests/e2e/run.sh): sign-in, organizations, joining, events, sign-ups.
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres # throwaway CI database
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --global playwright@1.63.0
+          playwright install --with-deps chromium
+      - run: pnpm build
+      - name: Prototype pages
+        run: bash tests/run.sh "$RUNNER_TEMP/screens"
+      - name: End to end on PostgreSQL 18
+        run: bash tests/e2e/run.sh
+      - name: Keep the screenshots if something failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: ${{ runner.temp }}/screens
+          retention-days: 7
+
   secrets:
     name: Secret scan
     runs-on: ubuntu-latest

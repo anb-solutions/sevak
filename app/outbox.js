@@ -14,6 +14,11 @@
     return node;
   }
 
+  // With Sevak's server, emails are sent for real.
+  if (window.SevakServer) {
+    document.querySelector(".page-intro").textContent = "Sevak now sends these emails for real: invitations, approvals, sign-up confirmations, certificates and more. Nothing is kept here anymore.";
+  }
+
   function render() {
     var mails = M.outbox();
     var list = $("mail-list");

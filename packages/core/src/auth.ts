@@ -5,12 +5,16 @@ import { timingSafeEqual } from "node:crypto";
 import { and, desc, eq, gt, isNull, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { type Db, loginTokens, sessions, users } from "@sevak/db";
+import { DAY, HOUR, hit } from "./limits";
 import { hashToken, newCode, newToken } from "./tokens";
 
 export const CODE_MINUTES = 15;
+// A session ends 24 hours after it was last used, and after 30 days at most.
+export const SESSION_IDLE_HOURS = 24;
 export const SESSION_DAYS = 30;
 export const MAX_REQUESTS_PER_HOUR = 5; // sign-in emails to one address
 export const MAX_CODE_ATTEMPTS = 5; // wrong codes before a code stops working
+export const MAX_CODE_TRIES_PER_DAY = 30; // codes tried for one address, all its codes together
 
 export const emailSchema = z
   .string()
@@ -37,12 +41,7 @@ const minutes = (n: number) => n * 60_000;
 // Refused after MAX_REQUESTS_PER_HOUR requests for one address in an hour.
 export async function requestSignIn(db: Db, rawEmail: string, now = new Date()) {
   const email = emailSchema.parse(rawEmail);
-  const hourAgo = new Date(now.getTime() - minutes(60));
-  const [recent] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(loginTokens)
-    .where(and(eq(loginTokens.email, email), gt(loginTokens.createdAt, hourAgo)));
-  if ((recent?.n ?? 0) >= MAX_REQUESTS_PER_HOUR) throw new AuthError("rate_limited");
+  if (!(await hit(db, `signin-email:${email}`, MAX_REQUESTS_PER_HOUR, HOUR, 1, now))) throw new AuthError("rate_limited");
 
   // Old requests for this address are no longer needed.
   await db.delete(loginTokens).where(and(eq(loginTokens.email, email), lt(loginTokens.createdAt, new Date(now.getTime() - minutes(24 * 60)))));
@@ -92,12 +91,18 @@ export async function verifySignIn(
       .where(and(eq(loginTokens.email, parsed.data), isNull(loginTokens.usedAt), gt(loginTokens.expiresAt, now)))
       .orderBy(desc(loginTokens.createdAt))
       .limit(1);
-    if (row && row.attempts < MAX_CODE_ATTEMPTS) {
-      if (sameHash(row.codeHash, hashToken(`${parsed.data}:${proof.code}`))) {
-        [tokenId, email] = [row.id, row.email];
-      } else {
-        await db.update(loginTokens).set({ attempts: sql`${loginTokens.attempts} + 1` }).where(eq(loginTokens.id, row.id));
-      }
+    if (row) {
+      // Count the try before checking it, in one statement, so guesses sent
+      // all at once can't get past the limit. A code stops working after
+      // MAX_CODE_ATTEMPTS tries, and an address after MAX_CODE_TRIES_PER_DAY
+      // (its emailed link still works).
+      const counted = await db
+        .update(loginTokens)
+        .set({ attempts: sql`${loginTokens.attempts} + 1` })
+        .where(and(eq(loginTokens.id, row.id), isNull(loginTokens.usedAt), lt(loginTokens.attempts, MAX_CODE_ATTEMPTS)))
+        .returning({ id: loginTokens.id });
+      const allowed = counted.length > 0 && (await hit(db, `code-try:${parsed.data}`, MAX_CODE_TRIES_PER_DAY, DAY, 1, now));
+      if (allowed && sameHash(row.codeHash, hashToken(`${parsed.data}:${proof.code}`))) [tokenId, email] = [row.id, row.email];
     }
   }
   if (!tokenId || !email) throw new AuthError("invalid");
@@ -129,7 +134,7 @@ export async function startSession(db: Db, rawEmail: string, now = new Date()): 
   await db.insert(sessions).values({
     idHash: hashToken(sessionToken),
     userId: user.id,
-    expiresAt: new Date(now.getTime() + minutes(SESSION_DAYS * 24 * 60)),
+    expiresAt: new Date(now.getTime() + minutes(SESSION_IDLE_HOURS * 60)),
     createdAt: now,
   });
   return { sessionToken, viewer: { id: user.id, email: user.email, isPlatformAdmin: user.isPlatformAdmin }, isNew };
@@ -139,13 +144,21 @@ export async function startSession(db: Db, rawEmail: string, now = new Date()): 
 // `platformAdmins` adds Sevak staff by email (SEVAK_PLATFORM_ADMINS).
 export async function sessionViewer(db: Db, sessionToken: string | undefined, now = new Date(), platformAdmins: string[] = []): Promise<Viewer | null> {
   if (!sessionToken || sessionToken.length > 100) return null;
+  const idHash = hashToken(sessionToken);
+  const oldest = new Date(now.getTime() - minutes(SESSION_DAYS * 24 * 60));
   const [row] = await db
-    .select({ id: users.id, email: users.email, isPlatformAdmin: users.isPlatformAdmin })
+    .select({ id: users.id, email: users.email, isPlatformAdmin: users.isPlatformAdmin, expiresAt: sessions.expiresAt, createdAt: sessions.createdAt })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
-    .where(and(eq(sessions.idHash, hashToken(sessionToken)), gt(sessions.expiresAt, now)));
+    .where(and(eq(sessions.idHash, idHash), gt(sessions.expiresAt, now), gt(sessions.createdAt, oldest)));
   if (!row) return null;
-  return { ...row, isPlatformAdmin: row.isPlatformAdmin || platformAdmins.includes(row.email) };
+  // Using it keeps it going for another 24 hours (written at most every
+  // 15 minutes), up to 30 days after signing in.
+  const renewed = new Date(Math.min(now.getTime() + minutes(SESSION_IDLE_HOURS * 60), row.createdAt.getTime() + minutes(SESSION_DAYS * 24 * 60)));
+  if (renewed.getTime() - row.expiresAt.getTime() > minutes(15)) {
+    await db.update(sessions).set({ expiresAt: renewed }).where(eq(sessions.idHash, idHash));
+  }
+  return { id: row.id, email: row.email, isPlatformAdmin: row.isPlatformAdmin || platformAdmins.includes(row.email) };
 }
 
 export async function signOut(db: Db, sessionToken: string | undefined) {

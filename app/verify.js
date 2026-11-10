@@ -32,7 +32,7 @@
     var d = rec.data;
     box.appendChild(el("h2", "section-title", "✓ Genuine certificate"));
     var dl = el("dl", "verify-facts");
-    [["Volunteer", d.volunteer], ["Organization", d.org.name], ["Period", day(d.from) + " – " + day(d.to)],
+    [["Volunteer", d.volunteer], ["Organization", d.org.name + (d.org.verified ? " · verified by Sevak" : " · not verified by Sevak")], ["Period", day(d.from) + " – " + day(d.to)],
       ["Approved hours", C.durationLabel(d.minutes) + " over " + E.plural(d.shifts, "shift")],
       ["Events", d.events.map(function (e) { return e.title; }).join(", ")],
       ["Issued", day(rec.issuedAt.slice(0, 10)) + " · No. " + rec.code]].forEach(function (row) {

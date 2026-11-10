@@ -255,3 +255,18 @@ export const records = pgTable(
   },
   (t) => [primaryKey({ columns: [t.collection, t.id] }), index("records_org_idx").on(t.collection, t.orgId)],
 );
+
+// ---------- Limits ----------
+
+// How many times something happened in a window (sign-in attempts, saves,
+// emails sent), so limits hold across every server instance and can't be
+// dodged by changing address. See packages/core/src/limits.ts.
+export const rateLimits = pgTable(
+  "rate_limits",
+  {
+    key: text("key").notNull(),
+    windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+    count: integer("count").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.key, t.windowStart] }), index("rate_limits_window_idx").on(t.windowStart)],
+);

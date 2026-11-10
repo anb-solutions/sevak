@@ -1,5 +1,6 @@
-// Join Sevak (prototype): with an invitation, or by asking an organization.
-//   join.html?code=CODE   → an invite link: join that organization
+// Join Sevak (prototype): find an organization and ask to join (the usual
+// way), or use an invitation to join straight away.
+//   join.html?code=CODE   → an invite link: "Join <organization>"
 //   join.html?org=ID      → a request to join that organization, picked
 //   &return=URL           → where to go back to afterwards (an event)
 // New people carry on to the profile form; their choice is kept until they
@@ -23,15 +24,23 @@
     return node;
   }
 
-  function way() {
-    var r = document.querySelector('input[name="way"]:checked');
-    return r ? r.value : "";
-  }
+  // "request" (find an organization) or "invite" (use an invitation).
+  var mode = "request";
+
+  function way() { return mode; }
 
   function applyWay() {
-    $("invite-section").hidden = way() !== "invite";
-    $("request-section").hidden = way() !== "request";
-    $("way-error").textContent = "";
+    $("invite-section").hidden = mode !== "invite";
+    $("request-section").hidden = mode !== "request";
+    $("switch-way").textContent = mode === "invite" ? "No invitation? Find your organization instead" : "Have an invitation code?";
+    var org = mode === "invite" ? currentCodeOrg : null;
+    $("join-continue").textContent = mode === "request" ? "Ask to join" : org ? "Join " + org.name : "Join";
+  }
+
+  function setWay(w) {
+    mode = w;
+    applyWay();
+    (w === "invite" ? $("code") : $("org-search")).focus();
   }
 
   // ---------- Invitation ----------
@@ -43,8 +52,12 @@
     return (m ? decodeURIComponent(m[1]) : t).toUpperCase().replace(/[^A-Z0-9]/g, "");
   }
 
+  var currentCodeOrg = null;
+
   function checkCode() {
     var org = M.orgByCode(codeFrom($("code").value));
+    currentCodeOrg = org;
+    applyWay();
     $("code-found").hidden = !org;
     if (org) {
       $("code-found").textContent = "";
@@ -135,12 +148,7 @@
   $("join-form").addEventListener("submit", function (e) {
     e.preventDefault();
     var w = way();
-    if (!w) {
-      $("way-error").textContent = "Choose how you're joining.";
-      $("way-invite").focus();
-      return;
-    }
-    var org = null, note = "";
+    var org = null, note = "", code = "";
     if (w === "invite") {
       org = checkCode();
       if (!org) {
@@ -148,6 +156,7 @@
         $("code").focus();
         return;
       }
+      code = codeFrom($("code").value);
     } else {
       var picked = document.querySelector('input[name="org"]:checked');
       $("org-error").textContent = picked ? "" : "Choose the organization you want to join.";
@@ -161,13 +170,17 @@
         done([el("p", null, "You're already a volunteer with " + org.name + "."), goLink(returnTo || "signup.html#my-orgs", "See its opportunities")]);
         return;
       }
-      var rec = M.request(org.id, note, w === "invite");
+      var rec = M.request(org.id, note, w === "invite", code);
       window.SevakNav.render();
+      if (!rec) {
+        $("join-status").textContent = "Couldn't join just now. Check your connection and try again.";
+        return;
+      }
       finish(org, rec);
       return;
     }
     // New here: keep the choice and make a profile first.
-    F.store(INTENT_KEY, { way: w, orgId: org.id, note: note, returnTo: returnTo });
+    F.store(INTENT_KEY, { way: w, orgId: org.id, code: code, note: note, returnTo: returnTo });
     location.href = "profile.html?join=1";
   });
 
@@ -184,7 +197,7 @@
     return O.all().some(function (o) { return o.name; });
   }
 
-  $("demo-offer").hidden = hasOrgs() || !window.SevakDemo;
+  $("demo-offer").hidden = hasOrgs() || !window.SevakDemo || !!window.SevakServer;
   $("load-demo").addEventListener("click", function () {
     window.SevakDemo.load();
     window.SevakNav.render();
@@ -199,20 +212,24 @@
 
   if (signedIn) {
     $("join-title").textContent = "Join an organization";
-    $("join-intro").textContent = "Volunteer with another organization: use its invitation, or ask to join.";
+    $("join-intro").textContent = "Find another organization to volunteer with and ask to join, or use an invitation it sent you.";
   }
-  document.querySelectorAll('input[name="way"]').forEach(function (r) { r.addEventListener("change", applyWay); });
+  $("switch-way").addEventListener("click", function () { setWay(mode === "invite" ? "request" : "invite"); });
   $("code").addEventListener("input", function () { if (codeFrom($("code").value).length >= 6) checkCode(); else $("code-found").hidden = true; });
   $("org-search").addEventListener("input", renderOrgs);
   $("org-pick").addEventListener("change", function () { $("org-error").textContent = ""; });
   F.clearErrorsAsYouType($("join-form"), function () { return ""; });
 
   if (params.get("code")) {
-    $("way-invite").checked = true;
+    // An invite link: say who's inviting, and make joining one click.
+    mode = "invite";
     $("code").value = params.get("code");
-    checkCode();
-  } else if (params.get("org")) {
-    $("way-request").checked = true;
+    var invitedBy = checkCode();
+    if (invitedBy) {
+      $("join-title").textContent = "Join " + invitedBy.name;
+      $("join-intro").textContent = invitedBy.name + " invited you to volunteer with them on Sevak." +
+        (signedIn ? "" : " Next, you'll sign in and fill in your profile.");
+    }
   }
   renderOrgs();
   applyWay();

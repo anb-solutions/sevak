@@ -17,8 +17,22 @@
 (function () {
   "use strict";
 
-  var SYNCED = { "sevak.profile.v1": "object", "sevak.organizations.v1": "list" };
+  var SYNCED = {
+    "sevak.profile.v1": "object",
+    "sevak.organizations.v1": "list",
+    "sevak.memberships.v1": "list",
+    "sevak.events.v1": "list",
+    "sevak.mainEvents.v1": "list",
+    "sevak.signups.v1": "list",
+    "sevak.certificates.v1": "list",
+    "sevak.signatures.v1": "object",
+    "sevak.documents.v1": "list"
+  };
   var SIGNED_OUT_KEY = "sevak.signedOut.v1";
+  var PRIVATE_PAGES = {
+    "events.html": true, "event.html": true, "main-event.html": true, "volunteers.html": true,
+    "dashboard.html": true, "organization.html": true, "review.html": true, "outbox.html": true
+  };
 
   var storage = window.localStorage;
   var proto = Object.getPrototypeOf(storage);
@@ -56,7 +70,26 @@
   }
 
   // The pages' demo data stays in this browser (see demo-data.js).
-  function isDemo(item) { return item && String(item.id || "").indexOf("demo-") === 0; }
+  // Anything belonging to demo data: its own id, or its organization's or
+  // event's, starts with "demo-", or it's a dashboard sample.
+  function isDemo(item) {
+    if (!item) return false;
+    if (item.sample) return true;
+    if (/:demo-/.test(String(item.owner || ""))) return true;
+    return [item.id, item.orgId, item.organizationId, item.eventId].some(function (v) {
+      return String(v || "").indexOf("demo-") === 0;
+    });
+  }
+
+  var REFUSED = {
+    full: "Sorry, that shift just filled up. Please choose another.",
+    already: "You're already signed up for that shift.",
+    not_member: "Join the organization first, then you can sign up for its shifts.",
+    hours_mismatch: "That certificate's hours don't match the approved hours on record. Reload the page and try again.",
+    too_many: "That's more than Sevak allows for one person or organization. Contact Sevak if you need more.",
+    already_asked: "That has already been asked for. Reload the page to see where it stands.",
+    own_hours: "Nobody approves their own hours. An Admin's hours need a different Admin."
+  };
 
   function put(key, value) {
     if (value === null || value === undefined) removeItem.call(storage, key);
@@ -83,6 +116,30 @@
     if (document.body) show(); else document.addEventListener("DOMContentLoaded", show);
   }
 
+  // ---------- Whose browser data this is ----------
+  // Everything Sevak keeps in this browser belongs to the person signed in.
+  // When they sign out, or someone else signs in on the same device, it's
+  // all cleared, including uploaded files, except a few display settings.
+
+  var OWNER_KEY = "sevak.owner.v1";
+  var KEEP = { "sevak.bannerDismissed.v1": true, "sevak.opportunityFilter.v1": true, "sevak.joinIntent.v1": true };
+
+  function clearBrowserData() {
+    for (var i = storage.length - 1; i >= 0; i--) {
+      var k = storage.key(i);
+      if (k && k.indexOf("sevak.") === 0 && !KEEP[k]) removeItem.call(storage, k);
+    }
+    try { if (window.indexedDB) window.indexedDB.deleteDatabase("sevak-files"); } catch (e) { /* not available */ }
+  }
+
+  function claimBrowser(email) {
+    var owner = getItem.call(storage, OWNER_KEY) || "";
+    if (owner !== (email || "")) {
+      clearBrowserData();
+      if (email) setItem.call(storage, OWNER_KEY, email);
+    }
+  }
+
   // ---------- 1. Load ----------
 
   var loaded = request("GET", "/api/v1/sync");
@@ -92,6 +149,9 @@
   if (!server.offline && loaded.data) {
     server.user = loaded.data.user;
     server.signIn = loaded.data.signIn || {};
+    server.features = loaded.data.features || {};
+    server.env = loaded.data.env || "staging";
+    claimBrowser(server.user && server.user.email);
     Object.keys(SYNCED).forEach(function (key) {
       var value = loaded.data.data[key];
       if (SYNCED[key] === "list") {
@@ -103,6 +163,10 @@
     // The pages' own "signed out" switch follows the server's session.
     if (server.user) removeItem.call(storage, SIGNED_OUT_KEY);
     else setItem.call(storage, SIGNED_OUT_KEY, "true");
+    // Pages for running organizations, and Sevak's own, need you signed in:
+    // straight to sign-in (and back here afterwards) instead of a preview.
+    var here = location.pathname.split("/").pop();
+    if (!server.user && PRIVATE_PAGES[here]) location.replace("signin.html?next=" + here);
   } else {
     notice("Can't reach Sevak right now. Changes won't be saved until it's back. Try reloading in a minute.");
   }
@@ -149,7 +213,7 @@
       var value = res.data && "value" in res.data ? res.data.value : null;
       put(key, kind === "list" ? (value || []).concat(localDemo) : value);
       if (res.status === 403) {
-        notice("Some of that wasn't saved: only an organization's Admins can change it.");
+        notice(REFUSED[res.data && res.data.reason] || "Some of that wasn't saved: only the organization's team can change it.");
         throw new Error("Refused");
       }
       return;
@@ -160,15 +224,26 @@
       notice("You've been signed out. Sign in again to save.");
     } else if (res.status === 413) {
       notice("That's too big to save. Try a smaller photo or file.");
+    } else if (res.status === 429) {
+      notice("That's a lot of saving in a short time. Wait a few minutes, then try again.");
     } else {
       notice("Couldn't save to Sevak just now. Check your connection and try again.");
     }
     throw new Error("Not saved");
   }
 
+  // For pages that call the API directly (members-store.js): a request, and
+  // a way to store what the server answered without sending it back.
+  server.call = function (method, url, body) { return request(method, url, body); };
+  server.replace = function (key, value) {
+    var demo = SYNCED[key] === "list" ? (parse(getItem.call(storage, key)) || []).filter(isDemo) : [];
+    put(key, SYNCED[key] === "list" ? (value || []).concat(demo) : value);
+  };
+
   function signOut() {
     request("POST", "/api/v1/auth/signout", {});
     server.user = null;
+    claimBrowser("");
   }
 
   proto.setItem = function (key, value) {

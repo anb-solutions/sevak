@@ -2,12 +2,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
 
-// Security headers for every response (docs/ARCHITECTURE.md §4.3). The
-// prototype pages use one inline script, so scripts allow 'unsafe-inline'
-// until those pages become React components.
+// Security headers for every response (docs/ARCHITECTURE.md §4.3). Scripts
+// only from Sevak itself: no inline scripts, so an injected <script> can't
+// run. (Styles still allow inline style attributes, which the pages use.)
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",

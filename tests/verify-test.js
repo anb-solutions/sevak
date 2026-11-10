@@ -9,7 +9,13 @@ const B = 'http://localhost:8765/app/'; const SP = process.argv[2];
   p.on('pageerror', e => errs.push('pageerror ' + e.message)); p.on('dialog', d => d.accept());
   const org = () => p.evaluate(() => JSON.parse(localStorage.getItem('sevak.organizations.v1')).find(o => o.id === 'org-hope'));
   const mail = () => p.evaluate(() => (JSON.parse(localStorage.getItem('sevak.outbox.v1')) || [])[0] || {});
-  const save = async () => { await p.click('#save-bar button[type=submit]'); await p.waitForFunction(() => /saved/.test(document.getElementById('status').textContent)); };
+  // Saving the profile goes on to Events (which says so); come back to the profile.
+  const save = async () => {
+    await p.click('#save-bar button[type=submit]');
+    await p.waitForURL(/events\.html/);
+    check((await p.textContent('#saved-flash')).includes('Saved the profile of'), 'saved: on to Events, saying so');
+    await p.goto(B + 'organization.html');
+  };
 
   await p.goto(B + 'outbox.html'); await p.evaluate(() => localStorage.clear());
   await p.evaluate(() => {
@@ -52,7 +58,9 @@ const B = 'http://localhost:8765/app/'; const SP = process.argv[2];
   await p.click('#verify-body button:has-text("Send request")');
   check((await p.textContent('#verify-status')).includes('unsaved changes') && (await org()).verificationStatus === 'unverified', 'unsaved changes: save first');
   await p.fill('#website', 'hopekitchen.org');
-  await save();   // the request form stays open, with the saved details
+  await save();
+  await p.click('#verify-body button:has-text("Request verification")');
+  await p.fill('#verify-note', 'We are on the state charity list.');
   await p.click('#verify-body button:has-text("Send request")');
   o = await org();
   check(o.verificationStatus === 'pending' && o.verification.evidence.website === 'https://hopekitchen.org' && o.verification.note === 'We are on the state charity list.' && o.verification.requestedBy === 'bala@hopekitchen.org', 'request saved with evidence');

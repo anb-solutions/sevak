@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { type Db, loginTokens, users } from "@sevak/db";
 import { createMemoryDb } from "@sevak/db/memory";
-import { AuthError, MAX_CODE_ATTEMPTS, MAX_REQUESTS_PER_HOUR, requestSignIn, sessionViewer, signOut, verifySignIn } from "./auth";
+import { AuthError, MAX_CODE_ATTEMPTS, MAX_CODE_TRIES_PER_DAY, MAX_REQUESTS_PER_HOUR, requestSignIn, sessionViewer, signOut, verifySignIn } from "./auth";
 
 let db: Db;
 const NOW = new Date("2026-11-08T12:00:00Z");
@@ -49,6 +49,28 @@ describe("sign-in with an emailed code", () => {
     await expect(verifySignIn(db, { email: "asha@example.com", code }, later(1))).rejects.toThrow(AuthError);
   });
 
+  it("counts guesses sent all at once", async () => {
+    const { code } = await requestSignIn(db, "asha@example.com", NOW);
+    const wrong = Array.from({ length: 40 }, (_, i) => String(i).padStart(6, "0")).filter((c) => c !== code);
+    const tries = [...wrong.slice(0, 30), code, ...wrong.slice(30)].map((c) => verifySignIn(db, { email: "asha@example.com", code: c }, later(1)));
+    const results = await Promise.allSettled(tries);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(0);
+    const [row] = await db.select().from(loginTokens).where(eq(loginTokens.email, "asha@example.com"));
+    expect(row!.attempts).toBe(MAX_CODE_ATTEMPTS);
+  });
+
+  it("limits code tries for one address across all its codes, but the link still works", async () => {
+    const codes = MAX_CODE_TRIES_PER_DAY / MAX_CODE_ATTEMPTS;
+    for (let i = 0; i < codes; i++) {
+      const { code } = await requestSignIn(db, "asha@example.com", later(i * 60));
+      const wrong = code === "000000" ? "111111" : "000000";
+      for (let j = 0; j < MAX_CODE_ATTEMPTS; j++) await verifySignIn(db, { email: "asha@example.com", code: wrong }, later(i * 60 + 1)).catch(() => {});
+    }
+    const last = await requestSignIn(db, "asha@example.com", later(codes * 60));
+    await expect(verifySignIn(db, { email: "asha@example.com", code: last.code }, later(codes * 60 + 1))).rejects.toThrow(AuthError);
+    await expect(verifySignIn(db, { token: last.token }, later(codes * 60 + 1))).resolves.toBeTruthy();
+  });
+
   it("limits how many codes one address can be sent", async () => {
     for (let i = 0; i < MAX_REQUESTS_PER_HOUR; i++) await requestSignIn(db, "asha@example.com", later(i));
     await expect(requestSignIn(db, "asha@example.com", later(10))).rejects.toThrow("rate_limited");
@@ -83,11 +105,26 @@ describe("sign-in with the emailed link", () => {
 });
 
 describe("sessions", () => {
-  it("end on sign-out, after 30 days, and for unknown tokens", async () => {
+  it("end 24 hours after they were last used", async () => {
     const { code } = await requestSignIn(db, "asha@example.com", NOW);
     const { sessionToken } = await verifySignIn(db, { email: "asha@example.com", code }, NOW);
-    expect(await sessionViewer(db, sessionToken, later(29 * 24 * 60))).not.toBeNull();
-    expect(await sessionViewer(db, sessionToken, later(31 * 24 * 60))).toBeNull();
+    expect(await sessionViewer(db, sessionToken, later(23 * 60))).not.toBeNull();
+    // Used at 23 hours, so it lasts until 47 hours.
+    expect(await sessionViewer(db, sessionToken, later(46 * 60))).not.toBeNull();
+    expect(await sessionViewer(db, sessionToken, later(46 * 60 + 25 * 60))).toBeNull();
+  });
+
+  it("end after 30 days even if used every day", async () => {
+    const { code } = await requestSignIn(db, "asha@example.com", NOW);
+    const { sessionToken } = await verifySignIn(db, { email: "asha@example.com", code }, NOW);
+    // Used every 20 hours: it keeps going, until 30 days after signing in.
+    for (let at = 20 * 60; at < 30 * 24 * 60; at += 20 * 60) expect(await sessionViewer(db, sessionToken, later(at))).not.toBeNull();
+    expect(await sessionViewer(db, sessionToken, later(30 * 24 * 60 + 1))).toBeNull();
+  });
+
+  it("end on sign-out, and for unknown tokens", async () => {
+    const { code } = await requestSignIn(db, "asha@example.com", NOW);
+    const { sessionToken } = await verifySignIn(db, { email: "asha@example.com", code }, NOW);
     expect(await sessionViewer(db, "nope", NOW)).toBeNull();
     expect(await sessionViewer(db, undefined, NOW)).toBeNull();
     await signOut(db, sessionToken);

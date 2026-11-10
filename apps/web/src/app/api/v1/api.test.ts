@@ -5,6 +5,9 @@ import { POST as requestCode } from "./auth/request/route";
 import { POST as signOutRoute } from "./auth/signout/route";
 import { POST as verify } from "./auth/verify/route";
 import { POST as save } from "./sync/[key]/route";
+import { POST as joinRoute } from "./memberships/join/route";
+import { GET as byCode } from "./organizations/by-code/[code]/route";
+import { GET as getFile, PUT as putFile } from "./files/[id]/route";
 import { GET as load } from "./sync/route";
 
 const BASE = "http://localhost:3000";
@@ -36,7 +39,7 @@ async function signIn(email: string): Promise<string> {
 
 const ORGS = "sevak.organizations.v1";
 const PROFILE = "sevak.profile.v1";
-const temple = { id: "org-temple", name: "Temple Volunteers", inviteCode: "SEVA42", team: [] };
+const temple = { id: "org-temple", name: "Temple Volunteers", inviteCode: "SEVA4242", team: [] };
 
 describe("API", () => {
   let asha: string;
@@ -78,13 +81,73 @@ describe("API", () => {
     expect(created.status).toBe(200);
 
     const seen = await (await load(req("/api/v1/sync", { method: "GET", cookie: mei }))).json();
-    expect(JSON.stringify(seen.data[ORGS])).not.toContain("SEVA42");
+    expect(JSON.stringify(seen.data[ORGS])).not.toContain("SEVA4242");
 
     const takeover = await save(req(`/api/v1/sync/${ORGS}`, { body: { upsert: [{ ...temple, name: "Mine now" }], delete: [] }, cookie: mei }), params(ORGS));
     expect(takeover.status).toBe(403);
     expect((await takeover.json()).value[0].name).toBe("Temple Volunteers");
     const removal = await save(req(`/api/v1/sync/${ORGS}`, { body: { delete: ["org-temple"] }, cookie: mei }), params(ORGS));
     expect(removal.status).toBe(403);
+  });
+
+  it("lets people join with an invite code, and keeps the code itself private", async () => {
+    await save(req(`/api/v1/sync/${ORGS}`, { body: { upsert: [{ id: "org-pantry", name: "Pantry", inviteCode: "PANTRY42", team: [] }] }, cookie: asha }), params(ORGS));
+    const found = await byCode(req("/api/v1/organizations/by-code/pantry42", { method: "GET" }), { params: Promise.resolve({ code: "pantry42" }) });
+    expect(found.status).toBe(200);
+    const text = JSON.stringify(await found.json());
+    expect(text).toContain("Pantry");
+    expect(text).not.toContain("PANTRY42");
+    expect((await byCode(req("/api/v1/organizations/by-code/NOPE", { method: "GET" }), { params: Promise.resolve({ code: "NOPE" }) })).status).toBe(404);
+
+    expect((await joinRoute(req("/api/v1/memberships/join", { body: { code: "PANTRY42" } }))).status).toBe(401);
+    expect((await joinRoute(req("/api/v1/memberships/join", { body: { code: "PANTRY42" }, cookie: mei, site: "cross-site" }))).status).toBe(403);
+    const joined = await joinRoute(req("/api/v1/memberships/join", { body: { code: "PANTRY42" }, cookie: mei }));
+    expect(joined.status).toBe(200);
+    expect((await joined.json()).value).toMatchObject([{ orgId: "org-pantry", status: "active" }]);
+  });
+
+  it("refuses membership changes from people outside the organization", async () => {
+    const MEM = "sevak.memberships.v1";
+    const asked = await save(req(`/api/v1/sync/${MEM}`, { body: { upsert: [{ id: "mem-q", orgId: "org-temple", email: "mei@example.com", status: "requested" }] }, cookie: mei }), params(MEM));
+    expect(asked.status).toBe(200);
+    const selfApprove = await save(req(`/api/v1/sync/${MEM}`, { body: { upsert: [{ id: "mem-q", orgId: "org-temple", email: "mei@example.com", status: "active" }] }, cookie: mei }), params(MEM));
+    expect(selfApprove.status).toBe(403);
+    expect((await selfApprove.json()).value.find((m: { id: string }) => m.id === "mem-q").status).toBe("requested");
+  });
+
+  it("refuses event changes from people not on the organization's team", async () => {
+    const EV = "sevak.events.v1";
+    const ev = { id: "ev-1", organizationId: "org-temple", title: "Seva day", status: "published", visibility: "public" };
+    expect((await save(req(`/api/v1/sync/${EV}`, { body: { upsert: [ev] }, cookie: asha }), params(EV))).status).toBe(200);
+    const takeover = await save(req(`/api/v1/sync/${EV}`, { body: { upsert: [{ ...ev, title: "Mine" }], delete: [] }, cookie: mei }), params(EV));
+    expect(takeover.status).toBe(403);
+    expect((await save(req(`/api/v1/sync/${EV}`, { body: { delete: ["ev-1"] }, cookie: mei }), params(EV))).status).toBe(403);
+    expect((await save(req(`/api/v1/sync/${EV}`, { body: { upsert: [ev] } }), params(EV))).status).toBe(401);
+  });
+
+  it("uploads files only for your own documents, of accepted kinds, and serves them as downloads", async () => {
+    const DOCS = "sevak.documents.v1";
+    const fileReq = (id: string, body: BodyInit | null, opts: { cookie?: string; site?: string; method?: string } = {}) => {
+      const headers: Record<string, string> = { "sec-fetch-site": opts.site ?? "same-origin" };
+      if (opts.cookie) headers.cookie = opts.cookie;
+      return new Request(`${BASE}/api/v1/files/${id}`, { method: opts.method ?? "PUT", headers, body });
+    };
+    const fileParams = (id: string) => ({ params: Promise.resolve({ id }) });
+    await save(req(`/api/v1/sync/${DOCS}`, { body: { upsert: [{ id: "doc-mei", owner: "profile:mei@example.com", name: "ID", fileName: "id.pdf" }] }, cookie: mei }), params(DOCS));
+
+    const pdf = new TextEncoder().encode("%PDF-1.4 test");
+    expect((await putFile(fileReq("doc-mei", pdf), fileParams("doc-mei"))).status).toBe(401);
+    expect((await putFile(fileReq("doc-mei", pdf, { cookie: mei, site: "cross-site" }), fileParams("doc-mei"))).status).toBe(403);
+    expect((await putFile(fileReq("doc-mei", pdf, { cookie: asha }), fileParams("doc-mei"))).status).toBe(404);
+    expect((await putFile(fileReq("doc-mei", new TextEncoder().encode("<html><script>x</script>"), { cookie: mei }), fileParams("doc-mei"))).status).toBe(415);
+    expect((await putFile(fileReq("doc-mei", pdf, { cookie: mei }), fileParams("doc-mei"))).status).toBe(200);
+
+    const got = await getFile(fileReq("doc-mei", null, { cookie: mei, method: "GET" }), fileParams("doc-mei"));
+    expect(got.status).toBe(200);
+    expect(got.headers.get("content-disposition")).toMatch(/^attachment;/);
+    expect(got.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(new TextDecoder().decode(await got.arrayBuffer())).toBe("%PDF-1.4 test");
+    expect((await getFile(fileReq("doc-mei", null, { cookie: asha, method: "GET" }), fileParams("doc-mei"))).status).toBe(404);
   });
 
   it("refuses data it doesn't know and bodies that aren't JSON", async () => {
@@ -98,5 +161,65 @@ describe("API", () => {
     expect(res.headers.get("set-cookie")).toContain("Max-Age=0");
     const after = await (await load(req("/api/v1/sync", { method: "GET", cookie: asha }))).json();
     expect(after.user).toBeNull();
+  });
+});
+
+describe("limits per address", () => {
+  it("use the address Google's front end saw, not one the caller made up", async () => {
+    const { clientIp } = await import("@/lib/http");
+    const at = (xff: string) => clientIp(new Request(BASE, { headers: { "x-forwarded-for": xff } }));
+    expect(at("203.0.113.7")).toBe("203.0.113.7");
+    expect(at("1.2.3.4, 203.0.113.7")).toBe("203.0.113.7");
+    expect(at("1.2.3.4, 203.0.113.7, 169.254.1.1")).toBe("203.0.113.7");
+  });
+
+  it("can't be dodged by changing X-Forwarded-For", async () => {
+    let limited = 0;
+    for (let i = 0; i < 40; i++) {
+      const r = new Request(`${BASE}/api/v1/organizations/by-code/NOPE${i}`, { headers: { "x-forwarded-for": `10.9.${i}.1, 198.51.100.9` } });
+      if ((await byCode(r, { params: Promise.resolve({ code: `NOPE${i}` }) })).status === 429) limited++;
+    }
+    expect(limited).toBe(10);
+  });
+});
+
+describe("Zeffy connection", () => {
+  it("is only for the organization's team, and only its Admins connect it", async () => {
+    const { GET: status, PUT: connect } = await import("./organizations/[id]/zeffy/route");
+    const { GET: list } = await import("./organizations/[id]/zeffy/events/route");
+    const boss = await signIn("boss@example.com");
+    const other = await signIn("other@example.com");
+    await save(req(`/api/v1/sync/${ORGS}`, { body: { upsert: [{ id: "org-z", name: "Zeffy Org", team: [] }] }, cookie: boss }), params(ORGS));
+    const id = { params: Promise.resolve({ id: "org-z" }) };
+    const path = "/api/v1/organizations/org-z/zeffy";
+    expect((await status(req(path, { method: "GET" }), id)).status).toBe(401);
+    expect((await status(req(path, { method: "GET", cookie: other }), id)).status).toBe(403);
+    expect((await list(req(`${path}/events`, { method: "GET", cookie: other }), id)).status).toBe(403);
+    expect((await connect(req(path, { method: "PUT", body: { apiKey: "zeffy-key-123456" }, cookie: other }), id)).status).toBe(403);
+    expect((await connect(req(path, { method: "PUT", body: { apiKey: "zeffy-key-123456" }, cookie: boss, site: "cross-site" }), id)).status).toBe(403);
+    const mine = await status(req(path, { method: "GET", cookie: boss }), id);
+    expect(await mine.json()).toMatchObject({ available: true, connected: false, canConnect: true });
+    expect((await list(req(`${path}/events`, { method: "GET", cookie: boss }), id)).status).toBe(409);
+  });
+});
+
+describe("email", () => {
+  it("is only written to the log in development and tests; staging and production must send it", async () => {
+    const { send } = await import("@/lib/mail");
+    const before = { env: process.env.SEVAK_ENV, mode: process.env.EMAIL_MODE };
+    process.env.EMAIL_MODE = "log";
+    try {
+      for (const env of ["staging", "production"]) {
+        process.env.SEVAK_ENV = env;
+        await expect(send({ to: "a@example.com", subject: "Hi", text: "Hi" })).rejects.toThrow("must send email");
+      }
+      process.env.SEVAK_ENV = "test";
+      await expect(send({ to: "a@example.com", subject: "Hi", text: "Hi" })).resolves.toBeUndefined();
+    } finally {
+      if (before.env === undefined) delete process.env.SEVAK_ENV;
+      else process.env.SEVAK_ENV = before.env;
+      if (before.mode === undefined) delete process.env.EMAIL_MODE;
+      else process.env.EMAIL_MODE = before.mode;
+    }
   });
 });

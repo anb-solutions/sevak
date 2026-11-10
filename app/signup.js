@@ -61,6 +61,7 @@
   function placeText(event) {
     var loc = event.location || {};
     if (loc.type === "online") return "Online";
+    if (loc.type === "later") return "Location shared with volunteers";
     return [loc.venue, loc.line1, loc.city, loc.state, countryName(loc.country)].filter(Boolean).join(", ");
   }
 
@@ -539,6 +540,12 @@
     return b;
   }
 
+  // Admins' own hours are approved by a different Admin (ATT-3).
+  function isAdminOf(su) {
+    var ev = su ? E.get(su.eventId) : null;
+    return !!(ev && O.isAdmin(O.get(ev.organizationId)));
+  }
+
   // One shift on a My sign-ups card, with its hours.
   function shiftItem(su, sh) {
     var li = el("li", "signup-shift");
@@ -570,7 +577,8 @@
       var st = S.hoursStatus(su);
       row.appendChild(st === "approved"
         ? E.badge(h.approvedMinutes != null ? "Approved as " + durationLabel(h.approvedMinutes) : "Approved", "published")
-        : st === "rejected" ? E.badge("Not approved", "inactive") : E.badge("Waiting for approval", "draft"));
+        : st === "rejected" ? E.badge("Not approved", "inactive")
+        : E.badge(isAdminOf(su) ? "Waiting for another Admin" : "Waiting for approval", "draft"));
       var edit = actionButton("Edit", "btn-link", function () {
         if (st === "approved" && !window.confirm("These hours are approved. If you change them, they'll need approving again.")) return;
         openForm(su, sh, li);
@@ -902,6 +910,16 @@
       hint.appendChild(edit);
     }
 
+    // The event's own page elsewhere (where it was imported from, such as
+    // Zeffy): tickets and the full details. Only https links are shown.
+    var source = event.source || {};
+    var page = typeof source.url === "string" && /^https:\/\//.test(source.url) ? source.url : "";
+    $("event-link").hidden = !page;
+    if (page) {
+      $("event-link-a").href = page;
+      $("event-link-a").textContent = source.kind === "zeffy" ? "Tickets and full details on Zeffy ↗" : "The event's own page ↗";
+    }
+
     // Everything else is folded under "About this event".
     var about = $("about-body");
     about.innerHTML = "";
@@ -909,6 +927,8 @@
     var loc = event.location || {};
     if (loc.type === "online") {
       about.appendChild(el("p", null, "Online. The meeting link is shared with volunteers who sign up."));
+    } else if (loc.type === "later") {
+      about.appendChild(el("p", null, loc.note || "Contact your event admin for location details."));
     } else if (placeText(event) && placeText(event) !== shortPlace(event)) {
       about.appendChild(el("p", null, "Address: " + placeText(event)));
     }
@@ -1105,6 +1125,8 @@
     if (profile) {
       $("name").value = [profile.firstName, profile.lastName].filter(Boolean).join(" ");
       $("email").value = profile.email;
+      // With the server, a sign-up is always under the email you signed in with.
+      $("email").readOnly = !!window.SevakServer;
       F.setPhone($("phone"), profile.phone);
       $("who-name").textContent = $("name").value || profile.email;
       $("who-email").textContent = $("name").value ? "(" + profile.email + ")" : "";
@@ -1281,7 +1303,10 @@
       };
     }));
     if (!ok) {
-      $("status").textContent = "Couldn't save in this browser. Check that site storage is allowed.";
+      $("status").textContent = window.SevakServer
+        ? "That didn't go through. See the message at the bottom of the page."
+        : "Couldn't save in this browser. Check that site storage is allowed.";
+      if (window.SevakServer) { renderShifts(); }
       return;
     }
     // The confirmation email (prototype: to the outbox).
@@ -1364,20 +1389,34 @@
     return String(text || "").replace(/[\\;,]/g, function (c) { return "\\" + c; }).replace(/\n/g, "\\n");
   }
 
-  function downloadCalendar(ev, list) {
+  // Add to calendar: an .ics file with every shift, and a Google Calendar
+  // link for each (Google adds one event per link). Both use the event's
+  // time zone and carry the "Manage my sign-up" link (SGN-9).
+  function calendarText(ev, item, manageUrl) {
+    var org = (O.get(ev.organizationId) || {}).name || "the host organization";
+    return {
+      title: (ev.title || "Volunteer shift") + " – " + (item.shift.role.name || "Shift"),
+      place: placeText(ev),
+      details: "Volunteer shift with " + org + "." + (manageUrl ? "\nManage or cancel your sign-up: " + manageUrl : "")
+    };
+  }
+
+  function downloadCalendar(ev, list, manageUrl) {
     var stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
     var tz = ev.timezone ? ";TZID=" + ev.timezone : "";
     var lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//The ANB Group//Sevak//EN", "CALSCALE:GREGORIAN"];
     list.forEach(function (item) {
+      var t = calendarText(ev, item, manageUrl);
       lines.push("BEGIN:VEVENT",
         "UID:" + item.signup.id + "@sevak",
         "DTSTAMP:" + stamp,
         "DTSTART" + tz + ":" + icsDate(item.shift.date, item.shift.start),
         "DTEND" + tz + ":" + icsDate(item.shift.date, item.shift.end),
-        "SUMMARY:" + icsEscape((ev.title || "Volunteer shift") + " – " + (item.shift.role.name || "Shift")),
-        "LOCATION:" + icsEscape(placeText(ev)),
-        "DESCRIPTION:" + icsEscape("Volunteer shift with " + ((O.get(ev.organizationId) || {}).name || "the host organization") + "."),
-        "END:VEVENT");
+        "SUMMARY:" + icsEscape(t.title),
+        "LOCATION:" + icsEscape(t.place),
+        "DESCRIPTION:" + icsEscape(t.details));
+      if (manageUrl) lines.push("URL:" + manageUrl);
+      lines.push("END:VEVENT");
     });
     lines.push("END:VCALENDAR");
     var blob = new Blob([lines.join("\r\n") + "\r\n"], { type: "text/calendar" });
@@ -1387,6 +1426,51 @@
     document.body.appendChild(a);
     a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  }
+
+  // Google Calendar's "add event" link. Times are the shift's own clock
+  // times; ctz tells Google which time zone they're in.
+  function googleCalendarUrl(ev, item, manageUrl) {
+    var t = calendarText(ev, item, manageUrl);
+    var q = new URLSearchParams();
+    q.set("action", "TEMPLATE");
+    q.set("text", t.title);
+    q.set("dates", icsDate(item.shift.date, item.shift.start) + "/" + icsDate(item.shift.date, item.shift.end));
+    if (ev.timezone) q.set("ctz", ev.timezone);
+    if (t.place) q.set("location", t.place);
+    q.set("details", t.details);
+    return "https://calendar.google.com/calendar/render?" + q.toString();
+  }
+
+  function renderCalendarOptions(ev, confirmed, registrationId) {
+    var box = $("calendar-add");
+    box.hidden = !confirmed.length;
+    if (!confirmed.length) return;
+    var manageUrl = new URL("signup.html?registration=" + encodeURIComponent(registrationId), location.href).href;
+    $("add-calendar").onclick = function () { downloadCalendar(ev, confirmed, manageUrl); };
+    var which = confirmed.length === 1 ? "your shift" : confirmed.length === 2 ? "both shifts" : "all " + confirmed.length + " shifts";
+    $("add-calendar").setAttribute("aria-label", "Download an .ics file with " + which);
+    $("ics-count").textContent = which;
+    var one = confirmed.length === 1;
+    $("add-google").hidden = !one;
+    $("google-shifts").hidden = one;
+    if (one) {
+      $("add-google").href = googleCalendarUrl(ev, confirmed[0], manageUrl);
+      return;
+    }
+    var ul = $("google-links");
+    ul.innerHTML = "";
+    confirmed.forEach(function (item) {
+      var li = el("li");
+      var a = el("a", null, shiftLabel(item.shift));
+      a.href = googleCalendarUrl(ev, item, manageUrl);
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.setAttribute("aria-label", "Add " + shiftLabel(item.shift) + " to Google Calendar (opens in a new tab)");
+      a.appendChild(el("span", null, " ↗")).setAttribute("aria-hidden", "true");
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
   }
 
   function renderConfirmation(registrationId, justSignedUp, skipped) {
@@ -1450,8 +1534,7 @@
       list.appendChild(li);
     });
 
-    $("add-calendar").hidden = !confirmed.length;
-    $("add-calendar").onclick = function () { downloadCalendar(ev, confirmed); };
+    renderCalendarOptions(ev, confirmed, registrationId);
     $("manage-link").href = "signup.html?registration=" + encodeURIComponent(registrationId);
     $("manage-link").hidden = !justSignedUp;
     $("manage-hint").hidden = !justSignedUp;

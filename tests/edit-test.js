@@ -18,7 +18,8 @@ const B = 'http://localhost:8765/app/'; const SP = process.argv[2];
   check(await p.isVisible('#event-form') && await p.isEditable('#title'), 'events list opens the editor');
   await p.fill('#title', 'Riverside Park Clean-up (edited)');
   await p.click('#publish');
-  check(/saved|updated|published/i.test(await p.textContent('#status')), 'saved: ' + await p.textContent('#status'));
+  await p.waitForURL(/events\.html/);
+  check((await p.textContent('#saved-flash')).includes('Saved changes to “Riverside Park Clean-up (edited)”') && (await p.$$('.just-saved')).length === 1, 'saved: back on Events, saying so, the event highlighted');
   await p.goto(B + 'events.html');
   check((await p.textContent('#events')).includes('Riverside Park Clean-up (edited)'), 'edit shows in the list');
 

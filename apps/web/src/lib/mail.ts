@@ -1,12 +1,15 @@
 // Sends Sevak's emails. EMAIL_MODE=resend sends them through Resend
 // (resend.com) with RESEND_API_KEY; EMAIL_MODE=log (the default without a
-// key: local development, or before email is set up) writes them to the
-// server log instead, so sign-in still works there. Production refuses to
-// log. To use another provider, change send() only.
+// key: local development and tests) writes them to the server log instead.
+// Staging and production refuse to log: they always send real email. To use
+// another provider, change send() only.
 //
 // Staging and production send from different addresses, each a domain of
 // its own in Resend with its own key, so test emails never share anything
 // with real ones. Staging's subjects also start with "[Staging]".
+import { allowedMails, type Mail, type Viewer } from "@sevak/core";
+import { getDb } from "@/lib/db";
+
 const staging = () => process.env.SEVAK_ENV !== "production";
 
 function from(): string {
@@ -27,7 +30,10 @@ function mode(): "resend" | "log" {
 
 export async function send(email: Email): Promise<void> {
   if (mode() === "log") {
-    if (process.env.SEVAK_ENV === "production") throw new Error("Production must send email: set RESEND_API_KEY.");
+    // Staging and production both send real email; only local development
+    // and tests write it to the log.
+    const env = process.env.SEVAK_ENV;
+    if (env === "production" || env === "staging") throw new Error(`${env} must send email: set RESEND_API_KEY.`);
     console.log(`[email not sent: EMAIL_MODE=log] To: ${email.to}\nSubject: ${email.subject}\n\n${email.text}`);
     return;
   }
@@ -63,4 +69,19 @@ export function signInEmail(to: string, code: string, link: string): Email {
       "Sevak, a service of The ANB Group",
     ].join("\n"),
   };
+}
+
+// Sends the emails a change produced (@sevak/core notify.ts). Links become
+// full addresses on this site; "@staff" goes to SEVAK_PLATFORM_ADMINS. Best
+// effort: a failed email is logged, and never undoes the change. Emails over
+// the limits (who caused them, who gets them, which organization) are
+// dropped (@sevak/core limits.ts).
+export async function sendMails(base: string, viewer: Viewer | null, mails: Mail[]) {
+  const staff = (process.env.SEVAK_PLATFORM_ADMINS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+  const allowed = await allowedMails(await getDb(), viewer, mails.slice(0, 50));
+  const out = allowed.flatMap((m) => (m.to === "@staff" ? staff.map((to) => ({ ...m, to })) : [m])).slice(0, 50);
+  for (const m of out) {
+    const text = m.link ? `${m.text}\n\n${m.linkText ?? "Open Sevak"}: ${base}/app/${m.link}\n\nSevak, a service of The ANB Group` : `${m.text}\n\nSevak, a service of The ANB Group`;
+    await send({ to: m.to, subject: m.subject, text }).catch((e) => console.error(`Couldn't send "${m.subject}" to ${m.to}:`, e));
+  }
 }

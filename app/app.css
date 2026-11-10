@@ -623,6 +623,11 @@ input[type="time"], input[type="number"] {
   font-weight: 800;
 }
 .my-shifts { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.calendar-add { margin-top: 16px; padding-top: 4px; }
+.calendar-add .subhead { margin-top: 0; }
+.calendar-add .hint { margin: 8px 0 0; }
+.calendar-google { display: grid; gap: 4px; margin: 4px 0 0; padding: 0; list-style: none; }
+.calendar-google a { display: inline-block; padding: 6px 0; font-weight: 600; overflow-wrap: anywhere; }
 .my-shift { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; }
 .my-shift div { display: grid; gap: 2px; }
 .my-shift.is-cancelled strong { text-decoration: line-through; color: var(--muted); }
@@ -820,6 +825,7 @@ input[type="time"], input[type="number"] {
 .org-pick-item:has(input:focus-visible) { box-shadow: 0 0 0 3px var(--focus); }
 .org-pick-item input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--primary); }
 .org-pick-text { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
+.join-switch { margin: 4px 0 0; }
 .join-alt { margin: 16px 0 0; font-size: 0.92rem; color: var(--muted); }
 .join-alt a, .join-notice a, .team-doors-line a, .browse-hint a, .member-strip a { color: var(--primary); font-weight: 600; text-underline-offset: 3px; }
 .join-notice { margin-bottom: 16px; }
@@ -927,13 +933,11 @@ input[type="time"], input[type="number"] {
 }
 
 /* Services */
-.service-picker { max-width: 360px; }
-.service-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; padding: 0; list-style: none; }
-.service-list[hidden] { display: none; }
-.service-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 4px 4px 12px; border-radius: 999px; background: var(--primary-soft); color: var(--primary); font-weight: 600; font-size: 0.9rem; }
-.service-remove { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; font: inherit; font-size: 0.8rem; color: inherit; background: none; cursor: pointer; }
-.service-remove:hover { background: var(--surface); }
-.service-remove:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); }
+.service-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.service-option { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 14px 6px 10px; border: 1px solid var(--input-border); border-radius: 999px; background: var(--surface); cursor: pointer; font-weight: 600; font-size: 0.95rem; }
+.service-option input { width: 18px; height: 18px; margin: 0; accent-color: var(--primary); }
+.service-option:has(input:checked) { border-color: var(--primary); background: var(--primary-soft); color: var(--primary); }
+.service-option:has(input:focus-visible) { box-shadow: 0 0 0 3px var(--focus); }
 #service-empty { margin-top: 12px; }
 
 /* Documents */
@@ -1112,3 +1116,27 @@ input[type="time"], input[type="number"] {
   body.printing-cert .cert-page { max-width: none; border: 0; border-radius: 0; box-shadow: none; page-break-after: always; break-after: page; }
   @page { size: A4; margin: 0; }
 }
+
+/* Events from Zeffy (zeffy.js) */
+.zeffy-panel { margin-top: 16px; }
+.zeffy-panel .field { margin: 12px 0; }
+.zeffy-panel .list-heading { margin: 0; font-size: 1rem; }
+.zeffy-panel .event-item h4 { margin: 0; font-size: 1rem; }
+.zeffy-panel .event-item { background: var(--surface); }
+.zeffy-source .fill-row { margin-top: 8px; }
+.zeffy-changes { margin: 6px 0 10px; padding-left: 1.2em; overflow-wrap: anywhere; }
+
+/* Common roles to add in one tap (event.js) */
+.role-presets { margin-top: 16px; }
+.role-presets .fill-row { margin-top: 8px; }
+
+/* The event's own page elsewhere, e.g. Zeffy (signup.js) */
+.event-link { margin: 6px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+
+/* ---------- "Saved" after leaving a form (nav.js) ---------- */
+.saved-flash { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; border: 1px solid var(--primary); background: var(--primary-soft); }
+.saved-flash p { margin: 0; overflow-wrap: anywhere; }
+.saved-flash p a { font-weight: 600; margin-left: 4px; }
+.saved-flash-icon { display: inline-grid; place-items: center; width: 1.4em; height: 1.4em; margin-right: 8px; border-radius: 50%; background: var(--primary); color: var(--on-primary); font-weight: 700; font-size: 0.85em; vertical-align: 0.1em; }
+.saved-flash:focus { outline: 3px solid var(--focus); outline-offset: 2px; }
+.just-saved { outline: 2px solid var(--primary); outline-offset: 2px; background: var(--primary-soft); }

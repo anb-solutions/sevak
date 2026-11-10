@@ -21,13 +21,17 @@ Two things live in this repo: the **clickable prototype** and the **real app** t
 - `packages/core`: business rules in plain TypeScript, no web code (sign-in, sign-up and capacity,
   synced records, seed data, time zones, tokens), and `src/tasks.ts` (migrate and seed).
 - `Dockerfile`, `infra/gcp/`, `.github/workflows/deploy.yml`: deployment to Google Cloud Run with
-  Cloud SQL PostgreSQL. Guide: `infra/gcp/README.md`.
+  Cloud SQL PostgreSQL. Guide: `infra/gcp/README.md`; every variable and secret an environment
+  needs (for production, or another): `docs/ENVIRONMENTS.md`. Keep it up to date when you add one.
 - `docs/`: requirements, architecture, UML diagrams.
 
 ## Commands
 
 - `pnpm install`, `pnpm dev` (the app on http://localhost:3000, with demo data in an in-memory
   database; no Docker, accounts or keys), `pnpm test`, `pnpm typecheck`, `pnpm build`.
+- Browser tests: `tests/run.sh <screenshot-dir>` (the prototype's pages) and, after `pnpm build`,
+  `DATABASE_URL=… tests/e2e/run.sh` (whole flows with several people against the real app and a
+  real PostgreSQL). CI runs both on every pull request. Add an end-to-end test for each new flow.
 - `pnpm db:generate` after changing `packages/db/src/schema.ts`; commit the migration it creates.
 - `pnpm db:migrate` and `pnpm db:seed` against `DATABASE_URL` (seed only runs with
   `SEVAK_ENV=staging`).
@@ -41,6 +45,9 @@ There are no preview deployments.
 
 ## Rules
 
+- **Before every push, review or merge, follow `.claude/skills/steward/SKILL.md`**, and always
+  before merging your own pull request: what to check, what to try to break, and which changes
+  need the owner. A merge into `staging` is a release.
 - Branch from `staging` and open a pull request into `staging`; never push to `staging` or `main`.
 - Never commit secrets or real personal data. Never use production data locally or in tests.
 - Every API route that touches organization data checks the caller's role, and has a test that
@@ -51,6 +58,10 @@ There are no preview deployments.
 - Database migrations must work while the previous version is still running: add first, remove in
   a later release. Never edit a merged migration.
 - Phone first: check pages at 390px wide. Accessible: labels, keyboard use, contrast.
+- Wherever "Add to calendar" appears (pages or emails), offer both an .ics file and a Google Calendar
+  link, in the event's time zone (SGN-9).
+- A successful Save leaves the form for the page it belongs to, which says what was saved
+  (`SevakNav.flashAndGo`, NFR-17). A failed save stays on the form with the error.
 - Keep `docs/REQUIREMENTS.md` in step with features: add or update the requirement ID, and bump the
   version line at the top.
 - Match the surrounding code's style. Prefer small, focused pull requests.

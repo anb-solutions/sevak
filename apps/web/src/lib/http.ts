@@ -1,6 +1,6 @@
 // Shared pieces for API routes: who is calling, the session cookie, and the
 // checks every request that changes something must pass.
-import { sessionViewer, type Viewer } from "@sevak/core";
+import { hit, sessionViewer, type Viewer } from "@sevak/core";
 import { getDb } from "@/lib/db";
 
 // __Host- means the browser only sends it back to this exact site, over
@@ -70,21 +70,25 @@ export async function readJson(req: Request, max: number): Promise<unknown> {
   }
 }
 
-// The address the person's browser used. Cloud Run puts the real one first.
+// The address the person's browser used. Anyone can send their own
+// X-Forwarded-For; Google's front end adds the real address at the end, so
+// read from the right, skipping private addresses (Google's own hops). Behind
+// a Google load balancer, which adds its own address after the person's, set
+// SEVAK_PROXY_HOPS=2.
 export function clientIp(req: Request): string {
-  return (req.headers.get("x-forwarded-for") ?? "").split(",")[0]!.trim() || "unknown";
+  const hops = (req.headers.get("x-forwarded-for") ?? "").split(",").map((s) => s.trim()).filter((s) => s && !isPrivate(s));
+  const fromRight = Math.max(1, Number(process.env.SEVAK_PROXY_HOPS) || 1);
+  return (hops[hops.length - fromRight] ?? hops[0] ?? "unknown").slice(0, 64);
 }
 
-// A small, best-effort limit per server instance, on top of the per-email
-// limit in the database (which is the one that counts).
-const hits = new Map<string, number[]>();
-export function tooMany(key: string, limit: number, windowMs: number): boolean {
-  const now = Date.now();
-  const recent = (hits.get(key) ?? []).filter((t) => now - t < windowMs);
-  recent.push(now);
-  hits.set(key, recent);
-  if (hits.size > 10_000) hits.clear();
-  return recent.length > limit;
+function isPrivate(ip: string): boolean {
+  return /^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1$|f[cd][0-9a-f]{2}:|fe80:)/i.test(ip);
+}
+
+// Per-address limits, counted in the database so they hold across server
+// instances (packages/core/src/limits.ts).
+export async function tooMany(key: string, limit: number, windowMs: number): Promise<boolean> {
+  return !(await hit(await getDb(), key, limit, windowMs));
 }
 
 // Where links in emails point. Set APP_URL wherever the app is deployed, so

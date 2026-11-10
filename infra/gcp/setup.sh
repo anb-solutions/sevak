@@ -24,10 +24,16 @@
 #     email, "google-client-secret" for Continue with Google). Their values
 #     come from GitHub: each deploy copies them in from the environment's
 #     secrets. Only the app can read them, and only the deploy can update them.
+#   - "app-secrets-key": a random key, made here, that encrypts what
+#     organizations connect (their Zeffy API keys). Only the app can read it.
+#   - A private Cloud Storage bucket for uploaded documents
+#   - An alert by email when the site is down (--alert-email, by default
+#     the account running this): Google checks /api/v1/health every 5
+#     minutes from several places. Once the app has been deployed.
 set -euo pipefail
 
 REGION="us-central1"
-PROJECT="" ENV="" REPO="" DATABASE="cloudsql" BUDGET=""
+PROJECT="" ENV="" REPO="" DATABASE="cloudsql" BUDGET="" ALERT_EMAIL=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --project) PROJECT="$2"; shift 2 ;;
@@ -36,6 +42,7 @@ while [ $# -gt 0 ]; do
     --region) REGION="$2"; shift 2 ;;
     --database) DATABASE="$2"; shift 2 ;;
     --budget) BUDGET="$2"; shift 2 ;;
+    --alert-email) ALERT_EMAIL="$2"; shift 2 ;;
     --email) shift 2 ;; # no longer needed: keys come from GitHub (README step 5)
     --google) shift ;;
     *) echo "Unknown option: $1" >&2; exit 2 ;;
@@ -65,7 +72,7 @@ INSTANCE="sevak-db"
 CONNECTION=""
 
 say "Turning on the Google Cloud services Sevak uses"
-gcloud services enable run.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com \
+gcloud services enable run.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com storage.googleapis.com \
   iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com cloudresourcemanager.googleapis.com
 if [ "$DATABASE" = "cloudsql" ]; then gcloud services enable sqladmin.googleapis.com; fi
 
@@ -118,16 +125,16 @@ gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" --role roles/iam
 if [ "$DATABASE" = "cloudsql" ]; then
   say "PostgreSQL on Cloud SQL (smallest size). Creating it takes 5 to 10 minutes."
   if ! exists gcloud sql instances describe "$INSTANCE"; then
-    if [ "$ENV" = "production" ]; then
-      safety=(--backup-start-time 08:00 --deletion-protection) # nightly backups; can't be deleted by accident
-    else
-      safety=(--no-backup) # staging holds only demo data
-    fi
+    # The same in every environment: nightly backups, and it can't be
+    # deleted by accident.
+    safety=(--backup-start-time 08:00 --deletion-protection)
     gcloud sql instances create "$INSTANCE" --database-version POSTGRES_18 --edition enterprise \
       --tier db-f1-micro --region "$REGION" --availability-type zonal \
       --storage-type SSD --storage-size 10 --ssl-mode ENCRYPTED_ONLY \
       --root-password "$(openssl rand -hex 24)" "${safety[@]}"
   fi
+  # Set up before every environment had them: turn them on.
+  gcloud sql instances patch "$INSTANCE" --backup-start-time 08:00 --deletion-protection --quiet >/dev/null
   exists gcloud sql databases describe sevak --instance "$INSTANCE" ||
     gcloud sql databases create sevak --instance "$INSTANCE"
   CONNECTION="$PROJECT:$REGION:$INSTANCE"
@@ -176,6 +183,33 @@ for name in resend-api-key google-client-secret; do
   done
 done
 
+# The key that encrypts what organizations connect (their Zeffy API keys).
+# Made here at random and never leaves Google Cloud: not in GitHub, not
+# shown. Only the app reads it; the deploy can only see that it exists.
+say "Encryption key for connected accounts (app-secrets-key)"
+exists gcloud secrets describe app-secrets-key || gcloud secrets create app-secrets-key --replication-policy automatic
+if [ -z "$(gcloud secrets versions list app-secrets-key --filter 'state=ENABLED' --format 'value(name)' --limit 1)" ]; then
+  openssl rand -base64 32 | tr -d '\n' | gcloud secrets versions add app-secrets-key --data-file=- >/dev/null
+  echo "Made a new one."
+else
+  echo "Already has one; left as it is (changing it would disconnect every organization)."
+fi
+gcloud secrets add-iam-policy-binding app-secrets-key --member "serviceAccount:$RUNTIME_SA" \
+  --role roles/secretmanager.secretAccessor >/dev/null
+gcloud secrets add-iam-policy-binding app-secrets-key --member "serviceAccount:$DEPLOY_SA" \
+  --role roles/secretmanager.viewer >/dev/null
+
+# Uploaded documents and certificate PDFs. Private: no public access, and
+# only the app's own account can read or write it; the app checks who may
+# see each file before serving it.
+BUCKET="$PROJECT-sevak-files"
+say "Private bucket for uploaded documents: $BUCKET"
+exists gcloud storage buckets describe "gs://$BUCKET" ||
+  gcloud storage buckets create "gs://$BUCKET" --location "$REGION" \
+    --uniform-bucket-level-access --public-access-prevention
+gcloud storage buckets add-iam-policy-binding "gs://$BUCKET" --member "serviceAccount:$RUNTIME_SA" \
+  --role roles/storage.objectAdmin >/dev/null
+
 if [ -n "$BUDGET" ]; then
   say "Budget alert: emails billing admins at 50%, 90% and 100% of \$$BUDGET a month"
   gcloud services enable billingbudgets.googleapis.com
@@ -192,6 +226,60 @@ if [ -n "$BUDGET" ]; then
   fi
 fi
 
+# ---------- Alerts ----------
+# Kept cheap on purpose: uptime checks are free at this size, and Google
+# charges for each alert condition (about $1.50 a month), so there's one,
+# for the site being down. New errors are emailed by Error Reporting, which
+# is free but only set up in the console (docs/ENVIRONMENTS.md, step 8).
+ALERT_EMAIL="${ALERT_EMAIL:-$(gcloud config get-value account 2>/dev/null)}"
+# The address people use: the connected domain, or else Cloud Run's own.
+HOST="$(gcloud beta run domain-mappings list --project "$PROJECT" --region "$REGION" --filter 'spec.routeName=sevak-web' --format 'value(metadata.name)' --limit 1 2>/dev/null || true)"
+[ -n "$HOST" ] || HOST="$(gcloud run services describe sevak-web --project "$PROJECT" --region "$REGION" --format 'value(status.url)' 2>/dev/null | sed 's#^https://##' || true)"
+if [ -z "$HOST" ] || [ -z "$ALERT_EMAIL" ]; then
+  say "Alerts: skipped until the app is deployed (run this again afterwards)"
+else
+  say "Alert: emails $ALERT_EMAIL when https://$HOST is down"
+  gcloud services enable monitoring.googleapis.com
+  CHANNEL="$(gcloud beta monitoring channels list --filter "displayName='Sevak alerts' AND type='email'" --format 'value(name)' --limit 1)"
+  [ -n "$CHANNEL" ] || CHANNEL="$(gcloud beta monitoring channels create --display-name 'Sevak alerts' --type email \
+    --channel-labels "email_address=$ALERT_EMAIL" --format 'value(name)')"
+  CHECK="$(gcloud monitoring uptime list-configs --filter "displayName='Sevak health'" --format 'value(name)' --limit 1)"
+  if [ -z "$CHECK" ]; then
+    gcloud monitoring uptime create "Sevak health" --resource-type uptime-url \
+      --resource-labels "host=$HOST,project_id=$PROJECT" --protocol https --path /api/v1/health \
+      --matcher-content '"ok":true' --matcher-type contains-string --period 5 --timeout 10 >/dev/null
+    CHECK="$(gcloud monitoring uptime list-configs --filter "displayName='Sevak health'" --format 'value(name)' --limit 1)"
+  fi
+  if [ -n "$(gcloud beta monitoring policies list --filter "displayName='Sevak is down'" --format 'value(name)' --limit 1)" ]; then
+    echo "Already set."
+  else
+    POLICY="$(mktemp)"
+    cat > "$POLICY" <<JSON
+{
+  "displayName": "Sevak is down",
+  "documentation": {"content": "Google's checks of https://$HOST/api/v1/health are failing from more than one place. Look at Cloud Run → sevak-web → Logs, and the latest deploy in GitHub Actions. To go back to the previous version: Cloud Run → sevak-web → Revisions.", "mimeType": "text/markdown"},
+  "combiner": "OR",
+  "conditions": [{
+    "displayName": "Health check failing",
+    "conditionThreshold": {
+      "filter": "metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" AND metric.label.check_id=\"${CHECK##*/}\" AND resource.type=\"uptime_url\"",
+      "aggregations": [{"alignmentPeriod": "1200s", "perSeriesAligner": "ALIGN_NEXT_OLDER", "crossSeriesReducer": "REDUCE_COUNT_FALSE", "groupByFields": ["resource.label.*"]}],
+      "comparison": "COMPARISON_GT",
+      "thresholdValue": 1,
+      "duration": "60s",
+      "trigger": {"count": 1}
+    }
+  }],
+  "notificationChannels": ["$CHANNEL"],
+  "alertStrategy": {"autoClose": "1800s"}
+}
+JSON
+    gcloud beta monitoring policies create --policy-from-file "$POLICY" >/dev/null
+    rm -f "$POLICY"
+    echo "Created. You'll get an email if the site stops answering, and another when it's back."
+  fi
+fi
+
 say "Done. Add these as variables on the GitHub environment \"$ENV\""
 echo "(GitHub: repository Settings → Environments → $ENV → Environment variables)"
 echo
@@ -201,6 +289,7 @@ echo "  GCP_WIF_PROVIDER       $POOL/providers/github-actions"
 echo "  GCP_DEPLOY_SA          $DEPLOY_SA"
 echo "  GCP_RUNTIME_SA         $RUNTIME_SA"
 if [ -n "$CONNECTION" ]; then echo "  GCP_CLOUDSQL_INSTANCE  $CONNECTION"; fi
+echo "  GCP_FILES_BUCKET       $BUCKET"
 echo
 echo "None of these are secrets. No keys were created."
 echo "Keys for email and Google sign-in go in the GitHub environment's secrets (infra/gcp/README.md)."

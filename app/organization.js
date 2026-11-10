@@ -58,8 +58,29 @@
     return [$("contactEmail")].concat(Array.prototype.slice.call(form.querySelectorAll('[data-key="email"]')));
   }
 
+  // A city or a phone number is enough: either one, or both. The street
+  // address is always optional; if it's given, so is its city.
+  var ADDRESS_IDS = ["city"];
+
+  function syncAddressOrPhone() {
+    var hasStreet = !!$("addressLine1").value.trim();
+    var hasCity = !!$("city").value.trim();
+    var hasPhone = !!$("contactPhone").value.trim();
+    $("addressLine1").required = false;
+    $("city").required = hasStreet || !hasPhone;
+    $("contactPhone").required = !hasCity;
+  }
+
   function messageFor(input) {
     var v = input.value.trim();
+    syncAddressOrPhone();
+    var eitherOr = input.required && !v && (ADDRESS_IDS.indexOf(input.id) !== -1 || input.id === "contactPhone");
+    var neither = !$("contactPhone").value.trim() && !$("city").value.trim();
+    if (eitherOr && neither) {
+      return input.id === "contactPhone"
+        ? "Add a phone number, or the organization's city on the Address tab. One is enough."
+        : "Add the organization's city, or a phone number on the Contact tab. One is enough.";
+    }
     var basic = F.basicMessage(input);
     if (basic) return basic;
 
@@ -474,21 +495,16 @@
       $("status").textContent = "Couldn't save in this browser. Check that site storage is allowed.";
       return;
     }
+    // Saved: on to its events, which say so. (Setting up an organization
+    // puts you on its team, so Manage appears there.)
     var wasNew = !orgId;
-    orgId = saved.id;
-    O.setCurrent(orgId);
-    if (creating) {
-      creating = false;
-      history.replaceState(null, "", location.pathname + location.hash);
-    }
+    O.setCurrent(saved.id);
     dirty = false;
-    applyMode();
-    docs.setOwner("org:" + orgId);
-    // Setting up an organization puts you on its team, so Manage appears.
-    window.SevakNav.render();
-    $("status").textContent = (wasNew ? "Organization created and saved on this device." : "Organization profile saved on this device.") +
-      " You can now create events on the Events tab.";
-    renderVerify();
+    var name = "“" + (saved.name || "your organization") + "”";
+    window.SevakNav.flashAndGo("events.html", wasNew ? "Created " + name + ". Next, add its first event." : "Saved the profile of " + name + ".", {
+      href: "organization.html",
+      linkText: "Edit the organization"
+    });
   });
 
   $("delete-org").addEventListener("click", function () {
@@ -604,13 +620,18 @@
         ". Sevak usually replies within two working days; you'll get an email. Until then, public events stay private.";
       if (v.evidence) body.appendChild(evidenceList(v.evidence));
       if (v.note) body.appendChild(vEl("p", "verify-note", "Your note: “" + v.note + "”"));
-      var proto = vEl("p", "hint verify-proto");
-      proto.appendChild(document.createTextNode("Prototype: there are no Sevak staff here, so you can "));
-      var r = vEl("a", null, "review the request yourself");
-      r.href = "review.html";
-      proto.appendChild(r);
-      proto.appendChild(document.createTextNode("."));
-      body.appendChild(proto);
+      // Who reviews it: Sevak's staff (in the prototype, anyone).
+      var server = window.SevakServer;
+      var staff = server && server.user && server.user.isPlatformAdmin;
+      if (!server || staff) {
+        var proto = vEl("p", "hint verify-proto");
+        proto.appendChild(document.createTextNode(staff ? "You're Sevak staff: " : "Prototype: there are no Sevak staff here, so you can "));
+        var r = vEl("a", null, staff ? "review it on the Review page" : "review the request yourself");
+        r.href = "review.html";
+        proto.appendChild(r);
+        proto.appendChild(document.createTextNode("."));
+        body.appendChild(proto);
+      }
       if (canAct) {
         var row = vEl("div", "fill-row");
         row.appendChild(button("Withdraw request", "btn-secondary btn-small", function () {

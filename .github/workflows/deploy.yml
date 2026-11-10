@@ -11,6 +11,11 @@ on:
   push:
     branches: [staging, main]
   workflow_dispatch: # redeploy the branch's latest commit by hand
+    inputs:
+      update_database:
+        description: Run database migrations (and demo data on staging) even if nothing that affects the database changed
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -40,9 +45,13 @@ jobs:
       EMAIL_FROM: ${{ vars.EMAIL_FROM }} # optional; the app has a default
       PLATFORM_ADMINS: ${{ vars.SEVAK_PLATFORM_ADMINS }} # Sevak staff emails, comma-separated; optional
       GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }} # "Continue with Google"; optional, with the GOOGLE_CLIENT_SECRET secret
+      FILES_BUCKET: ${{ vars.GCP_FILES_BUCKET }} # private bucket for documents (infra/gcp/setup.sh); optional
+      PROXY_HOPS: ${{ vars.SEVAK_PROXY_HOPS }} # only with a proxy in front of Cloud Run (docs/ENVIRONMENTS.md); optional
       IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/sevak/web:${{ github.sha }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # to compare with the commit that's live now
 
       - name: Sign in to Google Cloud
         uses: google-github-actions/auth@v3
@@ -60,19 +69,45 @@ jobs:
           docker build -t "$IMAGE" .
           docker push "$IMAGE"
 
-      - name: Update the database (and add demo data on staging)
+      # The database job takes about 2 minutes just to start, so it only runs
+      # when something that affects the database changed since the version
+      # that's live: migrations, the schema, demo data or the task runner.
+      # When in doubt (first deploy, a commit it can't find), it runs.
+      - name: Check whether the database needs updating
+        id: db
+        env:
+          FORCE: ${{ inputs.update_database }}
+        run: |
+          live="$(gcloud run services describe sevak-web --project "$PROJECT" --region "$REGION" \
+            --format 'value(spec.template.spec.containers[0].image)' 2>/dev/null | sed -n 's/.*:\([0-9a-f]\{40\}\)$/\1/p')"
+          paths=(packages/db packages/core/src/seed.ts packages/core/src/tasks.ts Dockerfile pnpm-lock.yaml .github/workflows/deploy.yml)
+          if [ "$FORCE" = "true" ]; then
+            reason="asked for when the deploy was started"
+          elif [ -z "$live" ]; then
+            reason="no version is live yet"
+          elif ! git cat-file -e "$live^{commit}" 2>/dev/null; then
+            reason="the live version's commit ($live) isn't in this branch's history"
+          elif ! git diff --quiet "$live" "$GITHUB_SHA" -- "${paths[@]}"; then
+            reason="these changed since the live version: $(git diff --name-only "$live" "$GITHUB_SHA" -- "${paths[@]}" | tr '\n' ' ')"
+          else
+            echo "Skipping the database job: nothing that affects the database changed since ${live:0:7}."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Running the database job: $reason"
+          echo "run=true" >> "$GITHUB_OUTPUT"
+
+      - name: Update the database
+        if: steps.db.outputs.run == 'true'
         run: |
           sql_flag=()
           if [ -n "$CLOUDSQL" ]; then sql_flag=(--set-cloudsql-instances "$CLOUDSQL"); fi
           gcloud run jobs deploy sevak-tasks --project "$PROJECT" --region "$REGION" --image "$IMAGE" \
             --service-account "$RUNTIME_SA" --set-secrets DATABASE_URL=database-url:latest \
-            --set-env-vars SEVAK_ENV="$SEVAK_ENV" --command node --args tasks/tasks.mjs,migrate \
+            --set-env-vars SEVAK_ENV="$SEVAK_ENV" --command node --args tasks/tasks.mjs,deploy \
             --max-retries 0 --task-timeout 300s "${sql_flag[@]}"
+          # Migrations only. No environment gets demo data.
           gcloud run jobs execute sevak-tasks --project "$PROJECT" --region "$REGION" --wait
-          if [ "$SEVAK_ENV" = "staging" ]; then
-            gcloud run jobs execute sevak-tasks --project "$PROJECT" --region "$REGION" --wait \
-              --args tasks/tasks.mjs,seed
-          fi
 
       # The app's keys live in GitHub as environment secrets (RESEND_API_KEY,
       # GOOGLE_CLIENT_SECRET). The app reads them from Secret Manager, so a
@@ -116,6 +151,8 @@ jobs:
           if [ -n "$DOMAIN" ]; then env_vars+="|APP_URL=https://$DOMAIN"; fi
           if [ -n "$PLATFORM_ADMINS" ]; then env_vars+="|SEVAK_PLATFORM_ADMINS=$PLATFORM_ADMINS"; fi
           if [ -n "$EMAIL_FROM" ]; then env_vars+="|EMAIL_FROM=$EMAIL_FROM"; fi
+          if [ -n "$FILES_BUCKET" ]; then env_vars+="|SEVAK_FILES_BUCKET=$FILES_BUCKET"; fi
+          if [ -n "$PROXY_HOPS" ]; then env_vars+="|SEVAK_PROXY_HOPS=$PROXY_HOPS"; fi
           has_key() { [ -n "$(gcloud secrets versions list "$1" --project "$PROJECT" --filter state=ENABLED --format 'value(name)' --limit 1 2>/dev/null)" ]; }
           if has_key resend-api-key; then
             env_vars+="|EMAIL_MODE=resend"
@@ -123,6 +160,8 @@ jobs:
           else
             env_vars+="|EMAIL_MODE=log"
           fi
+          # Encrypts organizations' Zeffy keys; made by infra/gcp/setup.sh.
+          if has_key app-secrets-key; then secrets+=",SEVAK_SECRETS_KEY=app-secrets-key:latest"; fi
           if [ -n "$GOOGLE_CLIENT_ID" ] && has_key google-client-secret; then
             env_vars+="|GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID"
             secrets+=",GOOGLE_CLIENT_SECRET=google-client-secret:latest"
@@ -148,21 +187,20 @@ jobs:
             exit 1
           fi
 
-      # Reads real data from the database through the new version, before any
-      # user is sent to it. Staging has demo data to read; production doesn't.
+      # Reads from the database through the new version, before any user is
+      # sent to it: the public organizations and events, as a visitor sees
+      # them. The same check in every environment.
       - name: Check the new version reads the database
-        if: env.SEVAK_ENV == 'staging'
         run: |
-          curl -fsS "${{ steps.deploy.outputs.next }}/api/v1/events/flute-mali-centenary-celebration" -o event.json
+          curl -fsS "${{ steps.deploy.outputs.next }}/api/v1/sync" -o sync.json
           python3 - <<'PY'
           import json, sys
-          event = json.load(open("event.json"))
-          shifts = [s for r in event["roles"] for s in r["shifts"]]
-          print(f'Read "{event["title"]}" from the database: {len(event["roles"])} roles, {len(shifts)} shifts, '
-                f'{sum(s["spotsLeft"] for s in shifts)} spots left.')
-          if not event["roles"] or not shifts:
-              print("::error::The demo event came back without roles or shifts.")
+          data = json.load(open("sync.json"))["data"]
+          orgs, events = data["sevak.organizations.v1"], data["sevak.events.v1"]
+          if not isinstance(orgs, list) or not isinstance(events, list):
+              print("::error::The new version didn't read organizations and events from the database.")
               sys.exit(1)
+          print(f"Read {len(orgs)} organizations and {len(events)} public events from the database.")
           PY
 
       - name: Switch users to the new version
