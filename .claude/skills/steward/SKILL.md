@@ -57,6 +57,10 @@ Read the diff as an attacker would. These are the mistakes this codebase has act
 
 **Nobody approves themselves.**
 - Nobody decides on their own hours. An Admin's hours need a different Admin, or Sevak staff.
+- Nobody issues or declines their own certificate. An Admin's needs a different Admin, or Sevak
+  staff (`own_certificate` in `certificates.ts`).
+- Known limit for both: someone who adds a second email address of their own to the team can act
+  through it. Only a person reviewing the Team tab can catch that.
 - Certificates take the organization, hours and events from Sevak's records, never from the
   page.
 - Look for indirect routes:
@@ -73,7 +77,8 @@ Read the diff as an attacker would. These are the mistakes this codebase has act
   collection on a page load.
 
 **Pages.**
-- **No inline scripts:** the content security policy is `script-src 'self'`.
+- **No inline scripts or styles:** the content security policy is `script-src 'self'` and
+  `style-src 'self'`. No `<script>`/`<style>` blocks, `style="…"` or `onclick=` in markup.
 - Text from people goes in with `textContent`, never `innerHTML`.
 - Links people supplied are shown only if they're `https:`, and open with
   `rel="noopener noreferrer"`.

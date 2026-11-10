@@ -135,7 +135,7 @@
             <label class="choice"><input type="radio" name="locationType" value="later"><span><strong>Shared later</strong><small>No address shown; volunteers get it from you</small></span></label>
           </div>
 
-          <div id="in-person-fields" class="stack" style="margin-top:16px">
+          <div id="in-person-fields" class="stack mt-16">
             <div class="field">
               <label for="venue">Venue name <span class="optional">(optional)</span></label>
               <input id="venue" type="text" maxlength="120" placeholder="e.g. Riverside Community Center">
@@ -149,7 +149,7 @@
             </div>
             <div id="address-fields">
               <button type="button" class="btn btn-secondary btn-small" id="use-org-address" hidden>Use our organization's address</button>
-              <div class="grid" style="margin-top:12px">
+              <div class="grid mt-12">
                 <div class="field span-2">
                   <label for="country">Country or region</label>
                   <select id="country" required></select>
@@ -178,13 +178,13 @@
             </div>
           </div>
 
-          <div class="field" id="later-fields" style="margin-top:16px" hidden>
+          <div class="field mt-16" id="later-fields" hidden>
             <label for="locationNote">What volunteers see <span class="optional">(optional)</span></label>
             <input id="locationNote" type="text" maxlength="200" placeholder="Contact your event admin for location details.">
             <p class="hint">For private venues, or when you email the location to people who sign up. Leave it empty to say "Contact your event admin for location details."</p>
           </div>
 
-          <div class="field" id="online-fields" style="margin-top:16px" hidden>
+          <div class="field mt-16" id="online-fields" hidden>
             <label for="onlineUrl">Meeting link <span class="optional">(optional)</span></label>
             <input id="onlineUrl" type="url" inputmode="url" maxlength="300" placeholder="https://…">
             <p class="hint">Only volunteers who sign up will see this link.</p>
@@ -201,7 +201,7 @@
           <p class="summary" id="roles-summary" aria-live="polite"></p>
           <div class="stack" id="role-list"></div>
           <p class="error" id="roles-error"></p>
-          <button type="button" class="btn btn-secondary" id="add-role" style="margin-top:12px">+ Add a role</button>
+          <button type="button" class="btn btn-secondary mt-12" id="add-role">+ Add a role</button>
           <details class="role-presets" id="role-presets">
             <summary id="role-presets-label">Or start from a common role</summary>
             <div class="fill-row" role="group" aria-labelledby="role-presets-label" id="role-preset-buttons"></div>
@@ -222,7 +222,7 @@
             <label class="choice"><input type="radio" name="visibility" value="public" checked><span><strong>Public</strong><small>Listed on Sevak and in search results, so anyone can find it and sign up</small></span></label>
             <label class="choice"><input type="radio" name="visibility" value="private"><span><strong>Private</strong><small>Not listed anywhere. Only people you share the link with, or invite by email, text or WhatsApp, can see it</small></span></label>
           </div>
-          <p class="notice notice-warn" id="unverified-note" style="margin-top:12px" hidden><span id="unverified-text">Your organization isn't verified yet, so this event will stay private until it is. You can still share its link.</span> <a href="organization.html" id="unverified-link">Get verified</a></p>
+          <p class="notice notice-warn mt-12" id="unverified-note" hidden><span id="unverified-text">Your organization isn't verified yet, so this event will stay private until it is. You can still share its link.</span> <a href="organization.html" id="unverified-link">Get verified</a></p>
         </fieldset>
 
         <!-- Hours: who approves them (they count toward certificates) -->
@@ -289,7 +289,7 @@
         <h4 class="shifts-title">Shifts</h4>
         <div class="shift-list"></div>
         <p class="error shifts-error"></p>
-        <div class="fill-row" style="margin-top:8px">
+        <div class="fill-row mt-8">
           <button type="button" class="btn btn-secondary btn-small add-shift">+ Add a shift</button>
           <button type="button" class="btn btn-secondary btn-small copy-shifts" hidden>Copy first day's shifts to every day</button>
         </div>
