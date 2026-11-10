@@ -77,7 +77,8 @@ Read the diff as an attacker would. These are the mistakes this codebase has act
   collection on a page load.
 
 **Pages.**
-- **No inline scripts:** the content security policy is `script-src 'self'`.
+- **No inline scripts or styles:** the content security policy is `script-src 'self'` and
+  `style-src 'self'`. No `<script>`/`<style>` blocks, `style="…"` or `onclick=` in markup.
 - Text from people goes in with `textContent`, never `innerHTML`.
 - Links people supplied are shown only if they're `https:`, and open with
   `rel="noopener noreferrer"`.

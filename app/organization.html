@@ -154,7 +154,7 @@
         </div>
         <p class="error" id="taxStatus-error"></p>
 
-        <div class="field" id="registration-field" style="margin-top:16px" hidden>
+        <div class="field mt-16" id="registration-field" hidden>
           <label for="registrationNumber">Registration number <span class="optional">(optional)</span></label>
           <input id="registrationNumber" type="text" maxlength="30" autocomplete="off">
           <p class="hint">The number from your charity regulator or tax authority, for example an EIN in the US, a charity number in the UK or a business number in Canada. Adding it helps us verify you faster. It's used only for verification and is never shown publicly.</p>
@@ -202,7 +202,7 @@
 
       <div class="save-bar" id="save-bar">
         <p class="status" id="status" role="status" aria-live="polite"></p>
-        <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap">
+        <div class="inline-row inline-row-wide">
           <span class="hint" id="delete-org-hint" hidden>Only admins can delete this organization.</span>
           <button type="button" class="btn btn-danger-link" id="delete-org">Delete organization</button>
           <button type="submit" class="btn btn-primary">Save profile</button>

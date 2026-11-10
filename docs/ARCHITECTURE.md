@@ -323,9 +323,10 @@ volunteer's calendar entry and a cancellation removes it.
 
 - HTTPS everywhere, and strict security headers on every response (`apps/web/next.config.ts`),
   checked by `tests/e2e/security.e2e.js`:
-  - **Content Security Policy:** scripts only from Sevak (no inline scripts), nothing framed
-    (`frame-ancestors 'none'`), forms only to Sevak, no plugins. Styles still allow inline style
-    attributes, which the pages use; moving those to classes would let that go too.
+  - **Content Security Policy:** scripts and styles only from Sevak's own files (no inline scripts,
+    `<style>` blocks or `style` attributes; spacing and rows are classes in `app/app.css`),
+    nothing framed (`frame-ancestors 'none'`), forms only to Sevak, no plugins.
+    `security.e2e.js` opens every page and fails if the browser blocks anything.
   - **HSTS** for two years; `X-Content-Type-Options: nosniff`; `X-Frame-Options: DENY`;
     `Referrer-Policy: strict-origin-when-cross-origin`.
   - **Cross-Origin-Opener-Policy** and **Cross-Origin-Resource-Policy** `same-origin`: other

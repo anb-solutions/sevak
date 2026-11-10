@@ -3,12 +3,13 @@ import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
 
 // Security headers for every response (docs/ARCHITECTURE.md §4.3). Scripts
-// only from Sevak itself: no inline scripts, so an injected <script> can't
-// run. (Styles still allow inline style attributes, which the pages use.)
+// and styles only from Sevak's own files: no inline scripts or styles, so
+// nothing injected into a page can run or restyle it. (Scripts may still set
+// styles through element.style, which the policy allows.)
 const csp = [
   "default-src 'self'",
   "script-src 'self'",
-  "style-src 'self' 'unsafe-inline'",
+  "style-src 'self'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
   "connect-src 'self'",

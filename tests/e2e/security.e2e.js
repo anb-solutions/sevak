@@ -64,6 +64,22 @@ const { BASE, start, person, signIn, email } = require("./helpers");
   await p.evaluate(() => { const s = document.createElement("script"); s.textContent = "window.__injected = true"; document.body.appendChild(s); });
   check((await p.evaluate(() => window.__injected)) !== true, "injected inline script blocked");
 
+  // Every page works under the content security policy: no inline script
+  // or style is blocked (the policy allows neither).
+  const policy = (res.headers()["content-security-policy"] || "").split(";").map((d) => d.trim());
+  check(policy.includes("style-src 'self'"), "styles only from Sevak's own files");
+  const blocked = [];
+  const admin0 = await person(t, "pages");
+  admin0.on("console", (m) => { if (/Content Security Policy|Refused to (apply|execute|load)/i.test(m.text())) blocked.push(admin0.url() + ": " + m.text().slice(0, 140)); });
+  const pages = ["../index.html", "../privacy.html", "../terms.html", "signup.html", "signup.html?view=mine", "profile.html", "join.html", "verify.html",
+    "organization.html?new=1", "events.html", "event.html", "main-event.html", "volunteers.html", "dashboard.html", "certificate.html", "outbox.html"];
+  for (const pg of pages) await admin0.goto(BASE + "/app/" + pg, { waitUntil: "networkidle" });
+  const out = await (await t.browser.newContext()).newPage();
+  out.on("console", (m) => { if (/Content Security Policy|Refused to (apply|execute|load)/i.test(m.text())) blocked.push("signed out " + out.url() + ": " + m.text().slice(0, 140)); });
+  await out.goto(BASE + "/app/signin.html", { waitUntil: "networkidle" });
+  await out.goto(BASE + "/", { waitUntil: "networkidle" });
+  check(blocked.length === 0, "no page has anything blocked by the policy: " + JSON.stringify(blocked.slice(0, 5)));
+
   // No demo data or samples on the real app.
   const admin = await person(t, "admin");
   await admin.goto(BASE + "/app/dashboard.html");
