@@ -45,6 +45,7 @@
       var range = E.mainRange(main.id);
       var group = document.createElement("div");
       group.className = "main-group";
+      group.dataset.mainId = main.id;
 
       var head = document.createElement("div");
       head.className = "main-head";

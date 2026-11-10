@@ -97,11 +97,12 @@ const SP = process.argv[2]; const URL_ = 'http://localhost:8765/app/profile.html
   await p.check('input[name=availability][value=anytime]', { force: true });
   await p.click('#tab-about');
   await p.click('#save');
-  check((await p.textContent('#status')).includes('saved'), 'saved from about tab: ' + await p.textContent('#status'));
+  await p.waitForURL(u => !/profile\.html/.test(String(u)));
+  check((await p.textContent('#saved-flash')).includes('Your profile is saved'), 'saved from about tab, and left the form');
   const saved = await p.evaluate(() => JSON.parse(localStorage.getItem('sevak.profile.v1')));
   check(saved.photo.startsWith('data:image/jpeg') && saved.photo.length < 150000, 'photo stored, ' + saved.photo.length + ' chars');
   check(saved.affiliations[0].name === 'Troop 42' && saved.aboutMe === 'Hello there', 'about tab saved');
-  await p.reload();
+  await p.goto(URL_ + '#about');
   check(!(await p.$eval('.photo-img', i => i.hidden)) && (await p.getAttribute('.photo-img', 'src')).startsWith('data:image/jpeg'), 'photo after reload');
   check(await p.isVisible('#about-me-section'), 'reload keeps #about tab');
   await p.click('#tab-details');

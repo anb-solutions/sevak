@@ -61,7 +61,7 @@ const call = (page, method, url, body) => page.evaluate(([m, u, b]) => fetch(u, 
   // Saving keeps where it came from; starting again opens the same event.
   await asha.fill("#venue", "Temple hall").catch(() => {});
   await asha.click("#save-draft");
-  await asha.waitForTimeout(500);
+  await asha.waitForURL(/events\.html/); // saving goes back to Events
   check((await synced(asha)).data["sevak.events.v1"].find((e) => e.id === saved.id).source?.id === FESTIVAL, "saving keeps the Zeffy link");
   const again = await call(asha, "POST", zeffy + "/events", { campaignId: FESTIVAL, timezone: "America/Chicago" });
   check(again.data.eventId === saved.id && again.data.created === false, "starting from it again opens the same event");
@@ -75,7 +75,9 @@ const call = (page, method, url, body) => page.evaluate(([m, u, b]) => fetch(u, 
   await asha.click("text=Use these");
   check((await asha.inputValue("#title")) === "Spring Seva Festival 2030", "fills in the change");
   await asha.click("#save-draft");
-  await asha.waitForTimeout(500);
+  await asha.waitForURL(/events\.html/);
+  check((await asha.textContent("#saved-flash")).includes("Saved “Spring Seva Festival 2030” as a draft."), "back on Events, saying what was saved");
+  await asha.goto(BASE + "/app/event.html?id=" + saved.id);
   check((await synced(asha)).data["sevak.events.v1"].find((e) => e.id === saved.id).title === "Spring Seva Festival 2030", "saved");
   await asha.click("text=Refresh from Zeffy");
   await asha.waitForSelector("text=Up to date with Zeffy.");

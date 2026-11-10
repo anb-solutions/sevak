@@ -168,31 +168,30 @@
     }
   }
 
-  // Returns true when it moved on to another page.
+  // After saving with a way to join chosen: join (or ask), then where to
+  // go next and what to say there. Null without one.
   function completeJoin() {
     var i = intent();
-    if (!i) return false;
+    if (!i) return null;
     F.clear(INTENT_KEY);
-    if (i.way === "create") {
-      location.href = "organization.html?new=1";
-      return true;
-    }
+    if (i.way === "create") return { url: "organization.html?new=1", text: "Your profile is saved. Now set up your organization." };
     var org = window.SevakOrgs.get(i.orgId);
-    if (!org) return false;
+    if (!org) return null;
     var rec = M.isMember(org.id) ? { status: "active" } : M.request(org.id, i.note, i.way === "invite", i.code);
-    var next = i.returnTo || "signup.html#my-orgs";
-    if (rec && rec.status === "active") {
-      showJoinNotice(["Welcome! You're now a volunteer with " + org.name + ". ", noticeLink(next, i.returnTo ? "Back to the event" : "See its opportunities")]);
-    } else {
-      showJoinNotice(["Request sent to " + org.name + ". You can sign up for its events once they approve you. ", noticeLink("signup.html#all-orgs", "Browse opportunities")]);
-    }
-    renderTeams();
-    renderVolunteerOrgs();
-    renderSignature();
-    renderAccount();
-    window.SevakNav.render();
-    window.scrollTo(0, 0);
-    return false;
+    if (rec && rec.status === "active") return { url: i.returnTo || "signup.html#my-orgs", text: "Welcome! You're now a volunteer with " + org.name + "." };
+    return { url: "signup.html#all-orgs", text: "Request sent to " + org.name + ". You can sign up for its events once they approve you." };
+  }
+
+  // Where Save takes you back to: the page you came from in the app, or
+  // the opportunities list.
+  function backTo() {
+    try {
+      var from = document.referrer ? new URL(document.referrer) : null;
+      if (from && from.origin === location.origin && /\/app\/[\w-]+\.html$/.test(from.pathname) && !/\/(profile|signin|join)\.html$/.test(from.pathname)) {
+        return from.pathname.split("/").pop() + from.search + from.hash;
+      }
+    } catch (e) { /* no usable referrer */ }
+    return "signup.html";
   }
 
   // Organizations you volunteer with, and requests waiting.
@@ -438,18 +437,18 @@
       window.SevakDocs.moveOwner(docsOwner, nextOwner);
       if (nextOwner !== docsOwner) { docsOwner = nextOwner; docs.setOwner(docsOwner, DOCS_BLOCKED); }
     }
-    $("status").textContent = stored
-      ? "Profile saved" + SAVED_WHERE + "."
-      : "Couldn't save in this browser. Check that site storage is allowed.";
-    if (stored) {
-      M.acceptInvites();
-      if (completeJoin()) return;
+    if (!stored) {
+      $("status").textContent = "Couldn't save in this browser. Check that site storage is allowed.";
+      return;
     }
-    renderTeams();
-    renderVolunteerOrgs();
-    renderSignature();
-    renderAccount();
-    window.SevakNav.render();
+    // Saved: leave the form (staying makes people press Save again).
+    M.acceptInvites();
+    var joined = completeJoin();
+    if (joined) {
+      window.SevakNav.flashAndGo(joined.url, joined.text);
+      return;
+    }
+    window.SevakNav.flashAndGo(backTo(), "Your profile is saved" + SAVED_WHERE + ".", { href: "profile.html", linkText: "Edit your profile" });
   });
 
   $("delete-profile").addEventListener("click", function () {

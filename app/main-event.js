@@ -92,13 +92,15 @@
       $("status").textContent = "Couldn't save in this browser. Check that site storage is allowed.";
       return;
     }
+    // Saved: back to the Events list, which says so and highlights it.
     var isNew = !mainId;
-    mainId = main.id;
-    existing = main;
-    if (isNew) history.replaceState(null, "", "?id=" + encodeURIComponent(mainId));
-    applyTitle();
-    renderSubEvents();
-    $("status").textContent = isNew ? "Saved. Now add its sub-events." : "Saved.";
+    var id = window.CSS && CSS.escape ? CSS.escape(main.id) : main.id;
+    window.SevakNav.flashAndGo("events.html",
+      "Saved the main event “" + main.title + "”." + (isNew ? " Add its sub-events with + Sub-event." : ""), {
+        href: "main-event.html?id=" + encodeURIComponent(main.id),
+        linkText: "Open it again",
+        highlight: '[data-main-id="' + id + '"]'
+      });
   });
 
   $("delete-main").addEventListener("click", function () {

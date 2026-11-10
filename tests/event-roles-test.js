@@ -51,9 +51,9 @@ const BASE = 'http://localhost:8765/app/'; const SP = process.argv[2];
     await (await row.$('[data-key="capacity"]')).fill('4');
   }
   await p.click('#publish');
-  await p.waitForTimeout(300);
+  await p.waitForURL(/events\.html/);   // saving goes back to Events
   const saved = await p.evaluate(() => JSON.parse(localStorage.getItem('sevak.events.v1')).find(e => e.title === 'Private recital'));
-  check(saved && saved.status === 'published', 'published without an address: ' + (await p.textContent('#status')));
+  check(saved && saved.status === 'published' && (await p.textContent('#saved-flash')).includes('Published “Private recital”'), 'published without an address');
   check(saved && saved.location.type === 'later' && saved.location.note.includes('day before'), 'location saved as shared later');
   await p.screenshot({ path: SP + '/event-roles.png', fullPage: true });
 

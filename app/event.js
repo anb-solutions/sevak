@@ -570,18 +570,21 @@
       $("status").textContent = "Couldn't save in this browser. Check that site storage is allowed.";
       return;
     }
-    if (!eventId) {
-      eventId = event.id;
-      createdAt = event.createdAt;
-      history.replaceState(null, "", "?id=" + encodeURIComponent(eventId) + location.hash);
-      docs.setOwner("event:" + eventId);
-    }
-    applyStatus();
+    // Saved: back to the Events list, which says so and highlights it.
     var privateNote = event.visibility === "public" && !(org && org.verificationStatus === "verified")
       ? " It stays private until your organization is verified." : "";
-    $("status").textContent = publishing
-      ? (wasPublished ? "Changes saved." : "Published." + privateNote)
-      : (wasPublished ? "Unpublished. The event is a draft again." : "Draft saved.");
+    var name = "“" + (event.title || "Untitled event") + "”";
+    window.SevakNav.flashAndGo("events.html", publishing
+      ? (wasPublished ? "Saved changes to " + name + "." : "Published " + name + "." + privateNote)
+      : (wasPublished ? "Unpublished " + name + ". It's a draft again." : "Saved " + name + " as a draft."), {
+      href: "event.html?id=" + encodeURIComponent(event.id),
+      linkText: "Open it again",
+      highlight: '[data-event-id="' + cssId(event.id) + '"]'
+    });
+  }
+
+  function cssId(id) {
+    return window.CSS && CSS.escape ? CSS.escape(id) : String(id).replace(/["\\]/g, "");
   }
 
   form.addEventListener("submit", function (e) { e.preventDefault(); save(true); });

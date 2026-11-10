@@ -29,8 +29,9 @@ const BASE = 'http://localhost:8765/app/'; const SP = process.argv[2];
   // Saving edits keeps it inactive
   await p.fill('#title', 'Riverside Park Clean-up (old)');
   await p.click('#publish');
+  await p.waitForURL(/events\.html/);   // saving goes back to Events
   check(await p.evaluate(() => JSON.parse(localStorage.getItem('sevak.events.v1')).find(e => e.id === 'demo-ev-park').active === false), 'publish keeps inactive');
-  await p.reload();
+  await p.goto(BASE + 'event.html?id=demo-ev-park');
   check(await vis('#inactive-note'), 'inactive after reload');
 
   // Events list hides it.

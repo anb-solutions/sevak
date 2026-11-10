@@ -495,21 +495,16 @@
       $("status").textContent = "Couldn't save in this browser. Check that site storage is allowed.";
       return;
     }
+    // Saved: on to its events, which say so. (Setting up an organization
+    // puts you on its team, so Manage appears there.)
     var wasNew = !orgId;
-    orgId = saved.id;
-    O.setCurrent(orgId);
-    if (creating) {
-      creating = false;
-      history.replaceState(null, "", location.pathname + location.hash);
-    }
+    O.setCurrent(saved.id);
     dirty = false;
-    applyMode();
-    docs.setOwner("org:" + orgId);
-    // Setting up an organization puts you on its team, so Manage appears.
-    window.SevakNav.render();
-    $("status").textContent = (wasNew ? "Organization created and saved on this device." : "Organization profile saved on this device.") +
-      " You can now create events on the Events tab.";
-    renderVerify();
+    var name = "“" + (saved.name || "your organization") + "”";
+    window.SevakNav.flashAndGo("events.html", wasNew ? "Created " + name + ". Next, add its first event." : "Saved the profile of " + name + ".", {
+      href: "organization.html",
+      linkText: "Edit the organization"
+    });
   });
 
   $("delete-org").addEventListener("click", function () {

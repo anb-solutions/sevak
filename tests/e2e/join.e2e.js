@@ -21,7 +21,9 @@ const ORG = "Temple Volunteers " + require("./helpers").RUN;
   await mei.fill("#firstName", "Mei"); await mei.fill("#lastName", "Test"); await mei.fill("#phone", "7135550100");
   await mei.check("input[name=availability][value=anytime]", { force: true }).catch(() => {});
   await mei.click("#save");
-  await mei.waitForFunction(() => /volunteer with/.test(document.getElementById("join-notice").textContent));
+  // Saving goes on to the organization's opportunities, which say so.
+  await mei.waitForSelector("#saved-flash");
+  check((await mei.textContent("#saved-flash")).includes("You're now a volunteer with " + ORG) && /signup\.html/.test(mei.url()), "after saving: on to its opportunities, saying so");
   check((await memberships(asha)).some((m) => m.email === email("mei") && m.status === "active"), "joined by invite code");
   check(mailsTo(email("mei")).includes("Welcome to " + ORG), "welcome email sent");
 

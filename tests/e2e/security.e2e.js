@@ -25,6 +25,8 @@ const { BASE, start, person, signIn, email } = require("./helpers");
   await p.fill("#firstName", "Asha"); await p.fill("#lastName", "Test"); await p.fill("#phone", "7135550100");
   await p.check("input[name=availability][value=anytime]", { force: true }).catch(() => {});
   await p.click("#save");
+  await p.waitForSelector("#saved-flash"); // saving leaves the form
+  await p.goto(BASE + "/app/profile.html");
   await p.evaluate(() => {
     localStorage.setItem("sevak.seenCertificates.v1", JSON.stringify(["c1"]));
     localStorage.setItem("sevak.outbox.v1", JSON.stringify([{ id: "m1", subject: "private" }]));
