@@ -27,10 +27,13 @@
 #   - "app-secrets-key": a random key, made here, that encrypts what
 #     organizations connect (their Zeffy API keys). Only the app can read it.
 #   - A private Cloud Storage bucket for uploaded documents
+#   - An alert by email when the site is down (--alert-email, by default
+#     the account running this): Google checks /api/v1/health every 5
+#     minutes from several places. Once the app has been deployed.
 set -euo pipefail
 
 REGION="us-central1"
-PROJECT="" ENV="" REPO="" DATABASE="cloudsql" BUDGET=""
+PROJECT="" ENV="" REPO="" DATABASE="cloudsql" BUDGET="" ALERT_EMAIL=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --project) PROJECT="$2"; shift 2 ;;
@@ -39,6 +42,7 @@ while [ $# -gt 0 ]; do
     --region) REGION="$2"; shift 2 ;;
     --database) DATABASE="$2"; shift 2 ;;
     --budget) BUDGET="$2"; shift 2 ;;
+    --alert-email) ALERT_EMAIL="$2"; shift 2 ;;
     --email) shift 2 ;; # no longer needed: keys come from GitHub (README step 5)
     --google) shift ;;
     *) echo "Unknown option: $1" >&2; exit 2 ;;
@@ -219,6 +223,60 @@ if [ -n "$BUDGET" ]; then
       --credit-types-treatment exclude-all-credits \
       --threshold-rule percent=0.5 --threshold-rule percent=0.9 --threshold-rule percent=1.0 >/dev/null
     echo "Created. A budget sends alerts; it doesn't stop spending."
+  fi
+fi
+
+# ---------- Alerts ----------
+# Kept cheap on purpose: uptime checks are free at this size, and Google
+# charges for each alert condition (about $1.50 a month), so there's one,
+# for the site being down. New errors are emailed by Error Reporting, which
+# is free but only set up in the console (docs/ENVIRONMENTS.md, step 8).
+ALERT_EMAIL="${ALERT_EMAIL:-$(gcloud config get-value account 2>/dev/null)}"
+# The address people use: the connected domain, or else Cloud Run's own.
+HOST="$(gcloud beta run domain-mappings list --project "$PROJECT" --region "$REGION" --filter 'spec.routeName=sevak-web' --format 'value(metadata.name)' --limit 1 2>/dev/null || true)"
+[ -n "$HOST" ] || HOST="$(gcloud run services describe sevak-web --project "$PROJECT" --region "$REGION" --format 'value(status.url)' 2>/dev/null | sed 's#^https://##' || true)"
+if [ -z "$HOST" ] || [ -z "$ALERT_EMAIL" ]; then
+  say "Alerts: skipped until the app is deployed (run this again afterwards)"
+else
+  say "Alert: emails $ALERT_EMAIL when https://$HOST is down"
+  gcloud services enable monitoring.googleapis.com
+  CHANNEL="$(gcloud beta monitoring channels list --filter "displayName='Sevak alerts' AND type='email'" --format 'value(name)' --limit 1)"
+  [ -n "$CHANNEL" ] || CHANNEL="$(gcloud beta monitoring channels create --display-name 'Sevak alerts' --type email \
+    --channel-labels "email_address=$ALERT_EMAIL" --format 'value(name)')"
+  CHECK="$(gcloud monitoring uptime list-configs --filter "displayName='Sevak health'" --format 'value(name)' --limit 1)"
+  if [ -z "$CHECK" ]; then
+    gcloud monitoring uptime create "Sevak health" --resource-type uptime-url \
+      --resource-labels "host=$HOST,project_id=$PROJECT" --protocol https --path /api/v1/health \
+      --matcher-content '"ok":true' --matcher-type contains-string --period 5 --timeout 10 >/dev/null
+    CHECK="$(gcloud monitoring uptime list-configs --filter "displayName='Sevak health'" --format 'value(name)' --limit 1)"
+  fi
+  if [ -n "$(gcloud beta monitoring policies list --filter "displayName='Sevak is down'" --format 'value(name)' --limit 1)" ]; then
+    echo "Already set."
+  else
+    POLICY="$(mktemp)"
+    cat > "$POLICY" <<JSON
+{
+  "displayName": "Sevak is down",
+  "documentation": {"content": "Google's checks of https://$HOST/api/v1/health are failing from more than one place. Look at Cloud Run → sevak-web → Logs, and the latest deploy in GitHub Actions. To go back to the previous version: Cloud Run → sevak-web → Revisions.", "mimeType": "text/markdown"},
+  "combiner": "OR",
+  "conditions": [{
+    "displayName": "Health check failing",
+    "conditionThreshold": {
+      "filter": "metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" AND metric.label.check_id=\"${CHECK##*/}\" AND resource.type=\"uptime_url\"",
+      "aggregations": [{"alignmentPeriod": "1200s", "perSeriesAligner": "ALIGN_NEXT_OLDER", "crossSeriesReducer": "REDUCE_COUNT_FALSE", "groupByFields": ["resource.label.*"]}],
+      "comparison": "COMPARISON_GT",
+      "thresholdValue": 1,
+      "duration": "60s",
+      "trigger": {"count": 1}
+    }
+  }],
+  "notificationChannels": ["$CHANNEL"],
+  "alertStrategy": {"autoClose": "1800s"}
+}
+JSON
+    gcloud beta monitoring policies create --policy-from-file "$POLICY" >/dev/null
+    rm -f "$POLICY"
+    echo "Created. You'll get an email if the site stops answering, and another when it's back."
   fi
 fi
 
