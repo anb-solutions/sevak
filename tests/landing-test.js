@@ -21,6 +21,9 @@ const SP = process.argv[2];
   await p.click('text=Sign up'); if (!p.url().endsWith('app/join.html')) errs.push('signup link ' + p.url());
   await p.goto('http://localhost:8765/index.html');
   await p.click('a:has-text("Sign in")'); if (!p.url().endsWith('app/signin.html')) errs.push('signin link');
+  // Wait for the page's script: on a busy machine a click can come first,
+  // and the form then reloads the page instead of showing the message.
+  await p.waitForLoadState('load');
   await p.click('button:has-text("Sign in")');
   if (!(await p.textContent('#email-error')).includes('required')) errs.push('empty msg: ' + await p.textContent('#email-error'));
   await p.fill('#email', 'nobody@example.com'); await p.click('button:has-text("Sign in")');
