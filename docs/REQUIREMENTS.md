@@ -1,6 +1,6 @@
 # Sevak: MVP Requirements
 
-**Version:** 2.40 (only Admins see volunteers; Coordinators see the rosters of events they run; sessions end after 24 hours unused) · **Updated:** 2026-11-09 · **Status:** Draft for review
+**Version:** 2.41 (Add to calendar: an .ics file and Google Calendar, wherever it appears) · **Updated:** 2026-11-10 · **Status:** Draft for review
 
 This replaces the original SRS outline, which is about six months old. That outline covered a full
 volunteer management system: background checks, GPS clock-in, CRM integrations and so on. This
@@ -187,14 +187,14 @@ allows, or right after launch. **Later** means post-MVP.
 | SGN-6 | The volunteer sees an instant confirmation screen and gets a confirmation email (COM-1) with a secure **"Manage my sign-up"** link for viewing, adding or cancelling shifts. | Must |
 | SGN-7 | A volunteer can cancel a shift through that link, and the cancellation shows up on the host's roster. | Must |
 | SGN-8 | The sign-up form has bot and spam protection (an invisible challenge plus rate limits). | Must |
-| SGN-9 | The confirmation screen and email include **Add to calendar** (an .ics file and a Google Calendar link). | Should |
+| SGN-9 | The confirmation screen and email include **Add to calendar**. **Wherever Sevak offers Add to calendar, it offers both:** an **.ics file** (Apple Calendar, Outlook and most other apps) with every shift, and **Google Calendar**, which adds one event per link, so with several shifts there is a Google Calendar link for each. Both use the event's time zone, name the event and role, give the place, and carry the **Manage my sign-up** link. Cancelled shifts are left out, and the options go when nothing is left. *(Prototype: `app/signup.html` confirmation and manage pages.)* | Should |
 | SGN-10 | The form has an opt-in checkbox: *"Keep me posted about future opportunities from {Organization}."* | Should |
 | SGN-14 | **Prototype of the volunteer sign-up page** (`app/signup.html`), covering SGN-1 to SGN-9 and DSC-1:
 
 - **Find events:** lists published, upcoming, public events with spots left. Verified organizations come first. Unverified organizations' events appear in a labeled *Preview: not listed publicly yet* section, per EVT-16. Private events, drafts and past events are never listed.
 - **Event page:** shows the host and its verification, dates, place, time zone (when it differs from the visitor's) and description. Shifts are grouped by day with spots left, and full or past shifts can't be picked.
 - **Signing up:** a volunteer ticks several shifts, gets an overlap warning when times clash, and fills in their details (pre-filled from their saved profile, with the phone in international form). Capacity is re-checked on submit. The same email can't take the same shift twice.
-- **Confirmation:** lists the shifts and offers **Add to calendar** (.ics in the event's time zone) and a **Manage my sign-up** link, where shifts can be cancelled and the spots open up again.
+- **Confirmation:** lists the shifts and offers **Add to calendar** (an .ics file with every shift, and a Google Calendar link for each, in the event's time zone; SGN-9) and a **Manage my sign-up** link, where shifts can be cancelled and the spots open up again.
 - **Drafts and the editor:** drafts show a host preview with sign-up closed. The event editor links to the volunteer page, and the volunteer page links back: Admins and Coordinators of the organization see *"This is what volunteers see. You're an Admin here: Edit this event"*. Events are edited at **Manage → Events → the event**. Someone not on the team who opens the editor is told only the organization's Admins and Coordinators can edit its events (volunteering doesn't include editing); for the demo organizations there's a one-click *Add me to its team as an Admin*.
 
 Sign-ups appear on the host dashboard right away. | Must |

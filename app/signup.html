@@ -220,8 +220,20 @@
         <h2 class="section-title" id="my-shifts-title">Your shifts</h2>
         <p class="section-help" id="confirm-event"></p>
         <ul class="my-shifts" id="my-shifts"></ul>
+        <!-- Add to calendar: always both an .ics file and Google Calendar (SGN-9) -->
+        <div class="calendar-add" id="calendar-add" role="group" aria-labelledby="calendar-title" hidden>
+          <h3 class="subhead" id="calendar-title">Add to your calendar</h3>
+          <div class="fill-row">
+            <button type="button" class="btn btn-secondary btn-small" id="add-calendar">Download .ics file</button>
+            <a class="btn btn-secondary btn-small" id="add-google" target="_blank" rel="noopener noreferrer">Google Calendar <span aria-hidden="true">↗</span><span class="sr-only"> (opens in a new tab)</span></a>
+          </div>
+          <div id="google-shifts" hidden>
+            <p class="hint">Google Calendar adds one shift at a time:</p>
+            <ul class="calendar-google" id="google-links"></ul>
+          </div>
+          <p class="hint" id="ics-hint">The .ics file has <span id="ics-count">your shift</span> and works with Apple Calendar, Outlook and most other calendar apps.</p>
+        </div>
         <div class="fill-row" style="margin-top:16px">
-          <button type="button" class="btn btn-secondary btn-small" id="add-calendar">Add to calendar (.ics)</button>
           <a class="btn btn-secondary btn-small" id="manage-link" href="#">Manage my sign-up</a>
           <a class="btn btn-secondary btn-small" id="more-shifts" href="#">Sign up for more shifts</a>
           <a class="btn btn-secondary btn-small" id="all-signups" href="signup.html?view=mine" hidden>All my sign-ups</a>

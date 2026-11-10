@@ -623,6 +623,11 @@ input[type="time"], input[type="number"] {
   font-weight: 800;
 }
 .my-shifts { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.calendar-add { margin-top: 16px; padding-top: 4px; }
+.calendar-add .subhead { margin-top: 0; }
+.calendar-add .hint { margin: 8px 0 0; }
+.calendar-google { display: grid; gap: 4px; margin: 4px 0 0; padding: 0; list-style: none; }
+.calendar-google a { display: inline-block; padding: 6px 0; font-weight: 600; overflow-wrap: anywhere; }
 .my-shift { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; }
 .my-shift div { display: grid; gap: 2px; }
 .my-shift.is-cancelled strong { text-decoration: line-through; color: var(--muted); }
