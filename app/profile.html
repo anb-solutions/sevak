@@ -48,7 +48,9 @@
       <button type="button" class="tab" role="tab" id="tab-documents" aria-controls="panel-documents" aria-selected="false" tabindex="-1">Documents</button>
     </div>
 
-    <form id="profile-form" novalidate>
+    <!-- method="dialog" and no names on personal fields: pressed before
+         profile.js loads, Save does nothing, rather than put them in the web address. -->
+    <form id="profile-form" method="dialog" novalidate>
       <div class="tab-panel" role="tabpanel" id="panel-details" aria-labelledby="tab-details">
         <!-- About you -->
         <fieldset class="section">
@@ -58,23 +60,23 @@
           <div class="grid">
             <div class="field">
               <label for="firstName">First name</label>
-              <input id="firstName" name="firstName" type="text" autocomplete="given-name" required maxlength="60">
+              <input id="firstName" type="text" autocomplete="given-name" required maxlength="60">
               <p class="error" id="firstName-error"></p>
             </div>
             <div class="field">
               <label for="lastName">Last name</label>
-              <input id="lastName" name="lastName" type="text" autocomplete="family-name" required maxlength="60">
+              <input id="lastName" type="text" autocomplete="family-name" required maxlength="60">
               <p class="error" id="lastName-error"></p>
             </div>
             <div class="field">
               <label for="email">Email</label>
-              <input id="email" name="email" type="email" autocomplete="email" required maxlength="254">
+              <input id="email" type="email" autocomplete="email" required maxlength="254">
               <p class="hint">You'll use this to sign in. Confirmations and certificates go here.</p>
               <p class="error" id="email-error"></p>
             </div>
             <div class="field">
               <label for="phone">Mobile phone</label>
-              <input id="phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" required maxlength="20">
+              <input id="phone" type="tel" autocomplete="tel" inputmode="tel" required maxlength="20">
               <p class="hint">Only used for last-minute updates about events.</p>
               <p class="error" id="phone-error"></p>
             </div>
@@ -86,7 +88,7 @@
           <legend>Gender <span class="optional">(optional)</span></legend>
           <div class="field">
             <label for="gender">Gender</label>
-            <select id="gender" name="gender">
+            <select id="gender">
               <option value="">Choose…</option>
               <option value="woman">Woman</option>
               <option value="man">Man</option>
@@ -172,27 +174,27 @@
             <div class="grid">
               <div class="field span-2">
                 <label for="country">Country or region</label>
-                <select id="country" name="country" autocomplete="country"></select>
+                <select id="country" autocomplete="country"></select>
               </div>
               <div class="field span-2">
                 <label for="addressLine1">Street address</label>
-                <input id="addressLine1" name="addressLine1" type="text" autocomplete="address-line1" maxlength="120">
+                <input id="addressLine1" type="text" autocomplete="address-line1" maxlength="120">
               </div>
               <div class="field span-2">
                 <label for="addressLine2">Apartment, suite, etc. <span class="optional">(optional)</span></label>
-                <input id="addressLine2" name="addressLine2" type="text" autocomplete="address-line2" maxlength="120">
+                <input id="addressLine2" type="text" autocomplete="address-line2" maxlength="120">
               </div>
               <div class="field">
                 <label for="city">City or town</label>
-                <input id="city" name="city" type="text" autocomplete="address-level2" maxlength="80">
+                <input id="city" type="text" autocomplete="address-level2" maxlength="80">
               </div>
               <div class="field">
                 <label for="state">State, province or region</label>
-                <input id="state" name="state" type="text" autocomplete="address-level1" maxlength="60">
+                <input id="state" type="text" autocomplete="address-level1" maxlength="60">
               </div>
               <div class="field">
                 <label for="postalCode">Postal code</label>
-                <input id="postalCode" name="postalCode" type="text" autocomplete="postal-code" maxlength="12" data-postal data-country="country">
+                <input id="postalCode" type="text" autocomplete="postal-code" maxlength="12" data-postal data-country="country">
                 <p class="error" id="postalCode-error"></p>
               </div>
             </div>

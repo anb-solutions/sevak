@@ -11,6 +11,21 @@ const { BASE, start, person, signIn, synced, email } = require("./helpers");
   await visitor.goto(BASE + "/app/profile.html");
   check(visitor.url().includes("signin.html?next=profile.html"), "signed out: profile asks you to sign in");
 
+  // Pressed before its script loads (a slow phone), Sign in does nothing,
+  // rather than put the email in the web address, where server logs keep it.
+  const slow = await ctx.newPage();
+  let letGo;
+  const held = new Promise((r) => { letGo = r; });
+  await slow.route(/\/app\/signin\.js$/, async (route) => { await held; await route.continue().catch(() => {}); });
+  await slow.goto(BASE + "/app/signin.html", { waitUntil: "commit" });
+  await slow.waitForSelector("#signin-submit");
+  await slow.fill("#email", email("early"));
+  await slow.click("#signin-submit");
+  await slow.waitForTimeout(1000);
+  check(slow.url() === BASE + "/app/signin.html" && (await slow.inputValue("#email")) === email("early"), "Sign in pressed early: no email in the web address: " + slow.url());
+  letGo();
+  await slow.close();
+
   // Signed in before saving a profile: signed in all the same, with Sign out.
   const fresh = await person(t, "rina", { profile: false });
   await fresh.goto(BASE + "/app/profile.html");

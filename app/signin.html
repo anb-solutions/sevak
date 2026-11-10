@@ -38,7 +38,9 @@
       <h1 class="page-title">Sign in</h1>
       <p class="page-intro">Enter the email address on your profile.</p>
 
-      <form id="signin-form" class="section" novalidate>
+      <!-- method="dialog" and no field names: pressed before signin.js loads, the
+           form does nothing, rather than put the email in the web address. -->
+      <form id="signin-form" class="section" method="dialog" novalidate>
         <!-- With the server, when Google sign-in is set up (signin.js). -->
         <div class="google-signin" id="google-signin" hidden>
           <a class="btn btn-google" id="google-button">
@@ -49,7 +51,7 @@
         </div>
         <div class="field">
           <label for="email">Email</label>
-          <input id="email" name="email" type="email" autocomplete="email" required maxlength="254">
+          <input id="email" type="email" autocomplete="email" required maxlength="254">
           <p class="error" id="email-error"></p>
         </div>
         <div class="actions">
@@ -59,11 +61,11 @@
       </form>
 
       <!-- With the server: the second step, after the code is emailed. -->
-      <form id="code-form" class="section" novalidate hidden>
+      <form id="code-form" class="section" method="dialog" novalidate hidden>
         <p id="code-sent" role="status"></p>
         <div class="field">
           <label for="code">6-digit code</label>
-          <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
+          <input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
           <p class="hint">The code works for 15 minutes. Can't find it? Check your spam folder.</p>
           <p class="error" id="code-error"></p>
         </div>
