@@ -738,6 +738,8 @@
       text.appendChild(el("strong", null, org ? org.name : "An organization"));
       text.appendChild(el("p", "event-meta", plainDay(c.from) + " – " + plainDay(c.to) + (c.status === "issued" && c.data ? " · " + C.durationLabel(c.data.minutes) : "")));
       if (c.status === "declined" && c.reason) text.appendChild(el("p", "hours-reason", "Not issued: " + c.reason));
+      // An Admin's own certificate is issued by a different Admin.
+      if (c.status === "requested" && org && O.isAdmin(org)) text.appendChild(el("p", "event-meta", "Waiting for another Admin to issue it."));
       li.appendChild(text);
       var side = el("div", "cert-actions");
       if (c.status === "issued") {

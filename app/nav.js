@@ -101,7 +101,8 @@
       }).length;
     }
     var certs = F.load("sevak.certificates.v1") || [];
-    n += certs.filter(function (c) { return c.status === "requested" && admin[c.orgId]; }).length;
+    // Not your own request: another Admin issues it.
+    n += certs.filter(function (c) { return c.status === "requested" && admin[c.orgId] && String(c.email || "").toLowerCase() !== me; }).length;
     return n;
   }
 
