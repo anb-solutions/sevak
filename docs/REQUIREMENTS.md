@@ -1,6 +1,6 @@
 # Sevak: MVP Requirements
 
-**Version:** 2.44 (task leads: an Admin chooses a lead for each task, who sees that task's roster) · **Updated:** 2026-11-10 · **Status:** Draft for review
+**Version:** 2.45 (task leads: an Admin chooses a lead for each task, who sees that task's roster) · **Updated:** 2026-11-10 · **Status:** Draft for review
 
 This replaces the original SRS outline, which is about six months old. That outline covered a full
 volunteer management system: background checks, GPS clock-in, CRM integrations and so on. This
@@ -67,16 +67,21 @@ It is written for the founding team, designers, engineers, QA and pilot organiza
 
 ## 2. Users and roles
 
-| Role | Who they are | What they need | Account |
+| Role | Who they are | What they can do | Account |
 |---|---|---|---|
-| **Host (Owner)** | The person who creates and runs the organization's presence | Full control of the organization profile, events, team and certificates | Email sign-in link |
-| **Host (Admin)** | Senior team members | Everything an Owner can do: edit the organization profile and manage the team | Email sign-in link |
-| **Host (Coordinator)** | Event team members | Manage rosters, mark attendance and send updates, but no organization settings | Email sign-in link |
-| **Volunteer (guest)** | Anyone signing up, often a first-time visitor arriving from a shared link | Find a shift and sign up in under a minute | **None.** They manage sign-ups through a secure link in their email. |
-| **Volunteer (signed in)** | A returning volunteer | Pre-filled sign-up and a private log of their history, hours and certificates | Email sign-in link, no password |
-| **Platform admin** | Us | Verify organizations and remove abusive content | Email sign-in link plus 2FA |
+| **Visitor** | Anyone not signed in, often arriving from a shared link | Browse public organizations and events, and see how many spots are left (never anyone's name). Check a certificate by its number (ATT-6). Join Sevak. | None |
+| **Volunteer** | A person with a profile. They become a **member** of an organization when it invites them, or when it approves their request to join (MEM-1). | Sign up for the shifts of organizations they're a member of (SGN-2), record their hours (ATT-12) and ask for certificates (ATT-5). They see only their own details, history and certificates. | Emailed sign-in code or link, or Continue with Google (VOL-1); no password |
+| **Coordinator** | Added to an organization's team as a Coordinator (ORG-13). This is a role in the **whole organization**, not in one event. | Run the organization's events and dashboard, and add documents. Open the organization profile, but not change it or its team. They don't see the organization's volunteers (memberships, join requests, certificates). As an event's **event admin** (below), they see that event's roster, check people in and approve its hours (ATT-3, §5). | Emailed sign-in code or link |
+| **Admin** | Whoever set up the organization, its primary contact, and anyone its Admins add as an Admin on its Team tab (ORG-13). There is no separate Owner. | Everything for the organization: its profile, team and verification request (ORG-3), events, volunteers and join requests. They approve hours for any of its events and issue its certificates, signed with their own signature (ATT-7). | Emailed sign-in code or link |
+| **Sevak staff** (platform admin) | Us | Review organization verification requests (ADM-1) and remove abusive content. They can approve hours and issue certificates for any organization, so an organization with only one Admin isn't stuck; never their own. | Emailed sign-in code or link, plus 2FA (NFR-4) |
 
-**One person, several roles:** a person can be a volunteer and a host team member at the same time, and can be a host team member for several organizations with a different role in each (VOL-13).
+**Event admin: a duty, not a role.** Each event has an **event admin**, chosen in the event editor from the people who run the organization (its Team tab, its primary contact and whoever set it up). If none is chosen, it's any Admin. A sub-event is an event in its own right, so each sub-event has its own event admin. A main event (EVT-17) has none, and neither does a task (role) or a shift. The event admin approves that event's hours (ATT-3), and a Coordinator who is an event admin sees that event's roster (§5).
+
+**Nobody approves themselves:** nobody approves their own hours or issues their own certificate. An Admin's need a different Admin, or Sevak staff (ATT-3, ATT-5).
+
+**One person, several roles:** a person can be a volunteer and on an organization's team at the same time. They can also be on the teams of several organizations, with a different role in each (VOL-13). Someone listed more than once in one organization (on its team, as its primary contact, as whoever set it up) has the highest of those roles: Admin over Coordinator.
+
+*(Changed: there used to be a separate Owner and a guest volunteer, who signed up without an account and managed sign-ups through an emailed link. Whoever sets up an organization is now its Admin. Signing up now needs a profile and membership of the organization (SGN-2, MEM-1).)*
 
 **Assumptions about users:** Hosts are busy and often not technical. Many are volunteers
 themselves. Volunteers are mostly on phones and may arrive cold from a WhatsApp or text message.
