@@ -62,6 +62,8 @@ There are no preview deployments.
   link, in the event's time zone (SGN-9).
 - A successful Save leaves the form for the page it belongs to, which says what was saved
   (`SevakNav.flashAndGo`, NFR-17). A failed save stays on the form with the error.
+- Personal details never go in a web address (NFR-7): a form that holds them uses
+  `method="dialog"` and those fields have no `name`, so a press before its script loads does nothing.
 - Keep `docs/REQUIREMENTS.md` in step with features: add or update the requirement ID, and bump the
   version line at the top.
 - Match the surrounding code's style. Prefer small, focused pull requests.
