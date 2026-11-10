@@ -124,6 +124,15 @@
       plural(t.shifts, "shift") + ", " + plural(t.volunteers, "volunteer spot")].filter(Boolean).join(" · ");
     info.appendChild(h3);
     info.appendChild(meta);
+    // Tasks without a lead (EVT-21), for the Admins who choose them.
+    var O = window.SevakOrgs;
+    var unled = (event.roles || []).filter(function (r) { return r && !r.lead; }).length;
+    if (unled && O && O.isAdmin(O.get(event.organizationId))) {
+      var leads = document.createElement("p");
+      leads.className = "event-meta lead-missing";
+      leads.textContent = plural(unled, "task") + " without a task lead";
+      info.appendChild(leads);
+    }
 
     var badges = document.createElement("div");
     badges.className = "badges";
