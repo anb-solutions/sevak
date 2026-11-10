@@ -1,6 +1,6 @@
 # Sevak: MVP Requirements
 
-**Version:** 2.41 (Add to calendar: an .ics file and Google Calendar, wherever it appears; nobody approves their own hours: an Admin's need a different Admin) · **Updated:** 2026-11-10 · **Status:** Draft for review
+**Version:** 2.41 (Add to calendar: an .ics file and Google Calendar, wherever it appears; nobody approves their own hours: an Admin's need a different Admin; saving leaves the form) · **Updated:** 2026-11-10 · **Status:** Draft for review
 
 This replaces the original SRS outline, which is about six months old. That outline covered a full
 volunteer management system: background checks, GPS clock-in, CRM integrations and so on. This
@@ -397,6 +397,7 @@ This is the list of screens to build in Phase 1 with mock data.
 | NFR-13 | Maintainability | The front end and back end are separated by an API. The code is typed. Automated tests cover the core flows (sign-up, capacity, attendance, certificates), and local setup is one command. |
 | NFR-14 | Global use | Sevak is built for use **in any country**, and nothing assumes the US. Addresses have a country and use country-neutral fields ("State, province or region", "Postal code"), with postal-code formats checked for some countries and a lenient check elsewhere. Country names show in the visitor's language, and the country defaults from their browser settings. The interface is English-only for the MVP, with dates and times formatted for the user's locale. |
 | NFR-16 | Phone numbers and WhatsApp | Every phone number is entered with a **country code** (a country picker plus the number, or a number typed with a leading +). It is stored in international **E.164** form (for example +14155550100 or +447911123456), dropping a national leading 0 or a US/Canada leading 1. Each number can be marked **"on WhatsApp"**, which gives it a `wa.me` link so hosts and volunteers can message it directly. |
+| NFR-17 | Saving | **Saving leaves the form.** After a successful Save the person is taken back to where the form belongs, so they don't press Save again: an **event** (Save draft, Publish, Save changes, Unpublish) or **main event** goes back to the **Events** list with the saved item highlighted; the **organization profile** goes on to its Events; **My profile** goes back to the page the person came from (or Opportunities), and when joining, on to the organization's opportunities (or to set up a new organization). The next page shows a one-time message at the top saying what was saved (*"Published “Book swap”."*), with a link to open it again, and keyboard focus moves to it so screen readers announce it. A save that fails (errors, or the server refusing it) stays on the form with the error. Small in-place saves inside a page (a document, a signature) show their result where they are. *(Prototype: `SevakNav.flashAndGo` in `app/nav.js`.)* |
 | NFR-15 | Email deliverability | Sending from an authenticated domain, with bounce and complaint handling and suppression of bounced addresses. |
 
 ---
