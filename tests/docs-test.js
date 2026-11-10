@@ -109,6 +109,7 @@ const BASE = 'http://localhost:8765/';
   // New event: save draft then docs unlock
   await p.goto(BASE + 'app/event.html');
   await p.fill('#title', 'Doc test event');
+  await p.click('#step-next');   // the dates are on the next step
   await p.fill('#startDate', '2026-12-01');
   await p.dispatchEvent('#startDate', 'change');
   await p.click('#save-draft');
@@ -134,7 +135,7 @@ const BASE = 'http://localhost:8765/';
 
   // Deleting the event removes its docs; removing demo org removes org docs; files swept.
   await p.evaluate(() => localStorage.setItem('sevak.profile.v1', JSON.stringify({ email: 'a@example.com', organizations: [{ name: 'Riverside Community Arts (demo)', role: 'admin' }] })));
-  await p.goto(BASE + 'app/event.html?id=demo-ev-park');
+  await p.goto(BASE + 'app/event.html?id=demo-ev-park#review');   // Delete is on the Review step
   await p.click('#delete-event');
   await p.waitForURL(/events\.html/);
   let owners = await p.evaluate(() => JSON.parse(localStorage.getItem('sevak.documents.v1')).map(d => d.owner));

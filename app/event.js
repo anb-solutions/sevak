@@ -83,7 +83,18 @@
       select.appendChild(option);
     });
     select.value = selected || local;
+    applyTimezone();
   }
+
+  function applyTimezone() {
+    $("tz-name").textContent = ($("timezone").value || "UTC").replace(/_/g, " ");
+  }
+  $("tz-change").addEventListener("click", function () {
+    $("tz-line").hidden = true;
+    $("tz-picker").hidden = false;
+    $("timezone").focus();
+  });
+  $("timezone").addEventListener("change", applyTimezone);
 
   // ---------- Day choices ----------
 
@@ -328,15 +339,48 @@
       select.appendChild(option);
     });
     select.value = selected && E.getMain(selected) ? selected : "";
+    applyMainField();
   }
+
+  function mainEvent() { return E.getMain($("mainEventId").value); }
+
+  // "Sub-event" when it's part of a main event, "event" otherwise, in every
+  // title and label that names it.
+  function noun() { return mainEvent() ? "sub-event" : "event"; }
+  function applyWording() {
+    var n = noun();
+    document.querySelectorAll("[data-noun]").forEach(function (el) {
+      el.textContent = el.dataset.noun === "cap" ? n.charAt(0).toUpperCase() + n.slice(1) : n;
+    });
+    $("title").placeholder = mainEvent() ? "e.g. Rehearsal 1" : "e.g. Community Food Drive";
+  }
+
+  var mainPickerOpen = false;
+  function applyMainField() {
+    var main = mainEvent();
+    $("main-field").hidden = !main && !E.mainForOrg(org.id).length;
+    var open = !main || mainPickerOpen;
+    $("main-line").hidden = open;
+    $("main-picker").hidden = !open;
+    if (main) $("main-line-name").textContent = main.title || "Untitled main event";
+  }
+  $("main-change").addEventListener("click", function () {
+    mainPickerOpen = true;
+    applyMainField();
+    $("mainEventId").focus();
+  });
 
   // The back link goes to the main event when there is one.
   function applyBreadcrumb() {
-    var main = E.getMain($("mainEventId").value);
+    var main = mainEvent();
     $("back-link").href = main ? "main-event.html?id=" + encodeURIComponent(main.id) : "events.html";
     $("org-name-crumb").textContent = main ? main.title || "Main event" : "Events";
   }
-  $("mainEventId").addEventListener("change", applyBreadcrumb);
+  $("mainEventId").addEventListener("change", function () {
+    applyBreadcrumb();
+    applyWording();
+    applyStatus();
+  });
 
   // ---------- Location and visibility ----------
 
@@ -345,6 +389,51 @@
     $("in-person-fields").hidden = type !== "in-person";
     $("online-fields").hidden = type !== "online";
     $("later-fields").hidden = type !== "later";
+    applyAddressView();
+  }
+
+  // A filled-in address shows as one line ("Change the address" opens the
+  // fields); an empty one shows its fields.
+  var addressOpen = false;
+  function orgAddress() { return (org && org.address) || {}; }
+  function sameAsOrg() {
+    var a = orgAddress();
+    var same = function (x, id) { return String(x || "").trim().toLowerCase() === $(id).value.trim().toLowerCase(); };
+    return !!a.line1 && same(a.line1, "addressLine1") && same(a.city, "city") && (!a.country || a.country === $("country").value);
+  }
+  function applyAddressView() {
+    var filled = $("country").value && $("addressLine1").value.trim() && $("city").value.trim();
+    var open = addressOpen || !filled;
+    $("address-fields").hidden = !open;
+    $("address-summary").hidden = open;
+    $("use-org-address").hidden = !orgAddress().line1 || sameAsOrg();
+    if (open) return;
+    var country = $("country").options[$("country").selectedIndex];
+    $("address-text").textContent = [$("addressLine1").value.trim(), $("city").value.trim(),
+      [$("state").value.trim(), $("postalCode").value.trim()].filter(Boolean).join(" "), country ? country.textContent : ""].filter(Boolean).join(", ");
+    $("address-source").hidden = !sameAsOrg();
+  }
+  // Before checking the step: open the fields if the address needs fixing.
+  function openAddressIfInvalid() {
+    if (locationType() !== "in-person" || !$("address-fields").hidden) return;
+    if (["country", "addressLine1", "city", "postalCode"].some(function (id) { return messageFor($(id)); })) {
+      addressOpen = true;
+      applyAddressView();
+    }
+  }
+  $("address-change").addEventListener("click", function () {
+    addressOpen = true;
+    applyAddressView();
+    $("addressLine1").focus();
+  });
+  function copyOrgAddress() {
+    var a = orgAddress();
+    if (a.country) $("country").value = a.country;
+    $("addressLine1").value = a.line1 || "";
+    $("city").value = a.city || "";
+    $("state").value = a.state || "";
+    $("postalCode").value = a.postalCode || a.zip || "";
+    ["addressLine1", "city", "postalCode"].forEach(function (id) { F.setError($(id), ""); });
   }
   form.querySelectorAll('input[name="locationType"]').forEach(function (r) { r.addEventListener("change", applyLocationType); });
 
@@ -360,14 +449,11 @@
   form.querySelectorAll('input[name="visibility"]').forEach(function (r) { r.addEventListener("change", applyVisibility); });
 
   $("use-org-address").addEventListener("click", function () {
-    var a = (org && org.address) || {};
-    if (a.country) $("country").value = a.country;
-    $("addressLine1").value = a.line1 || "";
-    $("city").value = a.city || "";
-    $("state").value = a.state || "";
-    $("postalCode").value = a.postalCode || a.zip || "";
-    ["addressLine1", "city", "postalCode"].forEach(function (id) { F.setError($(id), ""); });
-    $("status").textContent = "Copied your organization's address.";
+    copyOrgAddress();
+    addressOpen = false;
+    applyAddressView();
+    $("address-change").focus();
+    $("status").textContent = "Using your organization's address.";
   });
 
   // ---------- Validation ----------
@@ -417,15 +503,39 @@
     form.querySelectorAll(".shifts-error").forEach(function (e) { e.textContent = ""; });
   }
 
-  function validateFor(publishing) {
-    if (!publishing) {
-      clearStructureErrors();
-      return F.validate([$("title"), $("startDate"), $("endDate")], messageFor);
+  function stepFields(i) {
+    return $("step-" + STEPS[i]).querySelectorAll("input:not([type=radio]), select:not(#timezone), textarea");
+  }
+
+  // The step on screen: its fields, and when publishing, that every role has
+  // a shift.
+  function checkStep(i, publishing) {
+    if (STEPS[i] === "when") openAddressIfInvalid();
+    var first = F.validate(stepFields(i), messageFor);
+    if (STEPS[i] === "roles") {
+      if (publishing) first = first || structureErrors();
+      else clearStructureErrors();
     }
-    var fields = form.querySelectorAll("input:not([type=radio]), select:not(#timezone), textarea");
-    var firstField = F.validate(fields, messageFor);
-    var firstStructure = structureErrors();
-    return firstField || firstStructure;
+    return first;
+  }
+
+  // Publishing checks every step; a draft needs a name and dates. Stays on
+  // the first step with something to fix.
+  function validateFor(publishing) {
+    var was = step;
+    var steps = publishing ? [0, 1, 2, 3] : [0, 1];
+    for (var k = 0; k < steps.length; k++) {
+      var i = steps[k];
+      showStepOnly(i);
+      var first = publishing ? checkStep(i, true) : F.validate(i === 0 ? [$("title")] : [$("startDate"), $("endDate")], messageFor);
+      if (first) {
+        showStep(i, false);
+        return first;
+      }
+    }
+    if (!publishing) clearStructureErrors();
+    showStepOnly(was);
+    return null;
   }
 
   F.clearErrorsAsYouType(form, messageFor);
@@ -598,14 +708,106 @@
     }
     $("publish").textContent = published ? "Save changes" : "Publish";
     $("save-draft").textContent = published ? "Unpublish" : "Save draft";
+    // Each step: Back and Next; a draft is published from the last step, a
+    // published event can be saved from any (and unpublished from the last).
+    var last = step === STEPS.length - 1;
+    $("step-back").hidden = step === 0;
+    $("step-next").hidden = last;
+    $("step-next").className = "btn " + (published ? "btn-secondary" : "btn-primary");
+    $("publish").hidden = !published && !last;
+    $("save-draft").hidden = published && !last;
     // Only Admins can delete an event; anyone can make it inactive.
+    $("manage-event").hidden = !eventId;
     $("delete-event").hidden = !eventId || !isAdmin;
     $("delete-hint").hidden = !eventId || isAdmin;
     $("deactivate").hidden = !eventId || !active;
     $("inactive-note").hidden = !eventId || active;
+    $("event-tabs").hidden = !eventId;
     var title = $("title").value.trim();
-    $("page-title").textContent = eventId ? (title || "Untitled event") : "New event";
-    document.title = (eventId ? title || "Event" : "New event") + " · Sevak";
+    var n = noun();
+    $("page-title").textContent = eventId ? (title || "Untitled " + n) : "New " + n;
+    document.title = (eventId ? title || n.charAt(0).toUpperCase() + n.slice(1) : "New " + n) + " · Sevak";
+  }
+
+  // ---------- Steps (EVT-22) ----------
+  // Four steps, one on screen at a time: details, when and where, roles and
+  // shifts, and review. Any step opens from the step bar; Next checks the
+  // one on screen first.
+  var STEPS = ["details", "when", "roles", "review"];
+  var STEP_HASH = { details: 0, when: 1, where: 1, roles: 2, review: 3 };
+  var step = 0;
+
+  function showStepOnly(i) {
+    STEPS.forEach(function (name, n) { $("step-" + name).hidden = n !== i; });
+  }
+
+  function showStep(i, focus) {
+    step = Math.max(0, Math.min(STEPS.length - 1, i));
+    showStepOnly(step);
+    form.querySelectorAll("#stepper button").forEach(function (b) {
+      var n = Number(b.dataset.step);
+      if (n === step) b.setAttribute("aria-current", "step"); else b.removeAttribute("aria-current");
+      b.classList.toggle("is-done", n < step);
+    });
+    if (STEPS[step] === "review") renderReview();
+    applyStatus();
+    if (!focus) return;
+    $("step-" + STEPS[step]).focus({ preventScroll: true });
+    var top = $("stepper").getBoundingClientRect().top + window.pageYOffset - 8;
+    if (window.pageYOffset > top) window.scrollTo(0, top);
+  }
+
+  $("stepper").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-step]");
+    if (!b) return;
+    $("status").textContent = "";
+    showStep(Number(b.dataset.step), true);
+  });
+  $("step-back").addEventListener("click", function () {
+    $("status").textContent = "";
+    showStep(step - 1, true);
+  });
+  $("step-next").addEventListener("click", function () {
+    var first = checkStep(step, false);
+    if (first) {
+      $("status").textContent = "Fix what's marked, then continue.";
+      first.focus();
+      return;
+    }
+    $("status").textContent = "";
+    showStep(step + 1, true);
+  });
+
+  // What's been set up, with a way back to each step.
+  function renderReview() {
+    var ev = readForm();
+    var list = $("review-list");
+    list.innerHTML = "";
+    var row = function (label, text, to) {
+      var dt = document.createElement("dt");
+      dt.textContent = label;
+      var dd = document.createElement("dd");
+      var span = document.createElement("span");
+      span.textContent = text;
+      dd.appendChild(span);
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "btn btn-link";
+      b.textContent = "Edit";
+      b.setAttribute("aria-label", "Edit " + label.toLowerCase());
+      b.addEventListener("click", function () { showStep(to, true); });
+      dd.appendChild(b);
+      list.appendChild(dt);
+      list.appendChild(dd);
+    };
+    var main = mainEvent();
+    row("Name", (ev.title || "Not named yet") + (main ? " · part of " + (main.title || "a main event") : ""), 0);
+    row("When", ev.startDate ? E.rangeLabel(ev.startDate, ev.endDate) + " · " + String(ev.timezone || "").replace(/_/g, " ") : "No dates yet", 1);
+    var loc = ev.location;
+    row("Where", loc.type === "online" ? "Online" : loc.type === "later" ? "Shared later"
+      : [loc.venue, loc.line1, loc.city].filter(Boolean).join(", ") || "No address yet", 1);
+    var t = E.totals(ev);
+    row("Roles", t.roles ? E.plural(t.roles, "role") + " · " + E.plural(t.shifts, "shift") + " · " + E.plural(t.volunteers, "volunteer spot") : "No roles yet", 2);
   }
 
   function save(publishing) {
@@ -627,8 +829,9 @@
     // Saved: back to the Events list, which says so and highlights it.
     var privateNote = event.visibility === "public" && !(org && org.verificationStatus === "verified")
       ? " It stays private until your organization is verified." : "";
-    var name = "“" + (event.title || "Untitled event") + "”";
-    window.SevakNav.flashAndGo("events.html", publishing
+    var name = "“" + (event.title || "Untitled " + noun()) + "”";
+    var main = E.getMain(event.mainEventId);
+    window.SevakNav.flashAndGo(main ? "main-event.html?id=" + encodeURIComponent(main.id) : "events.html", publishing
       ? (wasPublished ? "Saved changes to " + name + "." : "Published " + name + "." + privateNote)
       : (wasPublished ? "Unpublished " + name + ". It's a draft again." : "Saved " + name + " as a draft."), {
       href: "event.html?id=" + encodeURIComponent(event.id),
@@ -641,7 +844,12 @@
     return window.CSS && CSS.escape ? CSS.escape(id) : String(id).replace(/["\\]/g, "");
   }
 
-  form.addEventListener("submit", function (e) { e.preventDefault(); save(true); });
+  // Enter in a field: Next, until the last step of a draft.
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (status !== "published" && step < STEPS.length - 1) { $("step-next").click(); return; }
+    save(true);
+  });
   $("save-draft").addEventListener("click", function () { save(false); });
 
   function setActive(on) {
@@ -709,9 +917,8 @@
     return;
   }
 
-  $("org-name-crumb").textContent = org.name;
-  window.SevakOrgs.renderHeader($("org-context"), org);
-  $("use-org-address").hidden = !(org.address && org.address.line1);
+  $("org-line").textContent = org.name;
+  $("org-line").hidden = false;
   F.fillCountrySelect($("country"));
   if (org.address && org.address.country) $("country").value = org.address.country;
 
@@ -725,18 +932,23 @@
     fill(existing);
   } else {
     fillMainEvents(params.get("main"));
-    fillTimezones();
+    var siblings = mainEvent() ? E.subEvents(mainEvent().id).filter(function (e) { return e.timezone; }) : [];
+    fillTimezones(siblings.length ? siblings[siblings.length - 1].timezone : undefined);
     fillEventAdmin("");
+    if (orgAddress().line1) copyOrgAddress();
     addRole();
   }
   applyBreadcrumb();
+  applyWording();
 
   applyLocationType();
   applyVisibility();
-  applyStatus();
   updateCounter();
   refreshDays();
   renderPresets();
+  // A link can open a step: event.html?id=…#roles
+  var hashStep = STEP_HASH[location.hash.slice(1)];
+  showStep(hashStep === undefined ? 0 : hashStep, false);
 
   var docs = window.SevakDocs.mount($("panel-documents"), {
     owner: eventId ? "event:" + eventId : null,

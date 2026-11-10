@@ -123,7 +123,9 @@
     return;
   }
   $("org-name-crumb").textContent = "Events";
-  window.SevakOrgs.renderHeader($("org-context"), org);
+  // The organization as one line, not its card: little room on a phone.
+  $("org-line").textContent = org.name;
+  $("org-line").hidden = false;
 
   if (mainId && !existing) {
     $("status").textContent = "We couldn't find that main event, so this is a new one.";
@@ -133,6 +135,10 @@
   if (existing) {
     $("title").value = existing.title || "";
     $("description").value = existing.description || "";
+    // A saved main event is mostly about its sub-events: those first, then
+    // its name and description; the introduction is for a new one.
+    form.insertBefore($("sub-list").closest("section"), $("main-details"));
+    $("main-intro").hidden = true;
   }
   updateCounter();
   applyTitle();

@@ -82,7 +82,7 @@ const B = 'http://localhost:8765/app/'; const SP = process.argv[2];
   // Event editor and header while pending
   await p.goto(B + 'events.html');
   check((await p.textContent('#org-context-badges')) === 'Verification pending' && await p.isHidden('#org-context-verify'), 'header: pending, no link');
-  await p.goto(B + 'event.html?id=ev-hope');
+  await p.goto(B + 'event.html?id=ev-hope#review');   // who can see it is on the Review step
   check(await p.isVisible('#unverified-note') && (await p.textContent('#unverified-note')).includes("waiting for Sevak's review"), 'event editor: pending note');
 
   // Sevak's review: reject needs a reason
@@ -127,8 +127,8 @@ const B = 'http://localhost:8765/app/'; const SP = process.argv[2];
   await p.goto(B + 'signup.html#all-orgs');
   const listText = await p.textContent('#discover-list');
   check(listText.includes('Soup Night') && !listText.includes('Not listed publicly yet'), 'verified: event listed publicly');
-  await p.goto(B + 'event.html?id=ev-hope');
-  check(await p.isHidden('#unverified-note'), 'editor: no unverified note');
+  await p.goto(B + 'event.html?id=ev-hope#review');
+  check(await p.isVisible('#step-review') && await p.isHidden('#unverified-note'), 'editor: no unverified note');
 
   // A Coordinator can't ask
   await p.evaluate(() => { const l = JSON.parse(localStorage.getItem('sevak.organizations.v1')); l.push({ id: 'org-co', name: 'Coord Club', createdBy: 'boss@club.org', team: [{ name: 'Bala A', email: 'bala@hopekitchen.org', role: 'coordinator' }], website: 'https://club.org' }); localStorage.setItem('sevak.organizations.v1', JSON.stringify(l)); localStorage.setItem('sevak.currentOrganization.v1', JSON.stringify('org-co')); });

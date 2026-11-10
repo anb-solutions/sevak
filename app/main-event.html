@@ -33,11 +33,10 @@
   <main class="container">
     <p class="banner"><strong>Prototype.</strong> Everything you enter stays in this browser.</p>
 
-    <section class="org-context" id="org-context" aria-label="Organization" hidden></section>
-
-    <p class="breadcrumb"><a href="events.html" id="back-link">← <span id="org-name-crumb">Organization</span></a></p>
+    <p class="org-eyebrow event-org" id="org-line" hidden></p>
+    <p class="breadcrumb"><a href="events.html" id="back-link">← <span id="org-name-crumb">Events</span></a></p>
     <h1 class="page-title" id="page-title">New main event</h1>
-    <p class="page-intro">A main event groups related events, such as a festival and its rehearsals. Each sub-event has its own dates, place, roles and shifts.</p>
+    <p class="page-intro" id="main-intro">A main event groups related events, such as a festival and its rehearsals. Each sub-event has its own dates, place, roles and shifts.</p>
 
     <div class="section notice notice-warn" id="no-org" hidden>
       <p><strong>Create your organization profile first.</strong></p>
@@ -45,8 +44,8 @@
     </div>
 
     <form id="main-form" novalidate>
-      <fieldset class="section">
-        <legend>Main event</legend>
+      <fieldset class="section" id="main-details">
+        <legend>Main event details</legend>
         <div class="stack">
           <div class="field">
             <label for="title">Name</label>

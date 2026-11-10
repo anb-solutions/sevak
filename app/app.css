@@ -1151,3 +1151,45 @@ input[type="time"], input[type="number"] {
 .lead-roster li { display: flex; flex-wrap: wrap; gap: 2px 12px; align-items: baseline; overflow-wrap: anywhere; }
 .lead-name { font-weight: 600; }
 .event-meta.lead-missing { margin-top: 2px; font-weight: 600; }
+
+/* Event editor in steps (EVT-22) */
+.event-org { margin: 8px 0 0; }
+.stepper ol { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin: 4px 0 12px; padding: 0; list-style: none; }
+.stepper button {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; min-height: 56px; padding: 6px 2px;
+  font: inherit; font-size: 0.8rem; font-weight: 600; line-height: 1.2; color: var(--muted);
+  background: none; border: 0; border-bottom: 3px solid var(--border); cursor: pointer; text-align: center;
+}
+.stepper .step-num {
+  display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+  border: 2px solid var(--border); background: var(--surface); font-size: 0.82rem;
+}
+.stepper button.is-done { color: var(--text); border-bottom-color: var(--primary-soft); }
+.stepper button.is-done .step-num { border-color: var(--primary); color: var(--primary); }
+.stepper button[aria-current="step"] { color: var(--primary); border-bottom-color: var(--primary); }
+.stepper button[aria-current="step"] .step-num { border-color: var(--primary); background: var(--primary); color: var(--surface); }
+.stepper button:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); border-radius: 6px; }
+.wizard-step:focus { outline: none; }
+.inline-choice { margin: 0; }
+.inline-choice .btn-link { margin-left: 4px; }
+.address-summary { padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.address-summary .address-label { margin: 0; font-size: 0.85rem; font-weight: 600; color: var(--muted); }
+.address-summary .address-text { margin: 2px 0 4px; overflow-wrap: anywhere; }
+.address-summary .hint { margin: 0 0 8px; }
+.role-presets { margin-top: 12px; }
+.role-presets summary { cursor: pointer; font-weight: 600; color: var(--primary); padding: 6px 0; }
+.role-presets .fill-row { margin-top: 8px; }
+.review-list { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 0; clear: both; }
+.review-list dt { font-weight: 600; color: var(--muted); }
+.review-list dd { margin: 0; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; overflow-wrap: anywhere; }
+.manage-event .fill-row { align-items: center; }
+.wizard-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 12px; margin-left: auto; }
+.wizard-actions #step-back { margin-right: auto; }
+@media (max-width: 480px) {
+  .wizard-bar { gap: 6px; padding: 10px 0; }
+  .wizard-bar .status:empty { display: none; }
+  .wizard-actions { width: 100%; flex-wrap: nowrap; gap: 8px; }
+  .wizard-actions .btn { padding-left: 14px; padding-right: 14px; white-space: nowrap; }
+  .review-list { grid-template-columns: 1fr; gap: 2px; }
+  .review-list dd { margin-bottom: 8px; }
+}

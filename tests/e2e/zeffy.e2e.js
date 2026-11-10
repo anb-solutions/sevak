@@ -59,6 +59,7 @@ const call = (page, method, url, body) => page.evaluate(([m, u, b]) => fetch(u, 
   check(!(await synced(mei)).data["sevak.events.v1"].some((e) => e.id === saved.id), "volunteers don't see the draft");
 
   // Saving keeps where it came from; starting again opens the same event.
+  await asha.click('#stepper button[data-step="1"]'); // the venue is on When & where
   await asha.fill("#venue", "Temple hall").catch(() => {});
   await asha.click("#save-draft");
   await asha.waitForURL(/events\.html/); // saving goes back to Events
