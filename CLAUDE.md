@@ -45,6 +45,9 @@ There are no preview deployments.
 
 ## Rules
 
+- **Before every push, review or merge, follow `.claude/skills/steward/SKILL.md`**, and always
+  before merging your own pull request: what to check, what to try to break, and which changes
+  need the owner. A merge into `staging` is a release.
 - Branch from `staging` and open a pull request into `staging`; never push to `staging` or `main`.
 - Never commit secrets or real personal data. Never use production data locally or in tests.
 - Every API route that touches organization data checks the caller's role, and has a test that
