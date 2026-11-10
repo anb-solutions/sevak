@@ -69,7 +69,7 @@
           <h2 class="section-title" id="subs-title">Sub-events</h2>
           <a class="btn btn-primary btn-small" id="add-sub" href="event.html" hidden>+ Add sub-event</a>
         </div>
-        <p class="summary" id="subs-summary" style="margin-top:8px"></p>
+        <p class="summary mt-8" id="subs-summary"></p>
         <p class="hint" id="subs-hint">Save the main event to start adding sub-events.</p>
         <label class="show-inactive" id="show-inactive-wrap" hidden><input type="checkbox" id="show-inactive"><span>Show inactive sub-events (<span id="inactive-count">0</span>)</span></label>
         <ul class="event-list" id="sub-list"></ul>
@@ -77,7 +77,7 @@
 
       <div class="save-bar">
         <p class="status" id="status" role="status" aria-live="polite"></p>
-        <div style="display:flex; gap:12px 16px; align-items:center; flex-wrap:wrap">
+        <div class="inline-row">
           <span class="hint" id="delete-hint" hidden>Only admins can delete main events.</span>
           <button type="button" class="btn btn-danger-link" id="delete-main" hidden>Delete main event</button>
           <button type="submit" class="btn btn-primary">Save</button>

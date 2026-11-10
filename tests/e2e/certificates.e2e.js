@@ -91,6 +91,8 @@ const ORG = "Temple Volunteers " + require("./helpers").RUN;
   check(pdfDoc && pdfDoc.storedType === "application/pdf", "certificate PDF saved in her documents");
   const download = await mei.request.get(BASE + "/api/v1/files/" + pdfDoc.id);
   check(download.status() === 200 && (await download.body()).subarray(0, 5).toString() === "%PDF-", "she can download it");
+  const dh = download.headers();
+  check(/^attachment/.test(dh["content-disposition"] || "") && /sandbox/.test(dh["content-security-policy"] || "") && dh["x-content-type-options"] === "nosniff", "as a download, sandboxed: " + dh["content-security-policy"]);
   const sam = await person(t, "sam");
   check((await sam.request.get(BASE + "/api/v1/files/" + pdfDoc.id)).status() === 404, "nobody else can");
 

@@ -3,12 +3,13 @@ import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
 
 // Security headers for every response (docs/ARCHITECTURE.md §4.3). Scripts
-// only from Sevak itself: no inline scripts, so an injected <script> can't
-// run. (Styles still allow inline style attributes, which the pages use.)
+// and styles only from Sevak's own files: no inline scripts or styles, so
+// nothing injected into a page can run or restyle it. (Scripts may still set
+// styles through element.style, which the policy allows.)
 const csp = [
   "default-src 'self'",
   "script-src 'self'",
-  "style-src 'self' 'unsafe-inline'",
+  "style-src 'self'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
   "connect-src 'self'",
@@ -39,8 +40,20 @@ const config: NextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(self)" },
+          // The camera only for taking a profile photo here; nothing else.
+          { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(), payment=(), usb=()" },
+          // Other sites' windows can't reach into Sevak's (links out open
+          // with noopener; Google sign-in is a redirect, not a popup), and
+          // other sites can't load Sevak's responses, files included.
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+          { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
         ],
+      },
+      // Uploaded files: always downloads, and if a browser ever shows one
+      // instead, nothing in it runs. (Later rules win over the one above.)
+      {
+        source: "/api/v1/files/:id",
+        headers: [{ key: "Content-Security-Policy", value: "default-src 'none'; sandbox" }],
       },
     ];
   },

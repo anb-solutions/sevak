@@ -62,6 +62,9 @@ There are no preview deployments.
   link, in the event's time zone (SGN-9).
 - A successful Save leaves the form for the page it belongs to, which says what was saved
   (`SevakNav.flashAndGo`, NFR-17). A failed save stays on the form with the error.
+- No inline scripts or styles: the content security policy allows neither (no `<script>` or
+  `<style>` blocks, no `style="…"` or `onclick=` attributes). Use a `.js` file and classes in
+  `app/app.css`; setting `element.style` from a script is fine.
 - Personal details never go in a web address (NFR-7): a form that holds them uses
   `method="dialog"` and those fields have no `name`, so a press before its script loads does nothing.
 - Keep `docs/REQUIREMENTS.md` in step with features: add or update the requirement ID, and bump the

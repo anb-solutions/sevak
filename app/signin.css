@@ -1,0 +1,8 @@
+/* The sign-in page (signin.html). */
+.signin { width: min(480px, 100%); margin: 24px auto 0; }
+.signin .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 20px; }
+.btn-google { display: flex; width: 100%; box-sizing: border-box; justify-content: center; align-items: center; gap: 12px; background: #fff; color: #1f1f1f; border: 1px solid #747775; text-decoration: none; }
+.btn-google:hover { background: #f2f2f2; color: #1f1f1f; }
+.btn-google svg { width: 20px; height: 20px; flex: none; }
+.google-signin .or { display: flex; align-items: center; gap: 12px; margin: 20px 0 8px; color: var(--muted); font-size: 0.92rem; }
+.google-signin .or::before, .google-signin .or::after { content: ""; flex: 1; border-top: 1px solid var(--border); }
