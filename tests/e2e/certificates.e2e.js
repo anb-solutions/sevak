@@ -34,6 +34,27 @@ const ORG = "Temple Volunteers " + require("./helpers").RUN;
   await asha.goto(BASE + "/app/volunteers.html");
   await asha.evaluate((id) => window.SevakSignups.decideHours(id, { status: "approved", by: "asha" }), signup.id);
 
+  // Nobody approves their own hours (ATT-3): Asha, an Admin, volunteers too.
+  // The server refuses her approving them; a different Admin, Bea, can.
+  const ashaShift = "su-asha-" + orgId;
+  const hoursOf = async (p) => ((await synced(p)).data["sevak.signups.v1"].find((s) => s.id === ashaShift) || {}).hours;
+  await asha.goto(BASE + "/app/signup.html?view=mine");
+  await asha.evaluate(([id, eventId, address]) => window.SevakSignups.addMany([{ id, registrationId: "reg-" + id, eventId, shiftId: "shift-1",
+    name: "Asha", email: address, status: "confirmed", hours: { minutes: 60, method: "duration", status: "pending" } }]), [ashaShift, eventId, asha.address]);
+  check((await hoursOf(asha))?.status === "pending", "an Admin can log their own hours");
+  await asha.goto(BASE + "/app/volunteers.html");
+  await asha.evaluate((id) => window.SevakSignups.decideHours(id, { status: "approved", by: "asha" }), ashaShift);
+  check((await hoursOf(asha))?.status === "pending", "an Admin can't approve their own hours");
+  const bea = await person(t, "bea");
+  await asha.goto(BASE + "/app/organization.html");
+  await asha.evaluate(([orgId, address]) => {
+    const org = window.SevakOrgs.get(orgId);
+    window.SevakOrgs.save(Object.assign({}, org, { team: (org.team || []).concat([{ name: "Bea", email: address, role: "admin" }]) }));
+  }, [orgId, bea.address]);
+  await bea.goto(BASE + "/app/volunteers.html");
+  await bea.evaluate((id) => window.SevakSignups.decideHours(id, { status: "approved", by: "bea" }), ashaShift);
+  check((await hoursOf(asha))?.status === "approved", "a different Admin approves an Admin's hours");
+
   // Mei asks for a certificate.
   await mei.goto(BASE + "/app/signup.html?view=mine");
   const certId = await mei.evaluate((orgId) => window.SevakCerts.request(orgId, "2030-01-01", "2030-01-31", "For school").id, orgId);

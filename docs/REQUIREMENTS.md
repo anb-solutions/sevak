@@ -1,6 +1,6 @@
 # Sevak: MVP Requirements
 
-**Version:** 2.42 (Add to calendar: an .ics file and Google Calendar, wherever it appears; nobody approves their own hours: an Admin's need a different Admin) · **Updated:** 2026-11-10 · **Status:** Draft for review
+**Version:** 2.41 (Add to calendar: an .ics file and Google Calendar, wherever it appears; nobody approves their own hours: an Admin's need a different Admin) · **Updated:** 2026-11-10 · **Status:** Draft for review
 
 This replaces the original SRS outline, which is about six months old. That outline covered a full
 volunteer management system: background checks, GPS clock-in, CRM integrations and so on. This
