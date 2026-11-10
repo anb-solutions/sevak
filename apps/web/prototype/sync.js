@@ -88,7 +88,8 @@
     hours_mismatch: "That certificate's hours don't match the approved hours on record. Reload the page and try again.",
     too_many: "That's more than Sevak allows for one person or organization. Contact Sevak if you need more.",
     already_asked: "That has already been asked for. Reload the page to see where it stands.",
-    own_hours: "Nobody approves their own hours. An Admin's hours need a different Admin."
+    own_hours: "Nobody approves their own hours. An Admin's hours need a different Admin.",
+    own_certificate: "Nobody issues their own certificate. An Admin's certificate needs a different Admin."
   };
 
   function put(key, value) {

@@ -5,7 +5,7 @@ import type { Viewer } from "./auth";
 import { approvedMinutes, readCertificates, readSignatures, verifyCertificate, writeCertificates, writeSignatures } from "./certificates";
 import { writeEvents } from "./events";
 import { joinWithCode } from "./memberships";
-import { writeOrganizations } from "./records";
+import { readOrganizations, writeOrganizations } from "./records";
 import { readSignups, writeSignups } from "./signups";
 
 let db: Db;
@@ -88,6 +88,43 @@ describe("issuing", () => {
     await writeCertificates(db, mei, { upsert: [request({ id: "cert-2" })] });
     const second = { ...(await readCertificates(db, asha)).find((c) => c.id === "cert-2"), status: "issued", code: "SVK-ABCD-EF23", data: { code: "SVK-ABCD-EF23", minutes: 90 } };
     expect((await writeCertificates(db, asha, { upsert: [second] })).refused).toBe(1);
+  });
+
+  describe("is never your own (an Admin's needs a different Admin)", () => {
+    // Asha, the Admin, volunteers too, and asks for a certificate for her
+    // own hours, which someone else approved (ATT-3).
+    let own: Record<string, unknown>;
+    const asIssued = () => ({ ...own, status: "issued", code: "SVK-ASHA-ABCD", signer: { name: "Asha" }, data: { code: "SVK-ASHA-ABCD", minutes: 60 } });
+    async function ashaAsks(approver: Viewer) {
+      await writeSignups(db, asha, { upsert: [{ id: "su-a", eventId: "ev-1", shiftId: "s1", email: "asha@example.com", status: "confirmed", hours: { minutes: 60, method: "duration" } }] });
+      const s = (await readSignups(db, approver)).find((x) => x.id === "su-a");
+      expect((await writeSignups(db, approver, { upsert: [{ ...s, hours: { ...(s!.hours as object), status: "approved" } }] })).refused).toBe(0);
+      await writeCertificates(db, asha, { upsert: [request({ id: "cert-a", email: "asha@example.com", name: "Asha" })] });
+      own = (await readCertificates(db, asha)).find((c) => c.id === "cert-a")!;
+      expect(own).toMatchObject({ status: "requested", email: "asha@example.com" });
+    }
+    const status = async () => (await readCertificates(db, asha)).find((c) => c.id === "cert-a");
+
+    it("refuses an Admin issuing or declining their own, even with the right hours", async () => {
+      const bea = await person("bea@example.com");
+      const [org] = await readOrganizations(db, asha);
+      await writeOrganizations(db, asha, { upsert: [{ ...org, team: [...(org!.team as object[]), { email: "bea@example.com", role: "admin" }] }] });
+      await ashaAsks(bea);
+      expect(await writeCertificates(db, asha, { upsert: [asIssued()] })).toMatchObject({ refused: 1, reason: "own_certificate" });
+      expect(await writeCertificates(db, asha, { upsert: [{ ...own, status: "declined", reason: "No" }] })).toMatchObject({ refused: 1, reason: "own_certificate" });
+      expect(await status()).toMatchObject({ status: "requested" });
+      // A different Admin issues it.
+      expect((await writeCertificates(db, bea, { upsert: [asIssued()] })).refused).toBe(0);
+      expect(await status()).toMatchObject({ status: "issued", decidedBy: "bea@example.com", data: { minutes: 60, volunteer: "Asha" } });
+    });
+
+    it("comes from Sevak staff for an organization's only Admin, but never staff's own", async () => {
+      const staff: Viewer = { ...(await person("staff@sevak.example")), isPlatformAdmin: true };
+      await ashaAsks(staff);
+      expect(await writeCertificates(db, { ...asha, isPlatformAdmin: true }, { upsert: [asIssued()] })).toMatchObject({ refused: 1, reason: "own_certificate" });
+      expect((await writeCertificates(db, staff, { upsert: [asIssued()] })).refused).toBe(0);
+      expect(await status()).toMatchObject({ status: "issued", decidedBy: "staff@sevak.example" });
+    });
   });
 
   it("can be declined with a reason, by an Admin", async () => {

@@ -174,13 +174,8 @@
     var others = waiting.length - list.length - own.length;
     var notes = [];
     if (own.length) {
-      var seen = {};
-      var otherAdmins = (org.team || []).map(function (t) { return t.email; })
-        .concat([org.primaryContact && org.primaryContact.email, org.createdBy])
-        .map(function (e) { return String(e || "").trim().toLowerCase(); })
-        .filter(function (e) { var fresh = e && !seen[e]; seen[e] = true; return fresh && e !== me().toLowerCase() && O.roleOf(org, e) === "admin"; }).length;
       notes.push("Your own hours (" + E.plural(own.length, "shift") + ") need " + (O.isAdmin(org) ? "another Admin" : "the event admin or an Admin") + " to approve them" +
-        (O.isAdmin(org) && !otherAdmins ? ". You're the only Admin, so add another on the Organization page's Team tab." : "."));
+        (O.isAdmin(org) && !otherAdmins() ? ". " + ONLY_ADMIN : "."));
     }
     if (others > 0) notes.push(E.plural(others, "shift") + " more " + (others === 1 ? "is" : "are") + " waiting for " + (O.isAdmin(org) ? "an Admin or their event admin" : "their event admin or an Admin") + ".");
     $("hours-others").hidden = !notes.length;
@@ -233,6 +228,17 @@
     return p ? p.email : "";
   }
 
+  // How many Admins the organization has besides you.
+  function otherAdmins() {
+    var seen = {};
+    var mine = String(me() || "").toLowerCase();
+    return (org.team || []).map(function (t) { return t.email; })
+      .concat([org.primaryContact && org.primaryContact.email, org.createdBy])
+      .map(function (e) { return String(e || "").trim().toLowerCase(); })
+      .filter(function (e) { var fresh = e && !seen[e]; seen[e] = true; return fresh && e !== mine && O.roleOf(org, e) === "admin"; }).length;
+  }
+  var ONLY_ADMIN = "You're the only Admin, so add another on the Organization page's Team tab.";
+
   $("approve-all").addEventListener("click", function () {
     var list = S.pendingHours(E.forOrg(org.id).map(function (ev) { return ev.id; }))
       .filter(function (su) { return C.canApproveHours(E.get(su.eventId), su); });
@@ -248,8 +254,10 @@
     var waiting = all.filter(function (c) { return c.status === "requested"; });
     var issued = all.filter(function (c) { return c.status === "issued"; }).reverse();
     var canIssue = C.canIssue(org);
+    // Your own request is listed (to preview) but waits for another Admin.
+    var forYou = waiting.filter(function (c) { return !C.isOwn(c); }).length;
     $("cert-requests").hidden = !all.length;
-    $("certreq-title").textContent = waiting.length ? "Certificate requests (" + waiting.length + ")" : "Certificate requests";
+    $("certreq-title").textContent = forYou ? "Certificate requests (" + forYou + ")" : "Certificate requests";
     $("certreq-empty").hidden = waiting.length > 0;
     $("certreq-hint").hidden = canIssue || !waiting.length;
     var ul = $("certreq-list");
@@ -260,7 +268,8 @@
       var person = { id: "certreq-" + c.id, name: c.name, email: c.email, photo: photoFor(c.email) };
       var actions = [];
       actions.push({ text: "Preview", cls: "btn-secondary btn-small", label: "Preview the certificate for " + who, onClick: function () { location.href = "certificate.html?id=" + encodeURIComponent(c.id); } });
-      if (canIssue) {
+      var own = C.isOwn(c);
+      if (canIssue && !own) {
         actions.push({ text: "Issue", cls: "btn-primary btn-small", label: "Issue the certificate for " + who, onClick: function (e) {
           if (!cov.minutes) { $("vol-status").textContent = "There are no approved hours in that period yet. Approve their hours first."; return; }
           e.target.disabled = true;
@@ -286,7 +295,8 @@
         cov.minutes ? "Approved hours in this period: " + duration(cov.minutes) + " (" + E.plural(cov.approved.length, "shift") + ")" : "No approved hours in this period yet",
         cov.pendingShifts ? E.plural(cov.pendingShifts, "shift") + " (" + duration(cov.pendingMinutes) + ") still waiting for approval, not included" : "",
         c.note ? "“" + c.note + "”" : "",
-        "Asked " + when(c.requestedAt)
+        "Asked " + when(c.requestedAt),
+        own && canIssue ? "Your own request: nobody issues their own certificate, so another Admin issues it" + (otherAdmins() ? "." : ". " + ONLY_ADMIN) : ""
       ], actions);
       ul.appendChild(li);
     });

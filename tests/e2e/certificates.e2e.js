@@ -1,5 +1,5 @@
 // Certificates and documents on the server: a volunteer asks, an Admin
-// issues (only with the approved hours on record), the PDF lands in the
+// issues (only with the approved hours on record, and never their own), the PDF lands in the
 // volunteer's documents, anyone can check it by number; uploads are checked
 // and files are private.
 const fs = require("fs");
@@ -104,6 +104,27 @@ const ORG = "Temple Volunteers " + require("./helpers").RUN;
   await visitor.goto(BASE + "/app/verify.html?code=SVK-ZZZZ-ZZZZ");
   await visitor.waitForSelector("#verify-result:not([hidden])");
   check((await visitor.textContent("#verify-result")).includes("Not found"), "a wrong number isn't found");
+
+  // Nobody issues their own certificate: Asha, an Admin, asks for one for her
+  // own hours (which Bea approved). The server refuses her issuing or
+  // declining it, even with the right hours; Bea, a different Admin, issues it.
+  await asha.goto(BASE + "/app/signup.html?view=mine");
+  const ownId = await asha.evaluate((orgId) => window.SevakCerts.request(orgId, "2030-01-01", "2030-01-31", "").id, orgId);
+  const ownCert = async (p) => (await certs(p)).find((c) => c.id === ownId) || {};
+  check((await ownCert(bea)).status === "requested", "an Admin can ask for their own certificate");
+  for (const [status, extra] of [["issued", { code: "SVK-EEEE-FFFF", data: { code: "SVK-EEEE-FFFF", minutes: 60 } }], ["declined", { reason: "Mine" }]]) {
+    await asha.goto(BASE + "/app/volunteers.html");
+    await asha.evaluate(([id, status, extra]) => {
+      const list = JSON.parse(localStorage.getItem("sevak.certificates.v1"));
+      Object.assign(list.find((x) => x.id === id), { status }, extra);
+      try { localStorage.setItem("sevak.certificates.v1", JSON.stringify(list)); } catch (e) { /* refused */ }
+    }, [ownId, status, extra]);
+    check((await ownCert(asha)).status === "requested", "an Admin can't " + (status === "issued" ? "issue" : "decline") + " their own certificate");
+  }
+  await bea.goto(BASE + "/app/volunteers.html");
+  await bea.evaluate((id) => window.SevakCerts.issue(id), ownId);
+  const own = await ownCert(asha);
+  check(own.status === "issued" && own.decidedBy === bea.address.toLowerCase() && own.data.minutes === 60, "a different Admin issues an Admin's certificate");
 
   // Uploading on her profile: a PDF works; a web page called .pdf doesn't.
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sevak-e2e-"));

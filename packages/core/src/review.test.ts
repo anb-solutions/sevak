@@ -78,7 +78,10 @@ describe("certificates", () => {
     await writeCertificates(db, evil, { upsert: [{ id: "cert-a", orgId: "org-a", name: "Jane Q. Public", from: "2030-01-01", to: "2030-01-31", status: "requested" }] });
     const [req] = await readCertificates(db, evil);
     const forged = { code: "SVK-AAAA-BBBB", minutes: 180, org: { name: "American Red Cross", verified: true }, events: [{ title: "Anything" }] };
-    expect((await writeCertificates(db, evil, { upsert: [{ ...req, status: "issued", code: forged.code, data: forged }] })).refused).toBe(0);
+    // Nor issues their own certificate; the accomplice does, and what it
+    // says still comes from Sevak's records, not the page.
+    expect(await writeCertificates(db, evil, { upsert: [{ ...req, status: "issued", code: forged.code, data: forged }] })).toMatchObject({ refused: 1, reason: "own_certificate" });
+    expect((await writeCertificates(db, ally, { upsert: [{ ...req, status: "issued", code: forged.code, data: forged }] })).refused).toBe(0);
     const shown = await verifyCertificate(db, forged.code);
     expect(shown!.data).toMatchObject({ org: { name: "Attacker", verified: false }, events: [{ title: "Disaster relief" }], minutes: 180 });
   });
