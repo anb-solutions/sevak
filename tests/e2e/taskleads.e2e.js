@@ -36,7 +36,7 @@ const ORG = "Task Leads Org " + require("./helpers").RUN;
   await signUp(pia, "su-pia-" + orgId, "shift-kitchen");
 
   // Asha picks Mei as Setup's lead in the event editor.
-  await asha.goto(BASE + "/app/event.html?id=" + eventId);
+  await asha.goto(BASE + "/app/event.html?id=" + eventId + "#roles"); // the Roles step
   const leadSel = ".role-card >> nth=0 >> select[data-key=\"lead\"]";
   const offered = await asha.$$eval(".role-card select[data-key=\"lead\"]", (s) => [...s[0].options].map((o) => o.value));
   check(offered.includes(mei.address) && offered.includes(ravi.address), "the editor offers the organization's members");
@@ -69,7 +69,7 @@ const ORG = "Task Leads Org " + require("./helpers").RUN;
   check((await roles(cora)).every((r) => !r.lead) && (await signups(cora)).find((s) => s.id === "su-ravi-" + orgId).anonymous, "a Coordinator who doesn't run the event: no lead, no names");
 
   // Only an Admin chooses, and only a member or someone on the team.
-  await cora.goto(BASE + "/app/event.html?id=" + eventId);
+  await cora.goto(BASE + "/app/event.html?id=" + eventId + "#roles");
   check(await cora.isDisabled(leadSel), "a Coordinator can't choose in the editor");
   await cora.evaluate(([eventId, address]) => {
     const list = JSON.parse(localStorage.getItem("sevak.events.v1"));

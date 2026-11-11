@@ -19,8 +19,9 @@ const BASE = 'http://localhost:8765/app/'; const SP = process.argv[2];
   });
 
   // New event: the common roles; the first fills the empty Role 1.
-  await p.goto(BASE + 'event.html');
+  await p.goto(BASE + 'event.html#roles');   // the Roles step
   check(await p.isVisible('#role-presets'), 'common roles offered');
+  await p.click('#role-presets summary');   // folded away until asked for
   await p.click('button[aria-label="Add the role Greeters"]');
   check((await p.$$('.role-card')).length === 1, 'fills the empty first role instead of adding one');
   check((await p.inputValue('.role-card [data-key="name"]')) === 'Greeters', 'role name filled in');
@@ -39,17 +40,21 @@ const BASE = 'http://localhost:8765/app/'; const SP = process.argv[2];
   check(!admins.some(t => t.includes('no longer on the team')), 'nobody marked as no longer on the team');
 
   // Location shared later: no address needed to publish.
+  await p.click('#stepper button[data-step="0"]');
   await p.fill('#title', 'Private recital');
+  await p.click('#step-next');
   await p.fill('#startDate', '2030-05-10');
   await p.dispatchEvent('#startDate', 'change');
   await p.check('input[name="locationType"][value="later"]', { force: true });
   check(await p.isVisible('#locationNote') && !(await p.isVisible('#addressLine1')), 'shared later: a note instead of the address');
   await p.fill('#locationNote', 'We email the address to volunteers the day before.');
+  await p.click('#step-next');
   for (const row of await p.$$('.shift-row')) {
     await (await row.$('[data-key="start"]')).fill('09:00');
     await (await row.$('[data-key="end"]')).fill('12:00');
     await (await row.$('[data-key="capacity"]')).fill('4');
   }
+  await p.click('#step-next');   // Review, where a draft is published
   await p.click('#publish');
   await p.waitForURL(/events\.html/);   // saving goes back to Events
   const saved = await p.evaluate(() => JSON.parse(localStorage.getItem('sevak.events.v1')).find(e => e.title === 'Private recital'));

@@ -19,8 +19,8 @@ const B = 'http://localhost:8765/app/'; const SP = process.argv[2];
   await signInAs('Bala', 'A', 'bala@example.com');
   await p.goto(B + 'dashboard.html?demo=1');   // Bala: Admin of Riverside
 
-  // ----- An Admin picks a lead for a task -----
-  await p.goto(B + 'event.html?id=demo-ev-park');
+  // ----- An Admin picks a lead for a task (the Roles step) -----
+  await p.goto(B + 'event.html?id=demo-ev-park#roles');
   const litter = '.role-card:has(input[data-key="name"][value="Litter pickers"]), .role-card >> nth=0';
   const leadSel = '.role-card >> nth=0 >> select[data-key="lead"]';
   const options = await p.$$eval('.role-card select[data-key="lead"] >> nth=0', s => [...s[0].options].map(o => [o.value, o.textContent]));
@@ -37,7 +37,7 @@ const B = 'http://localhost:8765/app/'; const SP = process.argv[2];
   const saved = await park();
   check(saved.roles[0].lead === lead.email.toLowerCase() && !saved.roles[1].lead, 'saved: ' + saved.roles.map(r => r.name + '=' + (r.lead || '-')).join(', '));
   check((await p.textContent('[data-event-id="demo-ev-park"]')).includes('1 task without a task lead'), 'Events: says which still need a lead');
-  await p.goto(B + 'event.html?id=demo-ev-park');
+  await p.goto(B + 'event.html?id=demo-ev-park#roles');
   check((await p.inputValue(leadSel)) === lead.email.toLowerCase(), 'the editor shows the lead again');
   await p.screenshot({ path: SP + '/tasklead-editor.png' });
 
@@ -79,8 +79,9 @@ const B = 'http://localhost:8765/app/'; const SP = process.argv[2];
     localStorage.setItem('sevak.organizations.v1', JSON.stringify(l));
   });
   await p.setViewportSize({ width: 1000, height: 900 });
-  await p.goto(B + 'event.html?id=demo-ev-park');
+  await p.goto(B + 'event.html?id=demo-ev-park#roles');
   check(await p.isDisabled(leadSel) && (await p.textContent('.role-card >> nth=0 >> .lead-hint')).includes('Only the organization\'s Admins choose task leads.'), 'Coordinator: the lead is shown, not changeable');
+  await p.click('#stepper button[data-step="0"]');
   await p.fill('#title', 'Riverside Park Clean-up (edited)');
   await p.click('#publish');
   await p.waitForURL(/events\.html/);

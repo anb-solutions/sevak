@@ -19,6 +19,7 @@ const B = 'http://localhost:8765/app/'; const SP = process.argv[2];
   await p.click('#save-draft');
   check(/event\.html/.test(p.url()) && !(await p.$('#saved-flash')), 'a save that fails (no name) stays on the form');
   await p.fill('#title', 'Book swap');
+  await p.click('#step-next');   // the dates are on the next step
   await p.fill('#startDate', '2030-03-01');
   await p.dispatchEvent('#startDate', 'change');
   await p.click('#save-draft');
@@ -35,8 +36,8 @@ const B = 'http://localhost:8765/app/'; const SP = process.argv[2];
   await p.click('#publish');
   await p.waitForURL(/events\.html/);
   check((await flash()).includes('Saved changes to “Riverside Park Clean-up”.'), 'published event: Save changes');
-  await p.goto(B + 'event.html?id=demo-ev-park');
-  await p.click('#save-draft');   // "Unpublish" on a published event
+  await p.goto(B + 'event.html?id=demo-ev-park#review');
+  await p.click('#save-draft');   // "Unpublish" on a published event, on the Review step
   await p.waitForURL(/events\.html/);
   check((await flash()).includes('Unpublished “Riverside Park Clean-up”. It\'s a draft again.'), 'unpublished');
   await p.click('#saved-flash button:has-text("Dismiss")');
@@ -83,7 +84,7 @@ const B = 'http://localhost:8765/app/'; const SP = process.argv[2];
 
   // ----- Phone -----
   await p.setViewportSize({ width: 390, height: 844 });
-  await p.goto(B + 'event.html?id=demo-ev-park');
+  await p.goto(B + 'event.html?id=demo-ev-park#review');   // a draft again, so Publish is on the Review step
   await p.click('#publish');
   await p.waitForURL(/events\.html/);
   check(!(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth)) && await p.isVisible('#saved-flash'), 'phone: the message fits');

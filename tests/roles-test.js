@@ -81,8 +81,8 @@ const B = 'http://localhost:8765/app/'; const SP = process.argv[2];
   check(await p.isEnabled('#panel-documents .docs-add'), 'coordinator can add documents');
   await p.screenshot({ path: SP + '/coordinator-org.png' });
   // Event of the demo: coordinator can open, not delete
-  await p.goto(B + 'event.html?id=demo-ev-park');
-  check(await p.isVisible('#event-form') && !(await p.isVisible('#delete-event')), 'coordinator opens event, no delete');
+  await p.goto(B + 'event.html?id=demo-ev-park#review');   // where Delete would be
+  check(await p.isVisible('#event-form') && await p.isVisible('#manage-event') && !(await p.isVisible('#delete-event')), 'coordinator opens event, no delete');
 
   // ----- My profile: team list, Leave -----
   await p.goto(B + 'profile.html');

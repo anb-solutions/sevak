@@ -36,12 +36,10 @@
   <main class="container">
     <p class="banner"><strong>Prototype.</strong> Everything you enter stays in this browser.</p>
 
-    <section class="org-context" id="org-context" aria-label="Organization" hidden></section>
-
-    <p class="breadcrumb"><a href="events.html" id="back-link">← <span id="org-name-crumb">Organization</span></a></p>
+    <p class="org-eyebrow event-org" id="org-line" hidden></p>
+    <p class="breadcrumb"><a href="events.html" id="back-link">← <span id="org-name-crumb">Events</span></a></p>
     <h1 class="page-title" id="page-title">New event</h1>
     <p class="volunteer-link-row" id="volunteer-link-row" hidden><a id="volunteer-link" target="_blank" rel="noopener">Open the volunteer sign-up page ↗</a> <span class="hint" id="volunteer-link-hint"></span></p>
-    <p class="page-intro">Set up your event, then add the roles you need and a shift for each time slot. Save a draft anytime, and publish when it's ready.</p>
 
     <div class="section notice notice-warn" id="no-org" hidden>
       <p><strong>Create your organization profile first.</strong></p>
@@ -49,165 +47,211 @@
     </div>
 
     <div class="section notice notice-warn inactive-note" id="inactive-note" hidden>
-      <p><strong>This event is inactive.</strong> It's hidden from volunteers, the Events list and the dashboard. Its sign-ups and documents are kept.</p>
-      <p><button type="button" class="btn btn-secondary btn-small" id="reactivate">Reactivate event</button></p>
+      <p><strong>This <span data-noun>event</span> is inactive.</strong> It's hidden from volunteers, the Events list and the dashboard. Its sign-ups and documents are kept.</p>
+      <p><button type="button" class="btn btn-secondary btn-small" id="reactivate">Reactivate <span data-noun>event</span></button></p>
     </div>
 
     <div class="section notice zeffy-source" id="zeffy-source" hidden></div>
 
-    <div class="tabs" role="tablist" aria-label="Event sections" id="event-tabs">
-      <button type="button" class="tab" role="tab" id="tab-details" aria-controls="event-form" aria-selected="true">Event details</button>
+    <!-- Documents: once the event is saved. -->
+    <div class="tabs" role="tablist" aria-label="Event sections" id="event-tabs" hidden>
+      <button type="button" class="tab" role="tab" id="tab-details" aria-controls="event-form" aria-selected="true"><span data-noun="cap">Event</span></button>
       <button type="button" class="tab" role="tab" id="tab-documents" aria-controls="panel-documents" aria-selected="false" tabindex="-1">Documents</button>
     </div>
 
     <form id="event-form" class="tab-panel" role="tabpanel" aria-labelledby="tab-details" novalidate>
-      <!-- Details -->
-      <fieldset class="section">
-        <legend>Event details</legend>
-        <div class="stack">
-          <div class="field" id="main-field">
-            <label for="mainEventId">Part of a main event? <span class="optional">(optional)</span></label>
-            <select id="mainEventId"></select>
-            <p class="hint">Use a main event to group related events, such as a festival and its rehearsals. <a href="main-event.html" id="new-main-link">Create a main event</a></p>
-          </div>
-          <div class="field">
-            <label for="title">Event name</label>
-            <input id="title" type="text" required maxlength="120" placeholder="e.g. Community Food Drive">
-            <p class="error" id="title-error"></p>
-          </div>
-          <div class="field">
-            <label for="description">Description <span class="optional">(optional)</span></label>
-            <textarea id="description" maxlength="2000" aria-describedby="description-hint"></textarea>
-            <div class="field-footer">
-              <p class="hint" id="description-hint">What's happening, who it helps, and anything volunteers should know.</p>
-              <p class="counter" id="description-counter" aria-live="polite">0 / 2000</p>
+      <!-- Set up in four steps (EVT-22). Every step can be opened at any time. -->
+      <nav class="stepper" aria-label="Steps">
+        <ol id="stepper">
+          <li><button type="button" data-step="0"><span class="step-num" aria-hidden="true">1</span><span class="step-label">Details</span></button></li>
+          <li><button type="button" data-step="1"><span class="step-num" aria-hidden="true">2</span><span class="step-label">When &amp; where</span></button></li>
+          <li><button type="button" data-step="2"><span class="step-num" aria-hidden="true">3</span><span class="step-label">Roles</span></button></li>
+          <li><button type="button" data-step="3"><span class="step-num" aria-hidden="true">4</span><span class="step-label">Review</span></button></li>
+        </ol>
+      </nav>
+
+      <!-- Step 1: details -->
+      <section class="wizard-step" id="step-details" tabindex="-1" aria-labelledby="details-title">
+        <fieldset class="section">
+          <legend id="details-title"><span data-noun="cap">Event</span> details</legend>
+          <div class="stack">
+            <div class="field">
+              <label for="title"><span data-noun="cap">Event</span> name</label>
+              <input id="title" type="text" required maxlength="120" placeholder="e.g. Community Food Drive">
+              <p class="error" id="title-error"></p>
+            </div>
+            <div class="field">
+              <label for="description">Description <span class="optional">(optional)</span></label>
+              <textarea id="description" maxlength="2000" aria-describedby="description-hint"></textarea>
+              <div class="field-footer">
+                <p class="hint" id="description-hint">What's happening, who it helps, and anything volunteers should know.</p>
+                <p class="counter" id="description-counter" aria-live="polite">0 / 2000</p>
+              </div>
+            </div>
+            <div class="field" id="main-field">
+              <p class="inline-choice" id="main-line" hidden>Part of <strong id="main-line-name"></strong> <button type="button" class="btn btn-link" id="main-change">Change</button></p>
+              <div id="main-picker">
+                <label for="mainEventId">Part of a main event? <span class="optional">(optional)</span></label>
+                <select id="mainEventId"></select>
+                <p class="hint">To group it with related events, such as a festival and its rehearsals. <a href="main-event.html" id="new-main-link">Create a main event</a></p>
+              </div>
             </div>
           </div>
-        </div>
-      </fieldset>
+        </fieldset>
+      </section>
 
-      <!-- When -->
-      <fieldset class="section">
-        <legend>When</legend>
-        <p class="section-help">For a one-day event, use the same start and end date. Events can run for up to 31 days.</p>
-        <div class="grid">
-          <div class="field">
-            <label for="startDate">Start date</label>
-            <input id="startDate" type="date" required>
-            <p class="error" id="startDate-error"></p>
+      <!-- Step 2: when and where -->
+      <section class="wizard-step" id="step-when" tabindex="-1" aria-labelledby="when-title" hidden>
+        <fieldset class="section">
+          <legend id="when-title">When</legend>
+          <div class="grid">
+            <div class="field">
+              <label for="startDate">Start date</label>
+              <input id="startDate" type="date" required>
+              <p class="error" id="startDate-error"></p>
+            </div>
+            <div class="field">
+              <label for="endDate">End date</label>
+              <input id="endDate" type="date" required aria-describedby="endDate-hint">
+              <p class="hint" id="endDate-hint">The same day for a one-day <span data-noun>event</span>; up to 31 days.</p>
+              <p class="error" id="endDate-error"></p>
+            </div>
+            <div class="field span-2" id="tz-field">
+              <p class="inline-choice" id="tz-line">Times are in <strong id="tz-name"></strong>. <button type="button" class="btn btn-link" id="tz-change">Change</button></p>
+              <div id="tz-picker" hidden>
+                <label for="timezone">Time zone</label>
+                <select id="timezone"></select>
+                <p class="hint">Shift times are shown to volunteers in this time zone.</p>
+              </div>
+            </div>
           </div>
-          <div class="field">
-            <label for="endDate">End date</label>
-            <input id="endDate" type="date" required>
-            <p class="error" id="endDate-error"></p>
-          </div>
-          <div class="field span-2">
-            <label for="timezone">Time zone</label>
-            <select id="timezone"></select>
-            <p class="hint">Shift times are shown to volunteers in this time zone.</p>
-          </div>
-        </div>
-      </fieldset>
+        </fieldset>
 
-      <!-- Where -->
-      <fieldset class="section">
-        <legend>Where</legend>
-        <div class="choices">
-          <label class="choice"><input type="radio" name="locationType" value="in-person" checked><span><strong>In person</strong><small>At a venue or address</small></span></label>
-          <label class="choice"><input type="radio" name="locationType" value="online"><span><strong>Online</strong><small>Volunteers join remotely</small></span></label>
-          <label class="choice"><input type="radio" name="locationType" value="later"><span><strong>Shared later</strong><small>No address shown; volunteers get it from you</small></span></label>
-        </div>
+        <fieldset class="section">
+          <legend id="where-title">Where</legend>
+          <div class="choices">
+            <label class="choice"><input type="radio" name="locationType" value="in-person" checked><span><strong>In person</strong><small>At a venue or address</small></span></label>
+            <label class="choice"><input type="radio" name="locationType" value="online"><span><strong>Online</strong><small>Volunteers join remotely</small></span></label>
+            <label class="choice"><input type="radio" name="locationType" value="later"><span><strong>Shared later</strong><small>No address shown; volunteers get it from you</small></span></label>
+          </div>
 
-        <div class="mt-16" id="in-person-fields">
-          <button type="button" class="btn btn-secondary btn-small" id="use-org-address" hidden>Use our organization's address</button>
-          <div class="grid mt-12">
-            <div class="field span-2">
+          <div id="in-person-fields" class="stack mt-16">
+            <div class="field">
               <label for="venue">Venue name <span class="optional">(optional)</span></label>
               <input id="venue" type="text" maxlength="120" placeholder="e.g. Riverside Community Center">
             </div>
-            <div class="field span-2">
-              <label for="country">Country or region</label>
-              <select id="country" required></select>
-              <p class="error" id="country-error"></p>
+            <!-- A saved address shows as one line; Change opens the fields. -->
+            <div class="address-summary" id="address-summary" hidden>
+              <p class="address-label">Address</p>
+              <p class="address-text" id="address-text"></p>
+              <p class="hint" id="address-source" hidden>Your organization's address</p>
+              <button type="button" class="btn btn-secondary btn-small" id="address-change">Change the address</button>
             </div>
-            <div class="field span-2">
-              <label for="addressLine1">Street address</label>
-              <input id="addressLine1" type="text" required maxlength="120">
-              <p class="error" id="addressLine1-error"></p>
-            </div>
-            <div class="field">
-              <label for="city">City or town</label>
-              <input id="city" type="text" required maxlength="80">
-              <p class="error" id="city-error"></p>
-            </div>
-            <div class="field">
-              <label for="state">State, province or region <span class="optional">(if used)</span></label>
-              <input id="state" type="text" maxlength="60">
-            </div>
-            <div class="field">
-              <label for="postalCode">Postal code <span class="optional">(if used)</span></label>
-              <input id="postalCode" type="text" maxlength="12" data-postal data-country="country">
-              <p class="error" id="postalCode-error"></p>
+            <div id="address-fields">
+              <button type="button" class="btn btn-secondary btn-small" id="use-org-address" hidden>Use our organization's address</button>
+              <div class="grid mt-12">
+                <div class="field span-2">
+                  <label for="country">Country or region</label>
+                  <select id="country" required></select>
+                  <p class="error" id="country-error"></p>
+                </div>
+                <div class="field span-2">
+                  <label for="addressLine1">Street address</label>
+                  <input id="addressLine1" type="text" required maxlength="120">
+                  <p class="error" id="addressLine1-error"></p>
+                </div>
+                <div class="field">
+                  <label for="city">City or town</label>
+                  <input id="city" type="text" required maxlength="80">
+                  <p class="error" id="city-error"></p>
+                </div>
+                <div class="field">
+                  <label for="state">State, province or region <span class="optional">(if used)</span></label>
+                  <input id="state" type="text" maxlength="60">
+                </div>
+                <div class="field">
+                  <label for="postalCode">Postal code <span class="optional">(if used)</span></label>
+                  <input id="postalCode" type="text" maxlength="12" data-postal data-country="country">
+                  <p class="error" id="postalCode-error"></p>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="field mt-16" id="later-fields" hidden>
-          <label for="locationNote">What volunteers see <span class="optional">(optional)</span></label>
-          <input id="locationNote" type="text" maxlength="200" placeholder="Contact your event admin for location details.">
-          <p class="hint">For private venues, or when you email the location to people who sign up. Leave it empty to say "Contact your event admin for location details."</p>
-        </div>
+          <div class="field mt-16" id="later-fields" hidden>
+            <label for="locationNote">What volunteers see <span class="optional">(optional)</span></label>
+            <input id="locationNote" type="text" maxlength="200" placeholder="Contact your event admin for location details.">
+            <p class="hint">For private venues, or when you email the location to people who sign up. Leave it empty to say "Contact your event admin for location details."</p>
+          </div>
 
-        <div class="field mt-16" id="online-fields" hidden>
-          <label for="onlineUrl">Meeting link <span class="optional">(optional)</span></label>
-          <input id="onlineUrl" type="url" inputmode="url" maxlength="300" placeholder="https://…">
-          <p class="hint">Only volunteers who sign up will see this link.</p>
-          <p class="error" id="onlineUrl-error"></p>
-        </div>
-      </fieldset>
-
-      <!-- Roles and shifts -->
-      <section class="section" aria-labelledby="roles-title">
-        <h2 class="section-title" id="roles-title">Roles and shifts</h2>
-        <p class="section-help">Add each job volunteers will do, then the time slots (shifts) for it and how many people you need in each.</p>
-        <p class="summary" id="roles-summary" aria-live="polite"></p>
-        <div class="stack" id="role-list"></div>
-        <p class="error" id="roles-error"></p>
-        <div class="role-presets" id="role-presets">
-          <p class="hint" id="role-presets-label">Add a common role, then change anything you like:</p>
-          <div class="fill-row" role="group" aria-labelledby="role-presets-label" id="role-preset-buttons"></div>
-        </div>
-        <button type="button" class="btn btn-secondary mt-12" id="add-role">+ Add a role</button>
+          <div class="field mt-16" id="online-fields" hidden>
+            <label for="onlineUrl">Meeting link <span class="optional">(optional)</span></label>
+            <input id="onlineUrl" type="url" inputmode="url" maxlength="300" placeholder="https://…">
+            <p class="hint">Only volunteers who sign up will see this link.</p>
+            <p class="error" id="onlineUrl-error"></p>
+          </div>
+        </fieldset>
       </section>
 
-      <!-- Visibility -->
-      <fieldset class="section">
-        <legend>Who can see this event?</legend>
-        <div class="choices choices-wide">
-          <label class="choice"><input type="radio" name="visibility" value="public" checked><span><strong>Public</strong><small>Listed on Sevak and in search results, so anyone can find it and sign up</small></span></label>
-          <label class="choice"><input type="radio" name="visibility" value="private"><span><strong>Private</strong><small>Not listed anywhere. Only people you share the link with, or invite by email, text or WhatsApp, can see it</small></span></label>
-        </div>
-        <p class="notice notice-warn mt-12" id="unverified-note" hidden><span id="unverified-text">Your organization isn't verified yet, so this event will stay private until it is. You can still share its link.</span> <a href="organization.html" id="unverified-link">Get verified</a></p>
-      </fieldset>
+      <!-- Step 3: roles and shifts -->
+      <section class="wizard-step" id="step-roles" tabindex="-1" aria-labelledby="roles-title" hidden>
+        <section class="section">
+          <h2 class="section-title" id="roles-title">Roles and shifts</h2>
+          <p class="section-help">Each job volunteers will do, its time slots (shifts), and how many people you need in each.</p>
+          <p class="summary" id="roles-summary" aria-live="polite"></p>
+          <div class="stack" id="role-list"></div>
+          <p class="error" id="roles-error"></p>
+          <button type="button" class="btn btn-secondary mt-12" id="add-role">+ Add a role</button>
+          <details class="role-presets" id="role-presets">
+            <summary id="role-presets-label">Or start from a common role</summary>
+            <div class="fill-row" role="group" aria-labelledby="role-presets-label" id="role-preset-buttons"></div>
+          </details>
+        </section>
+      </section>
 
-      <!-- Hours: who approves them (they count toward certificates) -->
-      <fieldset class="section">
-        <legend>Volunteers' hours</legend>
-        <p class="section-help">After each shift, volunteers log their hours. The event admin approves them (the organization's Admins can too), and only approved hours go on certificates.</p>
-        <div class="field">
-          <label for="eventAdmin">Event admin</label>
-          <select id="eventAdmin"></select>
-          <p class="hint" id="eventAdmin-hint">Approve hours on Manage → Volunteers.</p>
-        </div>
-      </fieldset>
+      <!-- Step 4: review, who can see it, who approves hours -->
+      <section class="wizard-step" id="step-review" tabindex="-1" aria-labelledby="review-title" hidden>
+        <section class="section">
+          <h2 class="section-title" id="review-title">Review</h2>
+          <dl class="review-list" id="review-list"></dl>
+        </section>
 
-      <div class="save-bar">
+        <fieldset class="section">
+          <legend>Who can see this <span data-noun>event</span>?</legend>
+          <div class="choices choices-wide">
+            <label class="choice"><input type="radio" name="visibility" value="public" checked><span><strong>Public</strong><small>Listed on Sevak and in search results, so anyone can find it and sign up</small></span></label>
+            <label class="choice"><input type="radio" name="visibility" value="private"><span><strong>Private</strong><small>Not listed anywhere. Only people you share the link with, or invite by email, text or WhatsApp, can see it</small></span></label>
+          </div>
+          <p class="notice notice-warn mt-12" id="unverified-note" hidden><span id="unverified-text">Your organization isn't verified yet, so this event will stay private until it is. You can still share its link.</span> <a href="organization.html" id="unverified-link">Get verified</a></p>
+        </fieldset>
+
+        <!-- Hours: who approves them (they count toward certificates) -->
+        <fieldset class="section">
+          <legend>Volunteers' hours</legend>
+          <p class="section-help">The event admin approves the hours volunteers log (Admins can too). Only approved hours go on certificates.</p>
+          <div class="field">
+            <label for="eventAdmin">Event admin</label>
+            <select id="eventAdmin"></select>
+            <p class="hint" id="eventAdmin-hint">Approve hours on Manage → Volunteers.</p>
+          </div>
+        </fieldset>
+
+        <section class="section manage-event" id="manage-event" aria-labelledby="manage-title" hidden>
+          <h2 class="section-title" id="manage-title">Manage this <span data-noun>event</span></h2>
+          <div class="fill-row">
+            <button type="button" class="btn btn-link" id="deactivate" hidden>Make inactive</button>
+            <button type="button" class="btn btn-danger-link" id="delete-event" hidden>Delete <span data-noun>event</span></button>
+            <span class="hint" id="delete-hint" hidden>Only admins can delete events.</span>
+          </div>
+        </section>
+      </section>
+
+      <div class="save-bar wizard-bar">
         <p class="status" id="status" role="status" aria-live="polite"></p>
-        <div class="inline-row">
-          <span class="hint" id="delete-hint" hidden>Only admins can delete events.</span>
-          <button type="button" class="btn btn-danger-link" id="delete-event" hidden>Delete event</button>
-          <button type="button" class="btn btn-link" id="deactivate" hidden>Make inactive</button>
+        <div class="wizard-actions">
+          <button type="button" class="btn btn-link" id="step-back" hidden>← Back</button>
           <button type="button" class="btn btn-secondary" id="save-draft">Save draft</button>
+          <button type="button" class="btn btn-primary" id="step-next">Next</button>
           <button type="submit" class="btn btn-primary" id="publish">Publish</button>
         </div>
       </div>
@@ -238,7 +282,7 @@
           <div class="field span-2">
             <label>Task lead <span class="optional">(optional)</span></label>
             <select data-key="lead"></select>
-            <p class="hint lead-hint">A member who leads this task on the day. They see who signed up for it, and how to reach them, on their My sign-ups page.</p>
+            <p class="hint lead-hint">Leads it on the day, and sees who signed up and how to reach them.</p>
           </div>
         </div>
 

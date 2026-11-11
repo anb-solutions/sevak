@@ -49,7 +49,7 @@ const B = 'http://localhost:8765/app/'; const SP = process.argv[2];
   // Event and main event pages open for an Admin
   await p.goto(B + 'event.html?id=demo-ev-park');
   check(await p.isVisible('#event-form') && (await p.inputValue('#title')) === 'Riverside Park Clean-up', 'event page opens');
-  check((await p.textContent('#org-context')).includes('Riverside'), 'event page sets its org');
+  check((await p.textContent('#org-line')).includes('Riverside'), 'event page sets its org (named above the title)');
   await p.goto(B + 'main-event.html?id=demo-main-arudra');
   check(await p.isVisible('#main-form') && (await p.inputValue('#title')).includes('Arudra'), 'main event opens');
   check((await p.$$('#sub-list > *')).length >= 2, 'main event lists its events');

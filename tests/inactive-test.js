@@ -15,8 +15,8 @@ const BASE = 'http://localhost:8765/app/'; const SP = process.argv[2];
   const kpiBefore = await p.$$eval('.kpi-value', k => k.map(x => x.textContent));
   await setProfile({ firstName: 'Cora', lastName: 'Lee', email: 'cora@example.com', roles: { volunteer: false, host: true }, organizations: [{ name: 'Riverside Community Arts (demo)', role: 'coordinator' }] });
 
-  // Coordinator: no delete, can make inactive.
-  await p.goto(BASE + 'event.html?id=demo-ev-park');
+  // Coordinator: no delete, can make inactive (on the Review step).
+  await p.goto(BASE + 'event.html?id=demo-ev-park#review');
   check(!(await vis('#delete-event')), 'coordinator: no Delete button');
   check(await vis('#delete-hint'), 'coordinator: admin-only hint');
   check(await vis('#deactivate'), 'coordinator: Make inactive shown');
@@ -27,6 +27,7 @@ const BASE = 'http://localhost:8765/app/'; const SP = process.argv[2];
   check((await p.textContent('#status')).includes('inactive'), 'status says inactive');
   await p.screenshot({ path: SP + '/inactive-editor.png', fullPage: false });
   // Saving edits keeps it inactive
+  await p.click('#stepper button[data-step="0"]');
   await p.fill('#title', 'Riverside Park Clean-up (old)');
   await p.click('#publish');
   await p.waitForURL(/events\.html/);   // saving goes back to Events
@@ -60,7 +61,7 @@ const BASE = 'http://localhost:8765/app/'; const SP = process.argv[2];
   check((await p.textContent('#notice')).includes('no longer active') && await vis('#confirm-view'), 'manage page notes inactive');
 
   // Main event: inactive sub hidden, coordinator can't delete.
-  await p.goto(BASE + 'event.html?id=demo-ev-reh2');
+  await p.goto(BASE + 'event.html?id=demo-ev-reh2#review');
   await p.click('#deactivate');
   await p.goto(BASE + 'main-event.html?id=demo-main-arudra');
   check(!(await p.textContent('#sub-list')).includes('Rehearsal 2'), 'main event hides inactive sub');
@@ -70,14 +71,14 @@ const BASE = 'http://localhost:8765/app/'; const SP = process.argv[2];
   check((await p.textContent('#sub-list')).includes('Rehearsal 2'), 'main shows inactive when ticked');
 
   // Reactivate.
-  await p.goto(BASE + 'event.html?id=demo-ev-reh2');
+  await p.goto(BASE + 'event.html?id=demo-ev-reh2#review');
   await p.click('#reactivate');
   check(await vis('#deactivate') && !(await vis('#inactive-note')), 'reactivated');
   check(await p.evaluate(() => JSON.parse(localStorage.getItem('sevak.events.v1')).find(e => e.id === 'demo-ev-reh2').status === 'published'), 'keeps published status');
 
   // Admin via profile.
   await setProfile({ firstName: 'Ada', email: 'ada@example.com', roles: { volunteer: false, host: true }, organizations: [{ name: 'riverside community arts (demo)', role: 'admin' }] });
-  await p.goto(BASE + 'event.html?id=demo-ev-park');
+  await p.goto(BASE + 'event.html?id=demo-ev-park#review');
   check(await vis('#delete-event') && !(await vis('#delete-hint')), 'admin (profile): Delete shown');
   await p.click('#delete-event');
   await p.waitForURL(/events\.html/);
@@ -88,7 +89,7 @@ const BASE = 'http://localhost:8765/app/'; const SP = process.argv[2];
   // Admin via team list email; coordinator via team list.
   await setProfile({ firstName: 'Tess', email: 'Tess@Example.com' });
   await p.evaluate(() => { const l = JSON.parse(localStorage.getItem('sevak.organizations.v1')); l.find(o => o.id === 'demo-org').team = [{ name: 'Tess', email: 'tess@example.com', role: 'admin' }]; localStorage.setItem('sevak.organizations.v1', JSON.stringify(l)); });
-  await p.goto(BASE + 'event.html?id=demo-ev-reh1');
+  await p.goto(BASE + 'event.html?id=demo-ev-reh1#review');
   check(await vis('#delete-event'), 'admin via Team tab');
   await setProfile({ email: 'nobody@example.com' });
   await p.reload();
@@ -105,7 +106,7 @@ const BASE = 'http://localhost:8765/app/'; const SP = process.argv[2];
 
   // Phone fit.
   await p.setViewportSize({ width: 360, height: 800 });
-  await p.goto(BASE + 'event.html?id=demo-ev-reh1');
+  await p.goto(BASE + 'event.html?id=demo-ev-reh1#review');
   await p.evaluate(() => { const l = JSON.parse(localStorage.getItem('sevak.organizations.v1')); l.find(o => o.id === 'demo-org').team = [{ name: 'Neo', email: 'neo@example.com', role: 'coordinator' }]; localStorage.setItem('sevak.organizations.v1', JSON.stringify(l)); });
   await p.reload();
   await p.click('#deactivate');
