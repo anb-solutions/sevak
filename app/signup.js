@@ -55,7 +55,7 @@
   }
 
   function shiftLabel(s) {
-    return E.dayLabel(s.date) + " · " + E.timeLabel(s.start) + "–" + E.timeLabel(s.end) + " · " + (s.role.name || "Role");
+    return E.dayLabel(s.date) + " · " + E.timeLabel(s.start) + "–" + E.timeLabel(s.end) + " · " + (s.role.name || "Task");
   }
 
   function placeText(event) {

@@ -65,7 +65,7 @@
         <ol id="stepper">
           <li><button type="button" data-step="0"><span class="step-num" aria-hidden="true">1</span><span class="step-label">Details</span></button></li>
           <li><button type="button" data-step="1"><span class="step-num" aria-hidden="true">2</span><span class="step-label">When &amp; where</span></button></li>
-          <li><button type="button" data-step="2"><span class="step-num" aria-hidden="true">3</span><span class="step-label">Roles</span></button></li>
+          <li><button type="button" data-step="2"><span class="step-num" aria-hidden="true">3</span><span class="step-label">Tasks</span></button></li>
           <li><button type="button" data-step="3"><span class="step-num" aria-hidden="true">4</span><span class="step-label">Review</span></button></li>
         </ol>
       </nav>
@@ -193,17 +193,17 @@
         </fieldset>
       </section>
 
-      <!-- Step 3: roles and shifts -->
+      <!-- Step 3: tasks and shifts (stored as "roles") -->
       <section class="wizard-step" id="step-roles" tabindex="-1" aria-labelledby="roles-title" hidden>
         <section class="section">
-          <h2 class="section-title" id="roles-title">Roles and shifts</h2>
+          <h2 class="section-title" id="roles-title">Tasks and shifts</h2>
           <p class="section-help">Each job volunteers will do, its time slots (shifts), and how many people you need in each.</p>
           <p class="summary" id="roles-summary" aria-live="polite"></p>
           <div class="stack" id="role-list"></div>
           <p class="error" id="roles-error"></p>
-          <button type="button" class="btn btn-secondary mt-12" id="add-role">+ Add a role</button>
+          <button type="button" class="btn btn-secondary mt-12" id="add-role">+ Add a task</button>
           <details class="role-presets" id="role-presets">
-            <summary id="role-presets-label">Or start from a common role</summary>
+            <summary id="role-presets-label">Or start from a common task</summary>
             <div class="fill-row" role="group" aria-labelledby="role-presets-label" id="role-preset-buttons"></div>
           </details>
         </section>
@@ -262,12 +262,12 @@
     <template id="role-template">
       <div class="member role-card">
         <div class="member-head">
-          <h3>Role</h3>
-          <button type="button" class="btn btn-danger-link remove-role">Remove role</button>
+          <h3>Task</h3>
+          <button type="button" class="btn btn-danger-link remove-role">Remove task</button>
         </div>
         <div class="grid">
           <div class="field span-2">
-            <label>Role name</label>
+            <label>Task name</label>
             <input data-key="name" type="text" required maxlength="80" placeholder="e.g. Setup crew">
             <p class="error"></p>
           </div>

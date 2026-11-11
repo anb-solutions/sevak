@@ -70,7 +70,7 @@ const B = 'http://localhost:8765/app/'; const SP = process.argv[2];
 
   // ----- Step 4: review -----
   const review = await p.textContent('#review-list');
-  check(review.includes('Rehearsal 3 · part of Arudra Dance Festival') && review.includes('2030') && review.includes('Studio B, ' + org.address.line1) && review.includes('1 role · 1 shift · 5 volunteer spots'), 'review: ' + review);
+  check(review.includes('Rehearsal 3 · part of Arudra Dance Festival') && review.includes('2030') && review.includes('Studio B, ' + org.address.line1) && review.includes('1 task · 1 shift · 5 volunteer spots'), 'review: ' + review);
   check(await p.isVisible('#publish') && (await p.textContent('#publish')) === 'Publish' && await p.isHidden('#step-next') && await p.isHidden('#manage-event'), 'last step: Publish; nothing to manage yet');
   check(await fits(), 'review fits at 390px');
   await p.screenshot({ path: SP + '/steps-4-review.png', fullPage: true });

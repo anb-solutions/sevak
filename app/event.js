@@ -241,7 +241,7 @@
 
   function renumberRoles() {
     Array.prototype.forEach.call(roleList.children, function (card, i) {
-      var title = "Role " + (i + 1);
+      var title = "Task " + (i + 1);
       card.querySelector("h3").textContent = title;
       card.querySelector(".remove-role").setAttribute("aria-label", "Remove " + title.toLowerCase());
     });
@@ -252,8 +252,8 @@
   function updateSummary() {
     var t = E.totals({ roles: Array.prototype.map.call(roleList.children, readRole) });
     $("roles-summary").textContent = t.roles
-      ? E.plural(t.roles, "role") + " · " + E.plural(t.shifts, "shift") + " · " + E.plural(t.volunteers, "volunteer spot")
-      : "No roles yet.";
+      ? E.plural(t.roles, "task") + " · " + E.plural(t.shifts, "shift") + " · " + E.plural(t.volunteers, "volunteer spot")
+      : "No tasks yet.";
   }
 
   roleList.addEventListener("input", updateSummary);
@@ -288,7 +288,7 @@
       b.type = "button";
       b.className = "btn btn-secondary btn-small";
       b.textContent = "+ " + p.name;
-      b.setAttribute("aria-label", "Add the role " + p.name);
+      b.setAttribute("aria-label", "Add the task " + p.name);
       b.disabled = full;
       b.addEventListener("click", function () {
         // Fill an empty role (a new event starts with one), or add a role.
@@ -487,12 +487,12 @@
   function structureErrors() {
     var first = null;
     var cards = roleList.children;
-    $("roles-error").textContent = cards.length ? "" : "Add at least one role before publishing.";
+    $("roles-error").textContent = cards.length ? "" : "Add at least one task before publishing.";
     if (!cards.length) first = $("add-role");
     Array.prototype.forEach.call(cards, function (card) {
       var error = card.querySelector(".shifts-error");
       var empty = !card.querySelector(".shift-row");
-      error.textContent = empty ? "Add at least one shift for this role." : "";
+      error.textContent = empty ? "Add at least one shift for this task." : "";
       if (empty && !first) first = card.querySelector(".add-shift");
     });
     return first;
@@ -807,7 +807,7 @@
     row("Where", loc.type === "online" ? "Online" : loc.type === "later" ? "Shared later"
       : [loc.venue, loc.line1, loc.city].filter(Boolean).join(", ") || "No address yet", 1);
     var t = E.totals(ev);
-    row("Roles", t.roles ? E.plural(t.roles, "role") + " · " + E.plural(t.shifts, "shift") + " · " + E.plural(t.volunteers, "volunteer spot") : "No roles yet", 2);
+    row("Tasks", t.roles ? E.plural(t.roles, "task") + " · " + E.plural(t.shifts, "shift") + " · " + E.plural(t.volunteers, "volunteer spot") : "No tasks yet", 2);
   }
 
   function save(publishing) {
