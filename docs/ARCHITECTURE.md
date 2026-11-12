@@ -1,11 +1,11 @@
 # Sevak: Architecture, Delivery and Security
 
-**Status:** Agreed direction for the live app · **Updated:** 2026-11-08
+**Status:** Agreed direction, and what is built so far · **Updated:** 2026-11-12
 
-This document describes the long-term architecture for Sevak, how contributors build and ship
-changes, how we keep it secure, and what it costs. The requirements it serves are in
-[`REQUIREMENTS.md`](REQUIREMENTS.md); IDs such as SGN-5 refer to that document. Diagrams are in
-[`DIAGRAMS.md`](DIAGRAMS.md).
+This document describes Sevak's architecture, how contributors build and ship changes, how we
+keep it secure, and what it costs. Anything not built yet is marked *planned*. The requirements
+it serves are in [`REQUIREMENTS.md`](REQUIREMENTS.md); IDs such as SGN-5 refer to that document.
+Diagrams are in [`DIAGRAMS.md`](DIAGRAMS.md).
 
 **Goals**
 
@@ -31,16 +31,17 @@ sevak.theanbgroup.com · staging.sevak.theanbgroup.com
         ▼
 Google Cloud project (one for staging, one for production) ───────────────┐
 │  Cloud Run service "sevak-web" (Next.js container, scales to zero)      │
-│   • Public pages, rendered on the server (SEO, link previews)           │
-│   • Host and volunteer screens                                          │
+│   • The prototype's pages, each with sync.js (§6)                       │
 │   • JSON API at /api/v1                                                 │
 │  Cloud Run job "sevak-tasks": database migrations before each deploy    │
 │  Cloud SQL: PostgreSQL 18 (all data)                                    │
-│  Secret Manager: the database connection                                │
+│  Cloud Storage: a private bucket for uploaded files                     │
+│  Secret Manager: the database connection and the app's keys             │
 │  Artifact Registry: container images                                    │
+│  Monitoring: an uptime alert, Error Reporting, a budget alert           │
 └─────────────────────────────────────────────────────────────────────────┘
-        │                    │                       │
-   Resend (email)    Cloudflare R2 (files)    Sentry (errors)
+        │                    │                     │
+   Resend (email)    Google (sign-in)    Zeffy (event import)
 ```
 
 One app service and one database per environment. No microservices, no Kubernetes, no servers to
@@ -52,17 +53,17 @@ to another provider (AWS, Neon, Render) by changing configuration, not code.
 | Concern | Choice | Why |
 |---|---|---|
 | Language | **TypeScript** everywhere | One language for pages, API and database code (NFR-13) |
-| App framework | **Next.js** | Server-rendered public pages (NFR-10), React screens, and the API in one service |
+| App framework | **Next.js** | The pages and the API in one service; server-rendered public pages (NFR-10) and React screens are *planned* |
 | API | REST + JSON at `/api/v1`, inputs and outputs checked with **Zod** | A future mobile app uses the same API |
 | Hosting | **Google Cloud Run** (serverless containers) | Scales to zero, so it costs nearly nothing when idle; Google patches the servers |
 | Database | **PostgreSQL 18** on **Cloud SQL** (smallest size to start) | Transactions make "never overbook" reliable (SGN-5); fixed, predictable cost; no per-user fees; portable |
 | Database code | **Drizzle ORM**, migrations kept in the repo | Typed queries; every schema change is reviewed like code |
 | Local database | **PGlite** (Postgres compiled to run inside Node) | `pnpm dev` and `pnpm test` work on any laptop or Claude session with no Docker and no account |
 | Background work | **Cloud Run jobs** (migrations now; reminders and email retries later, on Cloud Scheduler) | Runs only when needed, nothing idle to pay for |
-| Sign-in | Our own email **link and 6-digit code**; sessions stored in Postgres | No vendor lock-in; the code also works in the iPhone home-screen app |
-| Email | **Resend** to start; Amazon SES if volume makes it cheaper | Every shift email carries a calendar invite (COM-10) |
-| Files | **Cloudflare R2** | Documents, photos, certificate PDFs; no download fees |
-| Errors | **Sentry** (free tier) | Alerts when something breaks |
+| Sign-in | Our own email **link and 6-digit code**, and optionally **Continue with Google**; sessions stored in Postgres | No vendor lock-in; the code also works in the iPhone home-screen app |
+| Email | **Resend** to start; Amazon SES if volume makes it cheaper | Calendar invites in shift emails (COM-10) are *planned* |
+| Files | **Cloud Storage**, a private bucket per environment | Documents, photos, certificate PDFs; served only through the API |
+| Errors | **Error Reporting** and an uptime check (Google Cloud) | Emails when something breaks or the site is down |
 | Tests | **Vitest** (logic and database, on PGlite) + **Playwright** (phone-sized browser tests) | Covers sign-up, capacity, attendance and privacy rules |
 
 ### 1.2 Repository layout (monorepo, pnpm workspaces)
@@ -70,16 +71,18 @@ to another provider (AWS, Neon, Render) by changing configuration, not code.
 ```
 sevak/
 ├── apps/
-│   └── web/                 Next.js: pages, /api/v1, background jobs
+│   └── web/                 Next.js: /api/v1, and the prototype's pages
+│                            with sync.js (copied in at build time)
 ├── packages/
-│   ├── db/                  Drizzle schema, migrations, seed and demo data
-│   └── core/                Rules in plain TypeScript: sign-up and capacity,
-│                            permissions, hours, certificates. No web code.
+│   ├── db/                  Drizzle schema, migrations, in-memory database
+│   └── core/                Rules in plain TypeScript: who sees and changes
+│                            what, sign-up and capacity, certificates, emails,
+│                            seed data, migrate and seed tasks. No web code.
 ├── app/, index.html, …      The clickable prototype, served by the app on staging
 ├── docs/                    Requirements, architecture, diagrams
 ├── infra/gcp/               Google Cloud setup script and deploy guide
 ├── Dockerfile               The app's container image
-├── .github/workflows/       CI checks, the Google Cloud deploy, the prototype deploy
+├── .github/workflows/       CI checks (ci.yml), the Google Cloud deploy (deploy.yml)
 ├── CLAUDE.md                Instructions every contributor's Claude reads
 └── CONTRIBUTING.md          How to contribute
 ```
@@ -101,15 +104,18 @@ Branch ─► Build and try it locally ─► Pull request ─► CI checks ─�
 1. **Start a branch** from `staging`, the default branch. Never commit to `staging` or `main`
    directly (both are protected, §4.1).
 2. **Run it locally.** `pnpm install`, then `pnpm dev`. The app starts with an in-process database
-   (PGlite) loaded with fake demo data. No accounts, keys or Docker needed. `pnpm test` runs the
-   checks. Claude Code sessions in the cloud get this set up automatically by a start-up hook.
+   (PGlite), emptied on every restart. No accounts, keys or Docker needed. The checks to run before
+   pushing are in [`.claude/skills/steward/SKILL.md`](../.claude/skills/steward/SKILL.md) §1.
+   Claude Code sessions in the cloud get this set up automatically by a start-up hook.
 3. **Open a pull request.** Small and focused: one feature or fix.
-4. **Automatic checks (CI)** run on every push: type checks, tests, a build, a scan for leaked
-   secrets, and a check that database migrations apply cleanly. A pull request can't merge until
-   they pass.
+4. **Automatic checks (CI)** run on every push: type checks, unit tests, a build, the container
+   image, a check that the schema matches its migrations and that they apply to PostgreSQL 18, the
+   browser tests (`tests/run.sh` and `tests/e2e/run.sh`), a scan for leaked secrets, and
+   `pnpm audit` for critical vulnerabilities. A pull request can't merge until they pass.
 5. **Review.** At least one approval, and a code owner's for sensitive areas (§4.1).
 6. **Merge → staging.** Merging into `staging` deploys to **staging** (`staging.sevak.theanbgroup.com`)
-   within minutes. Try it there on a phone. Staging holds only test data, never real people's.
+   within minutes. Try it there on a phone. Pilot organizations use staging, so a merge is a
+   release. Production data is never copied into it.
 7. **Staging → production, by the owner only.** The owner opens a pull request from `staging` into
    `main`, merges it and approves the deploy. Nobody else can update `main`, and the production
    Google Cloud project only accepts deploys from it. `main` always holds what's live.
@@ -131,8 +137,8 @@ can be tried there first, then built into the real app.
 
 | Environment | Where | Data | Email |
 |---|---|---|---|
-| Local | Your laptop or Claude session (`pnpm dev`) | Fake demo data in PGlite | Shown in the console |
-| Staging | Google Cloud project for staging, from `staging` | Test data only | Sent through Resend, from staging's own address, subjects start with "[Staging]" |
+| Local | Your laptop or Claude session (`pnpm dev`) | PGlite in memory, emptied on restart | Shown in the console |
+| Staging | Google Cloud project for staging, from `staging` | What the beta's users enter; never a copy of production's | Sent through Resend, from staging's own address, subjects start with "[Staging]" |
 | Production | Separate Google Cloud project, from `main` | Real data | Sent through Resend |
 
 There are no per-pull-request previews: staging is where changes are tried before production.
@@ -143,8 +149,14 @@ There are no per-pull-request previews: staging is where changes are tried befor
 
 ### 3.1 Capacity checks that never overbook (SGN-5)
 
-Each shift keeps a `filled` count. A sign-up takes a spot with one statement that only succeeds if
-a spot is left, inside the same transaction that saves the sign-up:
+**What the pages use now** (`packages/core/src/signups.ts`): a save of sign-ups runs in one
+transaction that first locks the rows of every event involved (`SELECT … FOR UPDATE`), then counts
+each shift's active sign-ups against its capacity. Two people taking the last spot at once are
+handled one after the other, and the second is refused.
+
+**The relational tables** (`signUp()` in `packages/core/src/signup.ts`, tested, not yet behind a
+route): each shift keeps a `filled` count, and a sign-up takes a spot with one statement that only
+succeeds if a spot is left, in the same transaction that saves the sign-up:
 
 ```sql
 UPDATE shifts SET filled = filled + 1
@@ -152,9 +164,8 @@ UPDATE shifts SET filled = filled + 1
 RETURNING id;
 ```
 
-No row back means the shift is full, and the whole form is rolled back with a clear message. A
-cancellation gives the spot back in the same transaction. A database rule
-(`CHECK (filled <= capacity)`) is the final safety net.
+No row back means the shift is full, and the whole form is rolled back. A database rule
+(`CHECK (filled >= 0 AND filled <= capacity)`) is the final safety net.
 
 ### 3.2 Sign-in and secure links (VOL-1, NFR-4, NFR-6)
 
@@ -205,8 +216,14 @@ cancellation gives the spot back in the same transaction. A database rule
   `visibility.test.ts` records exactly what each kind of person gets, so a change can't quietly
   show anyone more.
 
-- Every host API call checks the person's role in that organization (Admin or Coordinator) through
-  one shared function, and every query on organization data is limited to that organization.
+- Every host API call checks the person's role in that organization (Admin or Coordinator), and
+  every query on organization data is limited to that organization. An event is run by its
+  organization's Admins, Sevak staff, and the Coordinator chosen as its event admin.
+- **Task leads** (EVT-21): only Admins and staff choose a task's lead, who must be a member of the
+  organization. The lead sees that task's roster (name, email, phone, shift and status of each sign-up) and
+  nothing else of the event's team; others who run the event see who leads each task.
+- **Nobody approves their own:** hours (`own_hours`) or certificate (`own_certificate`). An Admin's
+  own needs another Admin or Sevak staff.
 - Public pages show counts ("4 of 6 spots left"), never names. People outside an event's team
   don't see who on the team runs it.
 - **Deleted ids stay taken.** Sign-ups, certificates and documents point at organizations and
@@ -288,8 +305,9 @@ volunteer's calendar entry and a cancellation removes it.
 
 - **`staging` is protected:** changes arrive only through pull requests, with passing checks and one
   approval. No force-pushes, no deleting the branch.
-- **Code owners** (`.github/CODEOWNERS`) must approve changes to sensitive areas: the database
-  schema and migrations, sign-in and permissions, CI and deploy settings.
+- **Code owners** (`.github/CODEOWNERS`) must approve changes to `packages/db`, `packages/core`,
+  `apps/web/src/lib`, `apps/web/next.config.ts`, `.github/`, `.claude/`, `infra/`, the
+  `Dockerfile`, `.gitleaks.toml`, `package.json` and `pnpm-lock.yaml`.
 - **Only the owner releases to production:** a ruleset lets only the owner update `main`, and the
   production deploy waits for the owner's approval.
 - **Least access:** contributors get *Write* access, not *Admin*. Only the owner (and one backup)
@@ -316,7 +334,7 @@ volunteer's calendar entry and a cancellation removes it.
   Secret Manager and turns off the old copy; the app reads it from there. So a key is changed
   through GitHub, like everything else, and staging's and production's keys stay separate.
 - **Staging and production are separate Google Cloud projects.** Staging has no production
-  secrets and only test data. Real data is never copied into staging or onto a laptop.
+  secrets. Production data is never copied into staging or onto a laptop.
 - The app runs as a non-root user in a minimal container, and has only the permissions it needs.
 
 ### 4.3 The app
@@ -336,23 +354,26 @@ volunteer's calendar entry and a cancellation removes it.
   - **Uploaded files** are always downloads (`Content-Disposition: attachment`), never cached, and
     have their own policy, `default-src 'none'; sandbox`, so nothing in one can run.
 - Every input is checked on the server (Zod), whatever the page already checked.
-- Cloudflare Turnstile and rate limits on public forms (SGN-8).
+- Rate limits on sign-in, invite codes, certificate checks and saves (§3.2). Cloudflare Turnstile
+  on public forms (SGN-8) is *planned*.
 - Protection against cross-site request forgery: `SameSite` cookies plus an origin check on every
   change.
-- "Fill in from website" (ORG-10) runs on the server with protections against requests to internal
-  addresses.
+- "Fill in from website" (ORG-10) runs in the browser (`app/website-import.js`), so the server
+  never fetches addresses people type.
 
 ### 4.4 Data and privacy
 
-- Collect as little as possible. No date of birth (NFR-8). Phone is optional.
+- Collect as little as possible. No date of birth (NFR-8). A phone number is asked for on the
+  profile, so hosts can reach volunteers on the day.
 - Organizations see a volunteer's details only for their own events.
 - Data is stored in a **US region** (us-central1) to start; the first organizations are in Texas.
   Organizations in India would later get an India region, in line with India's data protection law
   (DPDP Act 2023).
 - Data is encrypted at rest and in transit (the database accepts only encrypted connections).
-- Both databases have nightly backups and deletion protection; restoring a backup is tested
-  every month.
-- An audit log of sensitive actions: who changed roles, approved hours, exported a roster.
+- Both databases have nightly backups and deletion protection (set by `infra/gcp/setup.sh`).
+  A monthly test restore is *planned*.
+- An audit log of sensitive actions (who changed roles, approved hours, exported a roster) is
+  *planned*.
 - Data export and deletion on request (VOL-6). The privacy policy is updated before the pilot.
 
 ---
@@ -367,7 +388,7 @@ Estimates per month. Check current prices before committing.
 | App and migration jobs | Cloud Run | **Usually $0** within the free tier at this size |
 | Images, secrets | Artifact Registry (recent images only), Secret Manager | **Under $1** |
 | Email | Resend free tier to start | **$0**, then about $20 |
-| Files, errors | Cloudflare R2 and Sentry free tiers | **$0** |
+| Files, monitoring | Cloud Storage; Error Reporting and one uptime alert | **Under $2** |
 | Code and CI | GitHub Free (public) | **$0**; a private repository with rulesets needs a paid plan, about $4 per person |
 | **Total** | | **About $10 for staging, about $20 with production** |
 
@@ -386,12 +407,13 @@ volunteers, and the real app is built properly for the pilot.
 **Approach:** staging goes live first, so the team can use real shared data early, and features
 arrive about weekly. Production goes live once the owner approves it.
 
-| When | Milestone |
-|---|---|
-| Week of Nov 9 | Staging live on Google Cloud (Cloud Run + Cloud SQL) with the foundation |
-| Nov–Dec, about weekly | Sign-in; organization and event editing on the database; volunteer sign-up with emails and calendar invites; roster and check-in; hours approval; certificates |
-| Mid-December | Production project set up; privacy policy updated; dry run with the pilot organizations |
-| **January 2027** | **Pilot starts** on `sevak.theanbgroup.com` |
+| When | Milestone | Status |
+|---|---|---|
+| Week of Nov 9 | Staging live on Google Cloud (Cloud Run + Cloud SQL) | Done |
+| Nov–Dec | Sign-in (emailed code, Google); organizations, joining, events, sign-ups with emails, check-in and hours, certificates, documents, task leads, all on the server (table below) | Done on staging |
+| Nov–Dec | Calendar invites in emails (COM-10), reminders (COM-6), event updates (COM-3) | Planned |
+| Mid-December | Production project set up; privacy policy updated; dry run with the pilot organizations | Planned |
+| **January 2027** | **Pilot starts** on `sevak.theanbgroup.com` | Planned |
 
 **How the app reuses the prototype:** the web app serves the prototype's pages with one script
 added to the top of each, `apps/web/prototype/sync.js`. The pages still read and write browser
@@ -405,11 +427,11 @@ have already reviewed, and they move into React components and proper tables one
 |---|---|---|---|
 | Profile (`sevak.profile.v1`) | Sign-in release | You | You |
 | Organizations (`sevak.organizations.v1`) | Sign-in release | Everyone: name, description, website, city, charity status, verification. Its team and Sevak staff: everything | Admins; Coordinators can only leave the team; only Sevak staff verify |
-| Memberships (`sevak.memberships.v1`): who volunteers with which organization | Join release | You: your own. The organization's team and Sevak staff: theirs | You: ask to join, accept an invitation, leave. The team: approve, decline, invite, remove. Joining with an invite code goes through the server, which checks the code |
-| Events and main events (`sevak.events.v1`, `sevak.mainEvents.v1`) | Events release | The team: all of its events. Its volunteers: published, active ones (public or private). Everyone else: published, active, public events of verified organizations | The team adds and edits; only Admins delete |
-| Sign-ups, check-ins and hours (`sevak.signups.v1`) | Sign-ups release | You: your own. The event's team: its sign-ups (the roster). Everyone else: only that a spot is taken, never names | You sign up yourself (volunteers and the team only, published events), cancel, check in and out, and log hours, which always wait for approval. The team approves hours and manages its roster. The server checks capacity with the event locked, so a shift is never overbooked (SGN-5) |
+| Memberships (`sevak.memberships.v1`): who volunteers with which organization | Join release | You: your own. The organization's Admins and Sevak staff: theirs (not Coordinators) | You: ask to join, accept an invitation, leave. Admins and staff: approve, decline, invite, remove. Joining with an invite code goes through the server, which checks the code |
+| Events and main events (`sevak.events.v1`, `sevak.mainEvents.v1`) | Events release | The team: all of its events. Its volunteers: published, active ones (public or private). Everyone else: published, active, public events of verified organizations. A task's lead is shown only to those who run the event and to the lead | The team adds and edits; only Admins delete; only Admins and staff choose task leads |
+| Sign-ups, check-ins and hours (`sevak.signups.v1`) | Sign-ups release | You: your own. The event's team: its sign-ups (the roster). A task lead: that task's roster. Everyone else: only that a spot is taken, never names | You sign up yourself (volunteers and the team only, published events), cancel, check in and out, and log hours, which always wait for approval. The team approves hours and manages its roster. The server checks capacity with the event locked, so a shift is never overbooked (SGN-5) |
 | Certificates and signatures (`sevak.certificates.v1`, `sevak.signatures.v1`) | Certificates release | You: your requests and certificates, your own signature. The organization's team: its organization's | You ask for one or withdraw your request. Only Admins issue or decline; the hours must equal the approved hours on record; numbers are unique; issued certificates can't change. Anyone checks one by number (`/api/v1/certificates/verify/{code}`), which shows only what proves it |
-| Documents (`sevak.documents.v1`) and their files | Certificates release | Your own; an organization's and its events' documents: its team | The same people; Admins add certificates they issue to the volunteer's documents. Files go in a private Cloud Storage bucket per environment and are served only through `/api/v1/files/{id}` after the same check, always as downloads. 10 MB a file; 100 MB per person, 500 MB per organization; PDFs, pictures, Office and text files only, checked by content |
+| Documents (`sevak.documents.v1`) and their files | Certificates release | Your own; an organization's and its events' documents: its team | The same people; Admins add certificates they issue to the volunteer's documents. Files go in a private Cloud Storage bucket per environment and are served only through `/api/v1/files/{id}` after the same check, always as downloads. 10 MB a file; 100 MB per person, 500 MB per organization (50 MB until verified); PDFs, pictures, Office and text files only, checked by content |
 
 Demo data (ids starting `demo-`) stays in each browser.
 

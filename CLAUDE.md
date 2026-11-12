@@ -13,9 +13,11 @@ Two things live in this repo: the **clickable prototype** and the **real app** t
   the browser's localStorage. Served by the app on staging after every merge. Its browser tests are in
   `tests/` (Playwright; `tests/run.sh <screenshot-dir>`).
 - `apps/web`: the real app. Next.js: pages, the `/api/v1` API. During the pilot it serves a copy
-  of the prototype's pages (`scripts/copy-prototype.mjs`), which move to React one at a time.
-  `apps/web/prototype/sync.js`, added to each copied page, keeps chosen browser-storage keys on
-  the server (`/api/v1/sync`); `packages/core/src/records.ts` decides who sees and changes them.
+  of the prototype's pages (`apps/web/scripts/copy-prototype.mjs`), which move to React one at
+  a time. `apps/web/prototype/sync.js`, added to each copied page, keeps chosen browser-storage
+  keys on the server (`/api/v1/sync`); `packages/core/src/records.ts` and, for each
+  kind of record, `events.ts`, `signups.ts`, `certificates.ts`, `memberships.ts` and `documents.ts`
+  decide who sees and changes them.
 - `packages/db`: Drizzle schema (`src/schema.ts`) and SQL migrations. `@sevak/db/memory` is the
   in-memory database for local development and tests only.
 - `packages/core`: business rules in plain TypeScript, no web code (sign-in, sign-up and capacity,

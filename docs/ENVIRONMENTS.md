@@ -274,6 +274,10 @@ sense:
 | `SEVAK_SECRETS_KEY` | Secret `app-secrets-key` |
 | `SEVAK_PLATFORM_ADMINS`, `EMAIL_FROM`, `SEVAK_PROXY_HOPS` | The variables of the same name |
 
+The container image sets `SEVAK_MIGRATIONS_DIR` itself (`Dockerfile`). `pnpm db:migrate` and
+`pnpm db:seed` use `DATABASE_URL_UNPOOLED` instead of `DATABASE_URL` when it's set, for a host
+whose pooled connection can't run migrations; Cloud SQL doesn't need it.
+
 Local development and tests use other settings: `SEVAK_FILES_DIR`, `ZEFFY_API_BASE` and
 `DATABASE_URL` pointing at a test database. They're never set on staging or production.
 

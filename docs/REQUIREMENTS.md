@@ -1,11 +1,11 @@
 # Sevak: MVP Requirements
 
-**Version:** 2.48 (an Edit button on every event and main event in the lists) · **Updated:** 2026-11-10 · **Status:** Draft for review
+**Version:** 2.49 (brought in line with the build: tasks throughout, scope, screens, services, roadmap and hosting as they are now) · **Updated:** 2026-11-12 · **Status:** Draft for review
 
-This replaces the original SRS outline, which is about six months old. That outline covered a full
-volunteer management system: background checks, GPS clock-in, CRM integrations and so on. This
-version narrows the scope to an **MVP** built around the user journeys we just walked through, and
-it favours the simplest interface that will work.
+This replaces the original SRS outline, which covered a full volunteer management system:
+background checks, GPS clock-in, CRM integrations and so on. This version narrows the scope to an
+**MVP** built around the user journeys in §4.0, and it favours the simplest interface that will
+work.
 
 ---
 
@@ -26,10 +26,12 @@ It is written for the founding team, designers, engineers, QA and pilot organiza
 **In scope**
 
 - Organization profiles that show the organization type and a verification badge
-- Single-day and multi-day events with **roles** assigned to **time shifts**
-- Sign-up for one or many shifts in a single form, with no account needed
+- Single-day and multi-day events, optionally grouped under a main event, with **tasks** split
+  into **time shifts**
+- Sign-up for one or many shifts in a single form, by members of the organization (SGN-2)
 - Email for everything: confirmations, event updates, reminders and certificates
-- Attendance checked by the host team, then an official certificate of participation
+- Hours recorded by volunteers and approved by the host team, then a certificate of participation
+  on request (ATT-3, ATT-5, ATT-12)
 - Discovery: a calendar and list of events filtered by city, plus a page for each organization
 - Public or private events and organizations, with invitations by email, text or WhatsApp
 - A **private** "My volunteering" log for each volunteer
@@ -38,30 +40,30 @@ It is written for the founding team, designers, engineers, QA and pilot organiza
 **Out of scope for the MVP** (see [§10 Roadmap](#10-roadmap) for what comes later)
 
 - Native iOS or Android apps
-- Background checks and certification document uploads
+- Background checks (volunteers can keep their own documents, VOL-14)
 - GPS, QR or kiosk clock-in and clock-out
 - Skills, interests and availability matching
 - CRM, SSO and other third-party integrations
 - Sending SMS or WhatsApp messages from the platform (hosts share links instead)
 - Payments, donations and payroll
 - Gamification, points and rewards
-- Importing events from ticketing platforms or social media
+- Importing events from ticketing platforms or social media, except Zeffy (EVT-20)
 - Languages other than English
 
 ### 1.4 What changed from the original spec
 
 | Original spec | MVP decision | Why |
 |---|---|---|
-| Rich volunteer profile (skills, availability, certifications) | Optional profile that only stores contact details for one-click sign-up | Friction at sign-up is the biggest problem. A profile is nice to have, not a must. |
-| Opportunities and shifts | Kept, restructured as **Event → Role → Shift**, with multi-day support | This is how hosts actually think about staffing an event. |
-| Clock in/out (manual, QR, GPS) and hour approval | The host marks each person *Attended* or *No-show* on the roster. Hours default to shift length and can be adjusted. | This is the simplest reliable proof of participation. QR check-in comes later. |
+| Rich volunteer profile (skills, availability, certifications) | A profile with contact details, needed to sign up (SGN-2), plus an optional *Get to know me* tab (VOL-15) | Friction at sign-up is the biggest problem, so the profile asks only for what hosts need. |
+| Opportunities and shifts | Kept, restructured as **Event → Task → Shift**, with multi-day support | This is how hosts actually think about staffing an event. |
+| Clock in/out (manual, QR, GPS) and hour approval | Volunteers check in and out on their phone, or log their hours, on *My sign-ups* (ATT-12); the event admin approves them (ATT-3). | This is the simplest reliable proof of participation. QR check-in comes later. |
 | Engagement and impact reports | Roster CSV export plus a short per-event summary | This is enough for pilots. |
 | Background checks, disclosures, policy acknowledgements | Deferred, except an optional waiver checkbox (Should) | Background check vendors are expensive and differ by organization. |
-| Targeted messages, communication history, feedback, recognition | Event updates by email (to everyone or by role or shift) with a message history. Recognition is the certificate. | This covers the core loop without a separate engagement suite. |
+| Targeted messages, communication history, feedback, recognition | Event updates by email (to everyone or by task or shift) with a message history. Recognition is the certificate. | This covers the core loop without a separate engagement suite. |
 | *(not in original)* | Organization verification and type, private events and organizations, invite links, calendar discovery by city, private volunteer log, branded certificates, SEO-ready public pages | These came out of the updated user journeys. |
 | CRM, background check and SSO integrations | Later | None are needed to prove the core loop. |
 | iOS and Android apps | Later. The web app is designed for phones first. | Web plus email reaches everyone and ships faster. |
-| 2FA for all administrators | Required for platform admins, recommended (Should) for hosts. Everyone signs in with a passwordless email link by default. | Keeps security high without adding friction for volunteers. |
+| 2FA for all administrators | Required for platform admins, recommended (Should) for hosts. Everyone signs in without a password: an emailed code or link, or Continue with Google. | Keeps security high without adding friction for volunteers. |
 
 ---
 
@@ -93,26 +95,29 @@ themselves. Volunteers are mostly on phones and may arrive cold from a WhatsApp 
 ## 3. Core concepts
 
 ```
-Organization ──< Main event (optional) ──< Event ──< Role ──< Shift ──< Sign-up ──> Attendance ──> Certificate
-                   │                              │
-                   └── Updates (messages)         └── Volunteer (identified by email)
+Organization ──< Main event (optional) ──< Event ──< Task ──< Shift ──< Sign-up ──> Hours ──> Certificate
+     │                                      │        │                     │
+     └── Members (volunteers, team)         │        └── Task lead         └── Volunteer (a member)
+                                            └── Updates (messages)
 ```
 
 - **Organization:** the host. It has a type, a verification status and a visibility setting.
 - **Event:** something happening on one or more days at a place, or online. It has a visibility
   setting.
-- **Role:** a job at the event, such as *Setup crew* or *Registration desk*, with a description and
-  what to bring.
-- **Shift:** one role in one time window on one day, with a **capacity** (how many volunteers are
+- **Main event:** groups related events (its *sub-events*), such as a festival and its rehearsals.
+- **Task:** a job at the event, such as *Setup crew* or *Registration desk*, with a description and
+  what to bring, and optionally a **Task lead** (EVT-21). Stored as a *role* (§13).
+- **Shift:** one task in one time window on one day, with a **capacity** (how many volunteers are
   needed).
 - **Sign-up:** one volunteer on one shift. A single form submission can create several sign-ups.
-- **Attendance:** the host team's record that the volunteer showed up, plus the hours credited.
-- **Certificate:** branded proof of participation, emailed after attendance is checked, with a
-  verification link.
+- **Hours:** the volunteer's check-in and check-out, or the hours they logged (ATT-12), approved
+  by the event admin (ATT-3).
+- **Certificate:** branded proof of participation for a period, issued by an Admin when a
+  volunteer asks for one (ATT-5), with a verification number.
 
 **Example:** *Community Food Drive (Sat–Sun)*
 
-| Day | Role | Time | Capacity |
+| Day | Task | Time | Capacity |
 |---|---|---|---|
 | Sat | Setup crew | 8:00–10:00 AM | 6 |
 | Sat | Sorting & packing | 10:00 AM–1:00 PM | 12 |
@@ -129,7 +134,7 @@ allows, or right after launch. **Later** means post-MVP.
 
 | # | User journey (from the updated brief) | Covered by |
 |---|---|---|
-| 1 | As an event host, I want to publish single- or multi-day event opportunities with specific volunteer roles defined against time shifts. | EVT-1 to EVT-8 |
+| 1 | As an event host, I want to publish single- or multi-day event opportunities with specific volunteer tasks defined against time shifts. | EVT-1 to EVT-8 |
 | 2 | As a prospective volunteer, I want to very easily sign up for one or more time shifts. | SGN-1 to SGN-8 |
 | 3 | As an event host, I want to send confirmation emails to those who signed up, and after my team has checked that they volunteered, send an official certificate or branded email confirming their participation. | COM-1, COM-2, ATT-1 to ATT-6 |
 | 4 | As an event host, I want to send regular communications and event updates to volunteers. | COM-3 to COM-6 |
@@ -155,28 +160,28 @@ allows, or right after launch. **Later** means post-MVP.
 | ORG-10 | **Fill in from website.** When a host enters their website, Sevak reads the page and fills in the **description** and **primary address** if those are still empty. The host can also run this with a "Fill in from website" button. It never overwrites what the host typed, and it only fills an address that is completely empty. Filled fields are highlighted until the host edits them, and the host is asked to check them. Sources, in order: schema.org `Organization` or `NGO` data (JSON-LD), then the Open Graph or meta description; for the address, schema.org `PostalAddress` (JSON-LD or microdata), with the country matched by code or name. **Prototype limitation:** browsers only allow reading sites that permit it (CORS), and most don't, so the prototype often shows "couldn't read that website". In Phase 2 the page is fetched by Sevak's server, with a timeout, size limit and protection against requests to internal addresses. *(Prototype: `app/website-import.js`.)* | Should |
 | ORG-11 | **Several organizations per person.** A person can create and manage more than one organization. An **organization switcher** at the top of the Organization and Events tabs picks the current organization, and **+ New organization** starts a blank profile. Each organization has its own profile, team, events and main events, and the Events tab and event editors only show the current organization's events. Opening an event switches to its organization. The Events tab, the event editor and the main event editor all open with an **organization header** (name, place, charity status, verification badge, website and "Edit profile" links), so it's always clear which organization an event is for. Unsaved changes are confirmed before switching. Deleting an organization deletes only its own events. *(Prototype: `app/orgs-store.js`. In the live app, the organizations shown are the ones the person is an Owner, Admin or Coordinator of, per OrgMember.)* | Must |
 | ORG-12 | **Documents.** An organization profile has a **Documents** tab where Admins and Coordinators upload files (policies, insurance certificates, registration papers and so on). Each document has a **name** (filled in from the file name), an optional **brief description**, and records **when it was uploaded, by whom, and its size**. The documents grid shows those five things, can be sorted by name, upload date, uploader or size, and offers Download, Edit (rename, change the description or replace the file) and Delete. Files are up to **10 MB** each. Documents are saved as soon as they are added, separately from the profile's Save button, and are only available once the organization has been saved. Deleting an organization deletes its documents and its events' documents. The same Documents tab is on events (EVT-18) and personal profiles (VOL-14). *(Prototype: `app/documents.js`; files are kept in the browser's IndexedDB. In the live app they go to private object storage and are only visible to the organization's team.)* | Should |
-| ORG-13 | **Joining a team, and who sees what.** There are two ways onto an organization's team: **set up a new organization** (you become its Admin), or be **added by one of its Admins** on its Team tab, as Admin or Coordinator (in the live app this sends an invitation to accept; the prototype shows a one-time *"You've been added to the team of X as a Coordinator"* notice). The primary contact is also an Admin. **Coordinators** can open the organization profile but not change it or its team; they can add documents, and run events and the dashboard. They don't see the organization's volunteers (memberships, join requests, certificates), only the roster of events they're the event admin of (§5). When signed in, the organization switcher only lists your teams. Someone signed in who isn't on the team opening a Manage page (Events, an event, a main event, Dashboard, Organization) sees *"Manage an organization"* or *"You're not on this team"* with the two ways in, instead of the page. *(Prototype: signed out, these pages open as a preview for reviewers. Loading the demo data while signed in makes you an Admin of the demo organization.)* | Must |
+| ORG-13 | **Joining a team, and who sees what.** There are two ways onto an organization's team: **set up a new organization** (you become its Admin), or be **added by one of its Admins** on its Team tab, as Admin or Coordinator (in the app they're on the team straight away, and are emailed *"You're on the team of X"* to sign in; the prototype on its own shows a one-time *"You've been added to the team of X as a Coordinator"* notice). The primary contact is also an Admin. **Coordinators** can open the organization profile but not change it or its team; they can add documents, and run events and the dashboard. They don't see the organization's volunteers (memberships, join requests, certificates), only the roster of events they're the event admin of (§5). When signed in, the organization switcher only lists your teams. Someone signed in who isn't on the team opening a Manage page (Events, an event, a main event, Dashboard, Organization) sees *"Manage an organization"* or *"You're not on this team"* with the two ways in, instead of the page. *(Prototype: signed out, these pages open as a preview for reviewers. Loading the demo data while signed in makes you an Admin of the demo organization.)* | Must |
 | ORG-7 | Automated verification checks, such as a charity registry lookup or an email-domain match. | Later |
 
-### 4.2 Events, roles and shifts
+### 4.2 Events, tasks and shifts
 
 | ID | Requirement | Priority |
 |---|---|---|
 | EVT-1 | A host can create an event with a title, description, cover image, location (address and city, online, or **shared later**: no address is shown, and volunteers see a note such as *Contact your event admin for location details*, for private venues or when the address is emailed to those who sign up), time zone, and a start and end date. The event can be single-day or multi-day. | Must |
 | EVT-2 | A host can define **tasks** (stored as *roles*; see the Glossary) with a name, a description, and what to bring or requirements. The editor offers **common tasks** to add in one tap (setup crew, greeters, registration and check-in, ushers, food service, parking, cleanup crew, photography, sound and tech, kids' activities), each with a description and what to bring filled in, to change as needed. The first one fills the new event's empty task. | Must |
-| EVT-3 | A host can define shifts for each role on each day, with a start time, end time and capacity. The shift builder has a **"copy to other days"** shortcut so multi-day events are fast to set up. | Must |
+| EVT-3 | A host can define shifts for each task on each day, with a start time, end time and capacity. The shift builder has a **"copy to other days"** shortcut so multi-day events are fast to set up. | Must |
 | EVT-4 | An event moves through *Draft → Published → Completed*, or *Cancelled*. Only published events accept sign-ups. | Must |
 | EVT-5 | A host can edit a published event. If a time or location changes, the host is prompted to notify the affected volunteers and sees a preview of the email. | Must |
 | EVT-6 | Cancelling an event or a shift emails the affected volunteers. | Must |
-| EVT-7 | Each event has a clean, shareable page at `/e/{slug}` showing what, when, where, the organization and its badge, the roles, open shifts, and a sign-up button. | Must |
+| EVT-7 | Each event has a clean, shareable page at `/e/{slug}` showing what, when, where, the organization and its badge, the tasks, open shifts, and a sign-up button. | Must |
 | EVT-8 | Public event pages include structured data (schema.org `Event`), Open Graph and link-preview tags, and a canonical URL, so they look good when shared and rank well in search. | Must |
 | EVT-14 | **Events belong to an organization** and have their own **Events** tab, separate from the Organization tab. The Events tab lists the organization's main events with their sub-events nested underneath, then other events, all by date. Each event shows its dates, location, number of shifts and volunteer spots, whether it is a Draft or Published and Public or Private, and an **Edit** button (on the main event's page too); each main event has **Edit** beside **+ Sub-event**. The names are links as well, but on a phone nothing shows that, so the buttons are the way in. **+ Event** and **+ Main event** buttons appear once the organization profile is saved; until then the tab asks for it. Deleting an organization deletes its events. *(Prototype: `app/events.html`, `app/event.html`.)* | Must |
-| EVT-15 | **Event editor rules.** Events last 1–31 days. The end date follows the start date for one-day events. The time zone defaults to the host's browser. In-person events need a country, street and city, and the host can copy the organization's address in one click. Online events take an optional meeting link, shown only to volunteers who sign up. Each shift has a day within the event dates, a start time, an end time after the start, and 1–999 volunteers. A new shift copies the role's previous shift. "Copy first day's shifts to every day" skips days that already have the same shift. If the dates change, any shift left outside them is flagged. **Save draft** needs only a name and dates. **Publish** needs everything complete, including at least one role with at least one shift. A published event can be **unpublished** back to a draft. Overnight shifts that end after midnight are a later addition. | Must |
+| EVT-15 | **Event editor rules.** Events last 1–31 days. The end date follows the start date for one-day events. The time zone defaults to the host's browser. In-person events need a country, street and city, and the host can copy the organization's address in one click. Online events take an optional meeting link, shown only to volunteers who sign up. Each shift has a day within the event dates, a start time, an end time after the start, and 1–999 volunteers. A new shift copies the task's previous shift. "Copy first day's shifts to every day" skips days that already have the same shift. If the dates change, any shift left outside them is flagged. **Save draft** needs only a name and dates. **Publish** needs everything complete, including at least one task with at least one shift. A published event can be **unpublished** back to a draft. Overnight shifts that end after midnight are a later addition. | Must |
 | EVT-16 | If an organization isn't verified yet, a **public** event stays private until it is (ORG-3, PRV-1), and the editor says so. | Must |
-| EVT-17 | **Main events and sub-events.** An organization can create a **main event** (for example *Arudra*) with a name and an optional description, to group related events called **sub-events** (for example *Arudra*, *Arudra Rehearsal 1* and *Arudra Rehearsal 2*). Each sub-event is a normal event with its own dates, location, roles, shifts, visibility and draft or published status. The main event's dates run from its first sub-event to its last. Main events are optional, so one-off events stay standalone. An event can be put into, moved between, or taken out of a main event from the event editor. **+ Sub-event** (on the Events tab or the main event's page) opens a **New sub-event**: the editor says *sub-event* in its title, step names and labels, shows its main event as one line (with **Change**), and saving it goes back to the main event's page, which says what was saved. A saved main event's page lists its **sub-events first**, then its name and description. The Events tab shows each main event with its sub-events nested underneath, then any other events. Deleting a main event keeps its sub-events as standalone events. *(Prototype: `app/main-event.html`.)* | Must |
+| EVT-17 | **Main events and sub-events.** An organization can create a **main event** (for example *Arudra*) with a name and an optional description, to group related events called **sub-events** (for example *Arudra*, *Arudra Rehearsal 1* and *Arudra Rehearsal 2*). Each sub-event is a normal event with its own dates, location, tasks, shifts, visibility and draft or published status. The main event's dates run from its first sub-event to its last. Main events are optional, so one-off events stay standalone. An event can be put into, moved between, or taken out of a main event from the event editor. **+ Sub-event** (on the Events tab or the main event's page) opens a **New sub-event**: the editor says *sub-event* in its title, step names and labels, shows its main event as one line (with **Change**), and saving it goes back to the main event's page, which says what was saved. A saved main event's page lists its **sub-events first**, then its name and description. The Events tab shows each main event with its sub-events nested underneath, then any other events. Deleting a main event keeps its sub-events as standalone events. *(Prototype: `app/main-event.html`.)* | Must |
 | EVT-18 | **Event documents.** The event editor has two tabs, **Event details** and **Documents**. The Documents tab works exactly like the organization's (ORG-12), for briefings, maps, run sheets and waivers. It is available once the event has been saved (a draft is enough). Deleting an event deletes its documents. Sharing event documents with signed-up volunteers is future work. | Should |
 | EVT-19 | **Inactive events, and who can delete.** Only an organization **Admin** can delete an event or a main event; Coordinators don't see the Delete button and are told only admins can delete. Instead, anyone running the organization's events can **make an event inactive**. An inactive event is kept, with its sign-ups and documents, but is **hidden**: volunteers can't find it or sign up (its sign-up link says it's no longer available), it's left out of the dashboard and of its main event's dates, and the Events tab and main event page hide it unless **Show inactive events** is ticked, where it has an *Inactive* badge. The editor shows an *inactive* notice with **Reactivate event**, which restores it as it was (draft or published). Volunteers already signed up keep their sign-up, and their manage page says the event is no longer active. *(Prototype: "you" are the person in My profile. You are an Admin of an organization if its Team tab lists your email as Admin, you are its primary contact, you created it, or My profile lists it with the Admin role.)* | Must |
-| EVT-20 | **Events from Zeffy.** An organization's Admin connects its Zeffy account by pasting the organization's Zeffy API key (Zeffy: Settings → Integrations → API); Sevak checks it works, keeps it encrypted on the server, and only ever shows its last four characters. Its team can then choose **From Zeffy** on Manage → Events, see the organization's Zeffy events (not donation forms), and **start a draft event** from one: Sevak copies the title, description (as plain text), dates (in the team's time zone) and a link to the Zeffy page. Zeffy has no place or time zone, so the team adds those, and the roles and shifts. Starting from the same Zeffy event again opens the event already made. Volunteers see **Tickets and full details on Zeffy** on the event's sign-up page, linking to its Zeffy page. An event started from Zeffy has **Refresh from Zeffy**, which shows what changed there (title, description, dates) and fills it in to save; roles, shifts and sign-ups are never changed, and shifts that fall outside new dates are pointed out. Admins can disconnect. Later: Eventbrite and others the same way, refreshing on a schedule, and a Sevak API of its own. | Should |
+| EVT-20 | **Events from Zeffy.** An organization's Admin connects its Zeffy account by pasting the organization's Zeffy API key (Zeffy: Settings → Integrations → API); Sevak checks it works, keeps it encrypted on the server, and only ever shows its last four characters. Its team can then choose **From Zeffy** on Manage → Events, see the organization's Zeffy events (not donation forms), and **start a draft event** from one: Sevak copies the title, description (as plain text), dates (in the team's time zone) and a link to the Zeffy page. Zeffy has no place or time zone, so the team adds those, and the tasks and shifts. Starting from the same Zeffy event again opens the event already made. Volunteers see **Tickets and full details on Zeffy** on the event's sign-up page, linking to its Zeffy page. An event started from Zeffy has **Refresh from Zeffy**, which shows what changed there (title, description, dates) and fills it in to save; tasks, shifts and sign-ups are never changed, and shifts that fall outside new dates are pointed out. Admins can disconnect. Later: Eventbrite and others the same way, refreshing on a schedule, and a Sevak API of its own. | Should |
 | EVT-21 | **Task leads.** Each task (an event's role) can have one **Task lead** for all its shifts. The organization's **Admins** choose the lead in the event editor, next to the task, from its team and its **active members**. A lead is optional; the Events list tells Admins how many of an event's tasks have none yet. On **My sign-ups → Tasks you lead**, the lead sees each shift of their task, for events that haven't ended, with who signed up and the phone and email they gave. Nothing else: not other tasks, not hours, and they can't change anyone's sign-up. Who leads a task is seen by the organization's Admins, the event's event admin and the lead, but not by other Coordinators, volunteers or the public. Coordinators, even the event admin, can't choose or change a lead: their saves keep it as it was. The server refuses a lead who isn't a member or on the team. A lead who leaves the organization stops seeing the roster. *(Prototype: `app/event.js`, `app/signup.js`; server: `packages/core/src/events.ts`, `signups.ts`.)* | Must |
 | EVT-22 | **The event editor in steps.** An event (or sub-event) is set up in four steps, one on screen at a time, so it fits a phone: **1 Details** (name, description, main event), **2 When & where** (dates, time zone, place), **3 Tasks** (tasks, their shifts and task leads) and **4 Review** (what's set, each with **Edit**; who can see it; who approves hours; for a saved event, Make inactive and Delete). A step bar opens any step at any time; **Next** checks the step on screen first, and Enter in a field goes to the next step. A draft can be saved from any step (it needs a name and dates) and is published from Review; publishing checks every step and opens the first with something to fix. A published event shows **Save changes** on every step, and **Unpublish** on Review. New events start **in person at the organization's address**, shown as one line with **Change the address** (the venue name stays visible); a new sub-event takes the time zone of its main event's other sub-events, and the time zone shows as one line with **Change**. Common tasks are folded under *Or start from a common task*. The organization's name is one line above the title, not its full card, and Documents appear as a tab once the event is saved. A link can open a step (`event.html?id=…#roles`). *(Prototype: `app/event.html`, `app/event.js`.)* | Must |
 | EVT-9 | A host can duplicate an event, for example to repeat it next month. | Should |
@@ -188,7 +193,7 @@ allows, or right after launch. **Later** means post-MVP.
 
 | ID | Requirement | Priority |
 |---|---|---|
-| SGN-1 | The event page lists shifts grouped by day and then by role, with times and **spots left**. Full shifts are marked *Full*. | Must |
+| SGN-1 | The event page lists shifts grouped by day and then by task, with times and **spots left**. Full shifts are marked *Full*. | Must |
 | SGN-2 | A volunteer can tick **one or more shifts** and confirm them together. Signing up needs a profile and **membership of the event's organization** (MEM-1); volunteers who aren't members are offered a way to join instead (MEM-5). *(Changed: signing up without an account was removed.)* | Must |
 | SGN-3 | Target: a first-time volunteer can finish signing up on a phone in **under 60 seconds and no more than two screens**. | Must |
 | SGN-4 | The form warns the volunteer if the shifts they picked overlap in time. | Must |
@@ -196,7 +201,7 @@ allows, or right after launch. **Later** means post-MVP.
 | SGN-6 | The volunteer sees an instant confirmation screen and gets a confirmation email (COM-1) with a secure **"Manage my sign-up"** link for viewing, adding or cancelling shifts. | Must |
 | SGN-7 | A volunteer can cancel a shift through that link, and the cancellation shows up on the host's roster. | Must |
 | SGN-8 | The sign-up form has bot and spam protection (an invisible challenge plus rate limits). | Must |
-| SGN-9 | The confirmation screen and email include **Add to calendar**. **Wherever Sevak offers Add to calendar, it offers both:** an **.ics file** (Apple Calendar, Outlook and most other apps) with every shift, and **Google Calendar**, which adds one event per link, so with several shifts there is a Google Calendar link for each. Both use the event's time zone, name the event and role, give the place, and carry the **Manage my sign-up** link. Cancelled shifts are left out, and the options go when nothing is left. *(Prototype: `app/signup.html` confirmation and manage pages.)* | Should |
+| SGN-9 | The confirmation screen and email include **Add to calendar**. **Wherever Sevak offers Add to calendar, it offers both:** an **.ics file** (Apple Calendar, Outlook and most other apps) with every shift, and **Google Calendar**, which adds one event per link, so with several shifts there is a Google Calendar link for each. Both use the event's time zone, name the event and task, give the place, and carry the **Manage my sign-up** link. Cancelled shifts are left out, and the options go when nothing is left. *(Prototype: `app/signup.html` confirmation and manage pages.)* | Should |
 | SGN-10 | The form has an opt-in checkbox: *"Keep me posted about future opportunities from {Organization}."* | Should |
 | SGN-14 | **Prototype of the volunteer sign-up page** (`app/signup.html`), covering SGN-1 to SGN-9 and DSC-1:
 
@@ -220,7 +225,7 @@ Sign-ups appear on the host dashboard right away. | Must |
 | MEM-5 | **Joining from an event.** A volunteer who isn't a member sees a note on the event page and, at the confirm step, **Ask to join {organization}** (with an optional note) instead of *Confirm*; if the organization approves automatically they can confirm straight away. Signed out, the confirm step offers **Join {organization}** (the Join page with that organization picked, coming back to the event afterwards) or **Sign in**. A pending request shows *Waiting for approval*. | Must |
 | MEM-6 | **My organizations and All organizations.** Signed in, the opportunities page has two tabs: **My organizations** (events of organizations you volunteer with or help run, with a line naming them and any requests waiting) and **All organizations** (every public event; those from organizations you haven't joined say *Join to sign up* or *Request sent*). It opens on My organizations once you belong to one. Signed out, anyone can browse all opportunities, with a note that signing up needs joining. | Must |
 | MEM-7 | **Your organizations on Profile.** Profile lists the organizations you volunteer with (*Volunteer*, *Waiting for approval* or *Not approved*), with **Leave**, **Withdraw** or **Remove**, and a link to join another. | Should |
-| MEM-8 | **Prototype outbox.** Until email is connected, every email Sevak would send (invitations, welcome, approval, decline and sign-up confirmations) is kept on an **Outbox** page with its links, so the flows can be tested. | Should |
+| MEM-8 | **Prototype outbox.** When the pages run on their own (without the server), every email Sevak would send (invitations, welcome, approval, decline and sign-up confirmations) is kept on an **Outbox** page with its links, so the flows can be tested. In the app, emails are sent for real and the Outbox page says so. | Should |
 ### 4.4 Volunteer profile and private log
 
 | ID | Requirement | Priority |
@@ -234,14 +239,14 @@ Sign-ups appear on the host dashboard right away. | Must |
 | VOL-7 | An optional public volunteer profile or shareable badge. Entries from private events would never be shown on it. | Later |
 | VOL-13 | In their profile, a person ticks **I volunteer** if they sign up for shifts (ticked by default); this shows the volunteer-only fields (address, availability, affiliations). Below it, **Organization teams** is a read-only list of the teams they're on, with their role (Admin or Coordinator), a *Manage* link and **Leave**. A person can't add themselves to a team or pick their own role (ORG-13). Leaving is refused for an organization's primary contact or its only Admin, so an organization always keeps an Admin. The section also offers *Set up your organization* (once the profile is saved) and explains how to join an existing one. *(Prototype: "Host team member" and the editable "My organizations" list were removed; roles people had typed there were moved onto the organizations' Team tabs.)* | Must |
 | VOL-14 | **Personal documents.** A person's profile has three tabs, **My details**, **Get to know me** (VOL-15) and **Documents**, where they can keep their own files (certificates, background checks, training records), with the same grid and actions as ORG-12. Only they can see these. Deleting the profile deletes them. | Should |
-| VOL-15 | **Get to know me, and services.** A profile has an optional **Get to know me** section, on its own **Get to know me** tab together with **Affiliations** (VOL-2; shown to volunteers only, with a note for others) with four free-text fields: **About me** (up to 1,000 characters), **My passion**, **My certifications** and **How I can help** (up to 500 each), with character counters. A **Services I can provide** section has a drop-down of service types: *General help, AV system help, Food service, Website maintenance, Telemarketing, Fundraising, Accounting, Office help*. Each pick is added to a list of removable chips, so a person can offer several; a service already chosen can't be picked twice. Organizations see these when the person signs up for their events. Matching services to roles is future work (VOL-8). | Should |
+| VOL-15 | **Get to know me, and services.** A profile has an optional **Get to know me** section, on its own **Get to know me** tab together with **Affiliations** (VOL-2; shown to volunteers only, with a note for others) with four free-text fields: **About me** (up to 1,000 characters), **My passion**, **My certifications** and **How I can help** (up to 500 each), with character counters. A **Services I can provide** section has a drop-down of service types: *General help, AV system help, Food service, Website maintenance, Telemarketing, Fundraising, Accounting, Office help*. Each pick is added to a list of removable chips, so a person can offer several; a service already chosen can't be picked twice. Organizations see these when the person signs up for their events. Matching services to tasks is future work (VOL-8). | Should |
 | VOL-16 | **Profile photo.** A profile can have an optional photo, at the top of *My details*. A person can **take a photo with their camera** (a live preview in a window, mirrored like a mirror, with a circle guide; on devices without a live preview, the phone's camera app opens), **drag and drop** a picture onto the photo area, or **choose a file**. Pictures are cropped to a centred square and reduced to 400 × 400 pixels (JPEG), so they stay small. Non-images, unreadable images and files over 15 MB are refused with a message. If camera access is blocked or there is no camera, the window says so and offers *Choose a file instead*. The photo can be retaken or removed, and is saved with the profile. Organizations see it when the person signs up for their events, to recognise them on the day. | Should |
 | VOL-17 | **Registered volunteers land on the opportunities.** Someone who is registered and signed in goes straight from the home page to **Available volunteer opportunities**, and the Sevak logo on every page takes them there too. Signing in also lands there. The opportunities page shows *Signed in as {name} · My profile · Sign out*; signing out returns to the Welcome Volunteer page, which then stays put. *(Prototype: "registered" means a profile is saved in this browser; saving the profile or signing in counts as signing in.)* | Must |
 | VOL-18 | **My sign-ups.** Signed-in volunteers have a **My sign-ups** page (in the menu, with a count of upcoming events). It lists their sign-ups (matched by email) grouped into **Upcoming**, **Past** and **Cancelled**, each with the event, date, place (venue and city) and their shifts, and a *Manage or cancel* (or *View sign-up*) link. Events made inactive or removed are labelled. With none, it offers *Browse opportunities*; signed out, it asks you to sign in. The confirmation page links to *All my sign-ups*. This is a first step towards VOL-3. *(Replaces the earlier two tabs on the opportunities page.)* | Must |
 | VOL-19 | **Location filter.** Available opportunities can be filtered: **All** (the default), **In person near me**, **All in person** and **Remote** (online events), each with a count. *Near me* uses a *Near* box (city or town, state or region, or postal code), filled in from the profile address when there is one; an event is near when it's in the same city, region or postal area (first three characters), and "City, Region" matches on the city. The choice is remembered in the browser. Distance-based search ("within 25 km") needs map data and comes with the live app. | Should |
 | VOL-20 | **The menu depends on who you are.** Signed out: *Opportunities · Join · Sign in*. Signed in: **Opportunities · My sign-ups · Profile** (Sign out is on Profile). Anyone on an organization's team also gets the **Manage** links: **Events · Volunteers · Dashboard · Organization** (Volunteers shows how many requests are waiting). On the Manage pages these links show in the header after a divider; on every other page they are tucked under a **"⋯" button** (labelled "More: manage your organization" for screen readers) so volunteers' pages stay uncluttered. The "⋯" menu opens below the button, closes with Escape (focus returns to the button), a click outside or tabbing away, and shows the waiting-requests count on the button. On phones the main items sit in a **bar at the bottom of the screen**, with **More** as a fourth item for team members that opens the same Manage links above the bar; on the Manage pages the links also show at the top and scroll sideways if the screen is narrow. The Manage links appear as soon as you set up an organization or are added to a team, and go when you leave your last team. | Must |
 | VOL-21 | **A clean opportunities list.** One compact row per event: its name, the date (no year) and a short place (venue and city, or *Online*), with the spots left on the right; the whole row opens the event. Rows are grouped into **This week**, **Next week** and **Later** (weeks run Monday to Sunday), with unverified organizations' events under *Not listed publicly yet*. The organization's name only appears when the list has events from more than one organization. The location filter (VOL-19) is a single row of chips that scrolls sideways on phones. | Must |
-| VOL-22 | **Signing up in two short steps.** **Step 1, pick shifts:** a compact header (organization and badge, main event, title, date and place) with everything else folded under *About this event*. Multi-day events have a **day picker** that shows one day at a time, with a count of shifts picked on each day. Each shift is one line (tick, role, time, spots left), with *Details* for the role description and what to bring; full or ended shifts are folded under *N full shifts*. A bar fixed to the bottom shows *N shifts picked* and **Continue**. **Step 2, confirm:** the chosen shifts, then either *Signing up as {name} ({email}) · Change* for signed-in volunteers or the name, email and phone form, and **Confirm**. The browser's Back and Forward buttons move between the steps; *‹ Shifts* goes back too. If a shift fills while confirming, the volunteer is taken back to step 1 with a message. | Must |
+| VOL-22 | **Signing up in two short steps.** **Step 1, pick shifts:** a compact header (organization and badge, main event, title, date and place) with everything else folded under *About this event*. Multi-day events have a **day picker** that shows one day at a time, with a count of shifts picked on each day. Each shift is one line (tick, task, time, spots left), with *Details* for the task description and what to bring; full or ended shifts are folded under *N full shifts*. A bar fixed to the bottom shows *N shifts picked* and **Continue**. **Step 2, confirm:** the chosen shifts, then either *Signing up as {name} ({email}) · Change* for signed-in volunteers or the name, email and phone form, and **Confirm**. The browser's Back and Forward buttons move between the steps; *‹ Shifts* goes back too. If a shift fills while confirming, the volunteer is taken back to step 1 with a message. | Must |
 | VOL-23 | **Smaller touches.** Event and confirmation pages start with a clear *‹ Opportunities* back link. The prototype note is one short line and can be dismissed (remembered in the browser); it comes back on Manage pages previewed while signed out, to say so. | Should |
 | VOL-8 | Skills and interests, and **matching** shifts to a volunteer's availability (VOL-2 collects availability now). | Later |
 
@@ -272,9 +277,9 @@ Sign-ups appear on the host dashboard right away. | Must |
 
 | ID | Requirement | Priority |
 |---|---|---|
-| COM-1 | Every sign-up triggers an automatic **confirmation email** listing the volunteer's shifts, role details, location, the organization's contact details, and the manage link. | Must |
+| COM-1 | Every sign-up triggers an automatic **confirmation email** listing the volunteer's shifts, task details, location, the organization's contact details, and the manage link. | Must |
 | COM-2 | A host can send a **confirmation or final-details email** to all or selected volunteers, for example *"You're confirmed. Here's parking info."* | Must |
-| COM-3 | A host can send an **event update** to everyone on an event, or only to certain days, roles or shifts. The update goes out by email and also appears in an *Updates* feed that signed-up volunteers can see. | Must |
+| COM-3 | A host can send an **event update** to everyone on an event, or only to certain days, tasks or shifts. The update goes out by email and also appears in an *Updates* feed that signed-up volunteers can see. | Must |
 | COM-4 | The app keeps a **message history** for each event and each volunteer: what was sent, to whom, and when. | Must |
 | COM-5 | A host can send **organization-wide messages** to past volunteers who opted in (SGN-10). Each message has an unsubscribe link. | Should |
 | COM-6 | An automatic **reminder email** goes out before each shift (24 hours before by default). This is strongly recommended because it cuts no-shows. | Should |
@@ -317,8 +322,8 @@ The requirements below are kept here for a future release.
 
 | ID | Requirement | Priority |
 |---|---|---|
-| EVT-13 | A host can set a **minimum age** (for example 16+ or 18+) for the whole event or for a single role. | Later |
-| SGN-12 | A person signing up for themselves confirms they are **at least 13**, or older if the event or role requires it (EVT-13). If they are too young, the form explains why and offers the parent option where it is allowed. | Later |
+| EVT-13 | A host can set a **minimum age** (for example 16+ or 18+) for the whole event or for a single task. | Later |
+| SGN-12 | A person signing up for themselves confirms they are **at least 13**, or older if the event or task requires it (EVT-13). If they are too young, the form explains why and offers the parent option where it is allowed. | Later |
 | SGN-13 | A **parent or guardian can sign up a child** by choosing "I'm signing up my child" and entering the child's name and age. They confirm they are the child's parent or guardian and give consent. **This is the only way a child under 13 can take part.** The parent's email and phone are used for every message. The child's name appears on the roster and the certificate. The child's age is checked against the event's minimum age. | Later |
 | VOL-11 | **Profiles for volunteers aged 13–17** also need a parent or guardian's name, relationship, email and phone. The guardian's email must be different from the teen's. The teen confirms their guardian knows they're volunteering. The guardian is then emailed to confirm before the teen can sign up for shifts, and gets copies of the teen's confirmations. Teens give only a city, never a home address, and their own phone is optional. | Later |
 | VOL-12 | **Anyone under 13 cannot create a profile.** The form explains that a parent or guardian must create a profile and add the child under *My children* (VOL-10). | Later |
@@ -341,45 +346,47 @@ The requirements below are kept here for a future release.
 
 ---
 
-## 6. Screens for the front-end build
+## 6. Screens
 
-This is the list of screens to build in Phase 1 with mock data.
+The MVP's screens, and the page (in `app/`) that has each one now. *Not built* means no page has
+it yet.
 
 **Public and volunteer**
 
-| # | Screen | Notes |
-|---|---|---|
-| P1 | Home or landing | The coming-soon page now. A marketing home page later. |
-| P2 | Discover | Calendar and list views, with city, date and organization filters |
-| P3 | Organization page | Profile, badge and upcoming events |
-| P4 | **Event page and shift picker** | **The most important screen.** Shifts grouped by day, tick several |
-| P5 | Sign-up form and confirmation | Name, email and phone, then done |
-| P6 | Manage my sign-up | Opened from the email link: view, add or cancel shifts |
-| P7 | Sign in | Email address, then a one-time sign-in link |
-| P8 | My volunteering | Private log, hours and certificates |
-| P9 | Certificate verification | Public, shows minimal data |
+| # | Screen | Notes | Now |
+|---|---|---|---|
+| P1 | Home or landing | A welcome page now (sign in, join, or see opportunities). A marketing home page later. | `index.html` |
+| P2 | Discover | Calendar and list views, with city, date and organization filters | `signup.html` (*All organizations*: a list with an *In person near me* filter); no calendar yet |
+| P3 | Organization page | Profile, badge and upcoming events (ORG-4) | Not built |
+| P4 | **Event page and shift picker** | **The most important screen.** Shifts grouped by day, tick several | `signup.html` |
+| P5 | Sign-up confirmation | Confirm the shifts picked; the details come from the profile | `signup.html` |
+| P6 | Manage my sign-up | View, add or cancel shifts | `signup.html` (*My sign-ups*) |
+| P7 | Sign in | An emailed code or link, or Continue with Google | `signin.html` |
+| P8 | My volunteering | Private log, hours and certificates | `signup.html` (*My sign-ups*: check in, log hours, certificates, tasks you lead) |
+| P9 | Certificate verification | Public, shows minimal data | `verify.html`, `certificate.html` |
+| P10 | Join and profile | Join with an invitation or ask to join; your details, organizations and documents | `join.html`, `profile.html` |
 
 **Host**
 
-| # | Screen | Notes |
-|---|---|---|
-| H1 | Organization setup and settings | Includes the verification request |
-| H2 | Host dashboard | Events split into Drafts, Upcoming and Past, plus volunteers required vs enrolled. *(Prototype: the Events tab, `app/events.html`, and the Dashboard tab, `app/dashboard.html`.)* |
-| H3 | **Event editor** *(prototype: `app/event.html`)* | Details → Roles → Shifts (grid with "copy to other days") → Visibility → Publish |
-| H4 | Share and invite | Copy link, WhatsApp, text and email invitations |
-| H5 | Roster and attendance | Designed for phones, used on the day |
-| H6 | Compose an update, and message history | Choose the audience by day, role or shift |
-| H7 | Issue certificates | Preview, then send |
-| H8 | Team | Invite and remove team members |
+| # | Screen | Notes | Now |
+|---|---|---|---|
+| H1 | Organization setup and settings | Includes the team (ORG-13), documents and the verification request | `organization.html` |
+| H2 | Host dashboard | Events split into Drafts, Upcoming and Past, plus volunteers required vs enrolled | `events.html`, `main-event.html`, `dashboard.html` |
+| H3 | **Event editor** | Four steps: Details → When & where → Tasks (shifts, task leads) → Review (EVT-22) | `event.html` |
+| H4 | Share and invite | Copy link, WhatsApp, text and email invitations to an event (PRV-2, PRV-3) | Not built; volunteers are invited to the organization on `volunteers.html` |
+| H5 | Roster and attendance | Designed for phones, used on the day (ATT-1, ATT-2) | Not built; hours are approved on `volunteers.html`, and a task lead sees their task's roster on *My sign-ups* |
+| H6 | Compose an update, and message history | Choose the audience by day, task or shift (COM-3) | Not built |
+| H7 | Issue certificates | Preview, then send | `volunteers.html` (*Certificate requests*), `certificate.html` |
+| H8 | Volunteers | Requests to join, invitations, members, hours to approve | `volunteers.html` |
 
-**Admin:** A1, the verification queue and moderation tools.
+**Sevak staff:** A1, the verification queue: `review.html`. Moderation tools are not built.
 
 **UX principles**
 
 1. **Phone first.** The path from event page to sign-up to confirmation must work one-handed on a
    phone.
-2. **No account walls** for volunteers. Ask only for a name and email, plus an optional phone
-   number.
+2. **Short paths** for volunteers. Sign-up needs a profile and membership (SGN-2), so the profile
+   asks only for what hosts need, and joining takes one step with an invitation.
 3. **One main action per screen**, in plain language (*shift*, *spots left*, *sign up*).
 4. **Clean, trustworthy pages.** The organization's brand leads, and the verification badge is
    always visible.
@@ -413,6 +420,11 @@ This is the list of screens to build in Phase 1 with mock data.
 
 ## 8. Data model (MVP)
 
+The target model. The tables in `packages/db/src/schema.ts` follow it; until each screen moves to
+them, the pages' data is kept as JSON in the `records` table, one collection per kind (see
+`docs/ARCHITECTURE.md` §6). There, a Role (a *task* on every page) also has an optional `lead`,
+the email of its Task lead (EVT-21).
+
 | Entity | Key fields | Relationships |
 |---|---|---|
 | **User** | id, email (unique), first_name, last_name, phone (E.164), phone_country, phone_whatsapp, gender (optional: `woman`/`man`/`non-binary`/`another`/`prefer-not`), is_volunteer, is_host, address (country, line1, line2, city, state, postal_code; optional, volunteers only), availability (`weekends`/`weekdays`/`evenings`/`anytime`), is_platform_admin, created_at | One user can be a volunteer, a host team member, or both. A host team member can belong to several Organizations with a different role in each (through OrgMember). |
@@ -435,13 +447,15 @@ This is the list of screens to build in Phase 1 with mock data.
 
 ## 9. External services (MVP)
 
-| Need | Example options | Priority |
-|---|---|---|
-| Transactional email | Postmark, Resend, Amazon SES, SendGrid | Must |
-| Bot protection | Cloudflare Turnstile, hCaptcha | Must |
-| File storage (logos, covers, PDFs) | Any S3-compatible storage | Must |
-| PDF generation (certificates) | Server-side HTML-to-PDF rendering | Must |
-| Address and city autocomplete | A places or geocoding API | Should (the MVP can use typed address and city fields) |
+| Need | Choice | Priority | Now |
+|---|---|---|---|
+| Transactional email | Resend | Must | In use |
+| Sign-in with Google (VOL-1) | Google OpenID Connect | Must | In use (optional per environment) |
+| Hosting, database, files | Google Cloud: Cloud Run, Cloud SQL, Cloud Storage | Must | In use |
+| Event import | Zeffy API (EVT-20) | Should | In use |
+| Bot protection | Cloudflare Turnstile or hCaptcha | Must | Not yet; rate limits only |
+| PDF generation (certificates) | Made in the browser from the certificate's saved details | Must | In use |
+| Address and city autocomplete | A places or geocoding API | Should (the MVP can use typed address and city fields) | Not used |
 
 ---
 
@@ -449,15 +463,16 @@ This is the list of screens to build in Phase 1 with mock data.
 
 | Phase | Goal | Output |
 |---|---|---|
-| **0: Now** | Vet requirements and claim a public URL | This document and a coming-soon landing page on GitHub Pages |
-| **1: Front end** | Get feedback on the experience before building the back end | Every MVP screen (§6) built as a clickable prototype with mock data, deployed to GitHub Pages and reviewed with 2–3 pilot organizations |
-| **2: Back end and email** | Make it real | Data model, email sign-in, sign-up with capacity checks, emails and certificates, deployed on a very simple architecture (to be designed) |
-| **3: Pilot** | Prove the core loop | A handful of organizations in one or two cities, measured against §11 |
+| **0: Requirements** | Vet requirements and claim a public URL | This document and a landing page. *Done.* |
+| **1: Front end** | Get feedback on the experience before building the back end | A clickable prototype of the MVP screens (§6) with data in the browser. *Done for most screens.* |
+| **2: Back end and email** | Make it real | Sign-in, the pages' data on the server with its access rules, capacity checks and email, on Google Cloud (`docs/ARCHITECTURE.md`). *On staging now;* the screens marked *Not built* in §6 remain. |
+| **3: Pilot** | Prove the core loop | A handful of organizations in one or two cities from January 2027, measured against §11 |
 
 **Long term (post-MVP)**
 
-- **One source of truth for event information.** Automatically import or sync events from
-  ticketing platforms (Eventbrite, Luma, Meetup) and social media (Facebook and Instagram events),
+- **One source of truth for event information.** Automatically import or sync events from more
+  ticketing platforms (Eventbrite, Luma, Meetup; Zeffy is done, EVT-20) and social media (Facebook
+  and Instagram events),
   so public events show the same details everywhere. This fixes a common problem where different
   sites list different information, and the canonical event page builds consistent SEO.
 - Native mobile apps (iOS and Android)
@@ -473,7 +488,7 @@ This is the list of screens to build in Phase 1 with mock data.
 ## 11. Pilot success metrics
 
 - Median time for a volunteer to sign up: **under 60 seconds**
-- Time for a host to create a two-day event with three roles: **under 10 minutes**
+- Time for a host to create a two-day event with three tasks: **under 10 minutes**
 - Share of shift capacity filled on pilot events: **80% or more**
 - No-show rate: measure a baseline, then bring it down with reminders (COM-6)
 - Share of completed events where the host issued certificates
@@ -486,11 +501,11 @@ This is the list of screens to build in Phase 1 with mock data.
 
 | # | Question | Decision |
 |---|---|---|
-| Q1 | What is the product name? | **Sevak.** The domain is still to be chosen. |
+| Q1 | What is the product name? | **Sevak**, at `sevak.theanbgroup.com`. |
 | Q2 | Does an organization have to be verified before it can list **public** events? | **Yes.** Unverified organizations can still run **private** events (ORG-3, ORG-6, PRV-1). The MVP uses manual review of a charity or tax registration number (such as a US EIN or a UK charity number), a website, or an email on the organization's domain. |
 | Q3 | Should sign-ups be confirmed automatically, or should hosts approve each one? | **Automatic.** COM-2 lets hosts send a "you're confirmed" email. Host approval stays in Later (SGN-11). |
 | Q4 | What is the policy for minors? | **Deferred (2026-10-05).** The MVP doesn't collect date of birth and has no age rules. The earlier proposal (a minimum age of 13, parents signing up younger children, and event minimum ages) is kept as future requirements in §4.10. |
-| Q10 | Hosting | **Front end only for now, hosted on GitHub Pages.** Server rendering for SEO (NFR-10) gets revisited when we design the Phase 2 back end and deployment. |
+| Q10 | Hosting | **Google Cloud** (Cloud Run and Cloud SQL PostgreSQL), decided in November 2026 (`docs/ARCHITECTURE.md`). Server rendering for SEO (NFR-10) comes when public pages move to React. |
 
 ### 12.2 Still open
 
