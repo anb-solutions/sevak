@@ -10,32 +10,40 @@ You need Node 22 and pnpm (`corepack enable` installs pnpm).
 
 ```sh
 pnpm install
-pnpm dev        # the app at http://localhost:3000, with fake demo data
+pnpm dev        # the app at http://localhost:3000
+pnpm typecheck
 pnpm test       # rules and API tests
+tests/run.sh /tmp/sevak-shots                              # the pages in a real browser (Playwright)
 pnpm build && DATABASE_URL=postgres://… tests/e2e/run.sh   # whole flows in real browsers (needs a PostgreSQL)
 ```
 
 No accounts, keys or Docker are needed. Locally the app uses PGlite, a copy of Postgres that runs
-inside Node, filled with fake demo data each time it starts.
+inside Node, emptied each time it starts; sign-in codes are printed in the terminal.
 
-The clickable prototype (`index.html` and `app/`) has no build step. To preview it on its own:
+The pages (`index.html` and `app/`) have no build step. To try them on their own, with made-up
+data kept in your browser:
 
 ```sh
-python3 -m http.server 8000   # then open http://localhost:8000
+python3 -m http.server 8000   # then open http://localhost:8000/app/dashboard.html?demo=1
 ```
 
 ## Making a change
 
 1. **Branch from `staging`** (the default branch). You can't push to `staging` or `main` directly.
 2. **Keep it small:** one feature or fix per pull request.
-3. **Run `pnpm test`** before you push.
+3. **Run the checks** before you push: `pnpm typecheck`, `pnpm test`, `tests/run.sh`, and
+   `pnpm build` with `tests/e2e/run.sh` on a fresh database. Check pages at 390px wide. Add an
+   end-to-end test for each new flow.
 4. **Open a pull request** and fill in the template. Say what changed, why, and how you checked it.
-5. **Get a review.** Changes to sensitive areas (database schema, sign-in and permissions, CI and
-   deploy settings) need approval from a code owner.
+5. **Get a review.** Changes listed under "Changes that need the owner" in the checklist (who sees
+   what, sign-in and sessions, the database schema, `.github/`, `infra/`, the `Dockerfile`, Google
+   Cloud permissions, new kinds of personal data or email, new dependencies) need the owner's
+   approval.
 6. **Merge.** Staging (`staging.sevak.theanbgroup.com`) updates a few minutes later. People use
    it, so a merge is a release: follow the checklist in
    [`.claude/skills/steward/SKILL.md`](.claude/skills/steward/SKILL.md) first, especially if you
-   merge your own pull request. Check your change there on a phone.
+   merge your own pull request. There are no preview deployments, so check your change there on a
+   phone after it merges.
 7. **Production** is released by the owner only, from staging, when it's ready.
 
 ### Working with Claude

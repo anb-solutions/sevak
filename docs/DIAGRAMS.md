@@ -1,13 +1,11 @@
 # Sevak: UML Diagrams
 
-**For discussion** · **Updated:** 2026-11-02 · Based on [`REQUIREMENTS.md`](REQUIREMENTS.md) and the
-prototype in [`app/`](../app/)
+**Updated:** 2026-11-12 · Based on [`REQUIREMENTS.md`](REQUIREMENTS.md),
+[`ARCHITECTURE.md`](ARCHITECTURE.md) and the code
 
-These diagrams are a starting point for discussion, not a final design. Each one says whether it
-shows **what the prototype does today** or **the proposed back end** from
-[`ARCHITECTURE.md`](ARCHITECTURE.md). IDs such as SGN-5 refer to the requirements.
-
-GitHub draws these diagrams automatically. To edit one, change its text and the picture updates.
+Each diagram shows what Sevak does now, on staging. Anything not built yet is marked *(planned)*.
+IDs such as SGN-5 refer to the requirements. GitHub draws these diagrams from their text: change
+the text and the picture updates.
 
 1. [Who uses Sevak and what they do](#1-who-uses-sevak-and-what-they-do) (use cases)
 2. [Data model](#2-data-model) (class diagram)
@@ -15,78 +13,81 @@ GitHub draws these diagrams automatically. To edit one, change its text and the 
 4. [Life of a sign-up](#4-life-of-a-sign-up) (state diagram)
    - [Verifying an organization](#4a-verifying-an-organization) (state diagram)
 5. [A volunteer signs up](#5-a-volunteer-signs-up) (sequence diagram)
-6. [Signing in by email](#6-signing-in-by-email) (sequence diagram)
+6. [Signing in](#6-signing-in) (sequence diagram)
 7. [Joining an organization's team](#7-joining-an-organizations-team) (activity diagram)
    - [Joining as a volunteer](#7a-joining-as-a-volunteer) (activity diagram)
-8. [How the system fits together](#8-how-the-system-fits-together) (component and deployment diagram)
+8. [How the system fits together](#8-how-the-system-fits-together) (deployment diagram)
 
 ---
 
 ## 1. Who uses Sevak and what they do
 
-*Today and planned.* Actors on the left and right; the things they do in the middle. A person can be
-a volunteer and a host team member at the same time (VOL-13). Items marked *(planned)* aren't in the
-prototype yet.
+A person can be a volunteer and on organizations' teams at the same time (VOL-13). Coordinator and
+Admin are roles in the whole organization (ORG-13); a Task lead is a volunteer chosen for one task
+(EVT-21); the event admin is the Admin or Coordinator who approves an event's hours (ATT-3).
 
 ```mermaid
 flowchart LR
     V(["👤 Volunteer"])
+    L(["👤 Task lead"])
     C(["👤 Coordinator"])
-    A(["👤 Admin / Owner"])
-    P(["👤 Platform admin"])
+    A(["👤 Admin"])
+    P(["👤 Sevak staff"])
 
     subgraph Volunteer side
-        UC0["Join an organization<br/>(invitation or request)"]
+        UC0["Join an organization<br/>(invitation, code or request)"]
         UC1["Find opportunities<br/>(My organizations / All)"]
         UC2["Sign up for shifts"]
-        UC3["Manage or cancel a sign-up"]
-        UC4["View My sign-ups,<br/>check in and log hours"]
-        UC5["Keep a profile, photo<br/>and personal documents"]
+        UC3["Cancel a sign-up"]
+        UC4["Check in and out,<br/>or log hours"]
+        UC5["Request a certificate"]
+        UC6["Keep a profile and<br/>personal documents"]
+        UC7["See the roster of<br/>a task they lead"]
     end
 
     subgraph Running events
-        UC6["Create and edit events,<br/>roles and shifts"]
-        UC7["Group events under<br/>a main event"]
-        UC8["Publish, unpublish or<br/>make an event inactive"]
-        UC9["View the dashboard"]
-        UC10["Upload organization<br/>and event documents"]
-        UC11["Mark attendance and<br/>issue certificates (planned)"]
-        UC12["Send updates (planned)"]
+        UC8["Create and edit events,<br/>tasks and shifts (4 steps)"]
+        UC9["Group events under<br/>a main event"]
+        UC10["Publish, unpublish or<br/>make an event inactive"]
+        UC11["View the dashboard"]
+        UC12["Add organization<br/>and event documents"]
+        UC13["Approve hours<br/>(as event admin)"]
+        UC14["Roster, attendance,<br/>updates (planned)"]
     end
 
     subgraph Organization admin
-        UC13["Edit the organization profile"]
-        UC14["Add team members"]
-        UC19["Approve requests, invite<br/>and remove volunteers"]
-        UC15["Delete events or<br/>the organization"]
-        UC16["Request verification (planned)"]
+        UC15["Edit the organization<br/>profile and team"]
+        UC16["Approve, invite and<br/>remove volunteers"]
+        UC17["Choose task leads"]
+        UC18["Issue certificates"]
+        UC19["Delete events or<br/>the organization"]
+        UC20["Request verification"]
     end
 
     subgraph Platform
-        UC17["Approve verification (planned)"]
-        UC18["Moderate content (planned)"]
+        UC21["Verify or reject<br/>organizations"]
+        UC22["Moderate content (planned)"]
     end
 
-    V --- UC0 & UC1 & UC2 & UC3 & UC4 & UC5
-    C --- UC6 & UC7 & UC8 & UC9 & UC10 & UC11 & UC12 & UC19
+    V --- UC0 & UC1 & UC2 & UC3 & UC4 & UC5 & UC6
+    L --- UC7
+    L -. "is a volunteer" .-> V
+    C --- UC8 & UC9 & UC10 & UC11 & UC12 & UC13 & UC14
     A -. "can also do everything<br/>a Coordinator can" .-> C
-    A --- UC13 & UC14 & UC15 & UC16
-    UC17 & UC18 --- P
+    A --- UC15 & UC16 & UC17 & UC18 & UC19 & UC20
+    UC21 & UC22 --- P
 ```
 
-An Admin can do everything a Coordinator can, plus the *Organization admin* items (ORG-5, ORG-13,
-EVT-19).
-
-**To discuss:** should Coordinators be able to add team members, or only Admins (today: only
-Admins)?
+Nobody approves their own hours or issues their own certificate; an Admin's own need another
+Admin or Sevak staff. Sevak staff can also do what an organization's Admins do.
 
 ---
 
 ## 2. Data model
 
-*Proposed back end.* The entities from §8 of the requirements, plus what the prototype has added
-since: documents (ORG-12, EVT-18, VOL-14), the profile's photo and *Get to know me* fields (VOL-15,
-VOL-16), services, and inactive events (EVT-19). Only the main fields are shown.
+The target model from §8 of the requirements: the tables in `packages/db/src/schema.ts` follow
+it. Until each screen moves to them, the pages' data is kept as JSON in the `records` table, one
+collection per kind ([`ARCHITECTURE.md`](ARCHITECTURE.md) §6). Only the main fields are shown.
 
 ```mermaid
 classDiagram
@@ -129,8 +130,6 @@ classDiagram
         status : invited | requested | active | declined
         how : invitation | request | auto-approved
         note
-        invited_at
-        requested_at
         decided_at
         decided_by
     }
@@ -147,12 +146,15 @@ classDiagram
         visibility
         status
         is_active
+        event_admin
         private_token «hashed»
     }
     class Role {
+        «shown as Task»
         name
         description
         requirements
+        lead «a member's email»
     }
     class Shift {
         starts_at «UTC»
@@ -171,7 +173,6 @@ classDiagram
         check_out_at
         reported_minutes
         report_method : check-in | times | duration
-        attendance : unmarked | attended | no_show
         hours_credited
     }
     class Certificate {
@@ -181,21 +182,13 @@ classDiagram
         verification_code «unique»
         hours
         signed_by
-        pdf_url
     }
     class Document {
         owner_type : organization | event | user
         name
-        description
         size_bytes
         storage_key
         uploaded_by
-    }
-    class Message {
-        audience_filter
-        subject
-        body
-        sent_at
     }
 
     User "1" -- "0..5" Affiliation
@@ -207,40 +200,34 @@ classDiagram
     MainEvent "0..1" -- "*" Event : groups
     Event "1" -- "*" Role
     Role "1" -- "*" Shift
+    User "0..1" -- "*" Role : leads
     Event "1" -- "*" Registration
     User "1" -- "*" Registration
     Registration "1" -- "1..*" Signup
     Shift "1" -- "*" Signup
-    Registration "1" -- "0..1" Certificate
-    Organization "1" -- "*" Message
+    User "1" -- "*" Certificate
+    Organization "1" -- "*" Certificate
     Organization "1" -- "*" Document
     Event "1" -- "*" Document
     User "1" -- "*" Document
 ```
 
-Not shown: VerificationRequest, Invite and MessageDelivery. This is the shape of the data, not a
-choice of database.
-
-**To discuss:**
-- `Document` points at its owner with `owner_type` + `owner_id`. The alternative is three link
-  tables, which lets the database enforce the link but adds tables.
-- Should a guest volunteer (no account) still get a `User` row, keyed by email? The proposal says
-  yes: it keeps *My sign-ups* simple when they sign in later.
+Not shown: VerificationRequest, Invite, and Message with MessageDelivery (event updates,
+*planned*). A certificate covers a period and can include several events' approved hours (ATT-5).
 
 ---
 
 ## 3. Life of an event
 
-*Today (prototype) and planned.* An event's **status** (EVT-4, EVT-15) and its **inactive** flag
-(EVT-19) are separate: making an event inactive hides it without losing its status, and
-**Reactivate** puts it back exactly as it was. That's why there are two inactive boxes. Any team
-member can make an event inactive; only Admins can delete one, from any state.
+An event's **status** (EVT-4, EVT-15) and its **inactive** flag (EVT-19) are separate: making an
+event inactive hides it without losing its status, and **Reactivate** puts it back exactly as it
+was. Any team member can make an event inactive; only Admins can delete one, from any state.
 
 ```mermaid
 stateDiagram-v2
     direction LR
-    [*] --> Draft : Save draft<br/>(name and dates only)
-    Draft --> Published : Publish<br/>(roles and shifts complete)
+    [*] --> Draft : Save draft<br/>(name and dates)
+    Draft --> Published : Publish<br/>(every step complete,<br/>tasks with shifts)
     Published --> Draft : Unpublish
     Published --> Completed : End date passes<br/>(planned)
     Draft --> Cancelled : Cancel (planned)
@@ -260,28 +247,25 @@ stateDiagram-v2
 
 | State | Volunteers can find it | Volunteers can sign up | On the dashboard |
 |---|---|---|---|
-| Draft | No (host preview only) | No | Yes, if the filter includes drafts |
-| Published | Yes, if public and the organization is verified | Yes | Yes |
+| Draft | No (the team only) | No | Yes, if the filter includes drafts |
+| Published | Its organization's volunteers; everyone, if public and the organization is verified | Members (SGN-2) | Yes |
 | Inactive | No (its link says it's no longer available) | No | No |
-| Completed / Cancelled | No | No | No (past or cancelled) |
-
-**To discuss:** can a published event with sign-ups be deleted, or only made inactive or cancelled?
 
 ---
 
 ## 4. Life of a sign-up
 
-*Today (prototype) and planned.* One `Signup` is one volunteer on one shift. On the day the
-volunteer can check in and out, or log their hours afterwards (ATT-12); those are *reported* hours.
-The event admin approves them, possibly adjusted, or doesn't (ATT-3). Only approved hours count
-toward a certificate, which the volunteer requests for a period and an Admin issues (ATT-5).
-Marking attendance and no-shows on a roster (ATT-2) is planned.
+One sign-up is one volunteer on one shift. On the day the volunteer can check in and out, or log
+their hours afterwards (ATT-12); those are *reported* hours. The event admin approves them,
+possibly adjusted, or doesn't (ATT-3). Only approved hours count toward a certificate, which the
+volunteer requests for a period and an Admin issues (ATT-5). Marking no-shows on a roster (ATT-2)
+is *planned*.
 
 ```mermaid
 stateDiagram-v2
     direction LR
     [*] --> Confirmed : Sign up<br/>(spot taken, email sent)
-    Confirmed --> Cancelled : Volunteer cancels via manage link<br/>or host cancels the shift<br/>(spot freed)
+    Confirmed --> Cancelled : Volunteer cancels<br/>on My sign-ups (spot freed)
     Cancelled --> [*]
 
     state Confirmed {
@@ -304,8 +288,7 @@ stateDiagram-v2
 
 ## 4a. Verifying an organization
 
-*Today (prototype) and planned.* An Admin asks; Sevak's staff decide (ORG-3, ADM-1). In the
-prototype the review queue is `app/review.html` and emails go to the outbox.
+An Admin asks; Sevak's staff decide on `app/review.html` (ORG-3, ADM-1). Both sides are emailed.
 
 ```mermaid
 stateDiagram-v2
@@ -315,7 +298,7 @@ stateDiagram-v2
     Pending --> Verified : Sevak verifies
     Pending --> Rejected : Sevak rejects, with a reason
     Rejected --> Pending : Admin asks again
-    Verified --> [*]
+    Verified --> Pending : Admin changes the name, website,<br/>registration number or tax status
     note right of Verified : Verified badge.<br/>Public events are listed.
     note right of Unverified : Public events stay private,<br/>reachable by link.
 ```
@@ -324,83 +307,86 @@ stateDiagram-v2
 
 ## 5. A volunteer signs up
 
-*Proposed back end.* The most important flow (SGN-2, SGN-5, SGN-6, COM-1). Everything inside the
-transaction happens together or not at all, so a shift can never be overbooked and an email is
-never sent for a sign-up that failed.
+The most important flow (SGN-2, SGN-5, COM-1). The page saves sign-ups like any other data, and
+the server decides (`packages/core/src/signups.ts`). Everything in the transaction happens
+together or not at all, so a shift is never overbooked.
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor V as Volunteer (phone)
-    participant W as Web app
-    participant T as Turnstile
+    participant P as Page (signup.html + sync.js)
+    participant W as API (/api/v1)
     participant DB as Database
-    participant Q as Job queue
-    participant E as Email (Postmark)
+    participant E as Email (Resend)
 
-    V->>W: Open /e/food-drive (from a WhatsApp link)
-    W->>DB: Event, roles, shifts, spots left
-    W-->>V: Page with shifts grouped by day
+    V->>P: Open the event (from a shared link)
+    P->>W: GET /api/v1/sync
+    W->>DB: What this person may see
+    W-->>P: Events, spots taken (no names), their own sign-ups
+    P-->>V: Shifts grouped by day and task, spots left
 
-    V->>W: Tick shifts, enter name and email, Sign up
-    W->>T: Check bot token
-    T-->>W: OK
+    V->>P: Tick shifts, Confirm
+    P->>W: POST /api/v1/sync/sevak.signups.v1
 
     rect rgba(120, 160, 255, 0.15)
         Note over W,DB: One transaction
-        W->>DB: Find or create User by email
-        W->>DB: Create Registration (manage token, stored hashed)
-        loop Each shift, in id order
-            W->>DB: Take a spot only if one is left<br/>(a single atomic step)
-            alt Spot taken
-                W->>DB: Insert Signup (confirmed)
+        W->>DB: Lock the events involved
+        W->>DB: Check membership and published event
+        loop Each new sign-up
+            W->>DB: Count the shift's active sign-ups
+            alt Spot left
+                W->>DB: Save the sign-up
             else Shift is full
-                W->>DB: Roll back everything
-                W-->>V: "Setup crew Sat 8am just filled up. Pick another?"
+                W-->>P: Refused ("full"), with the server's copy
             end
         end
-        W->>Q: Queue confirmation email
     end
 
-    W-->>V: Confirmation screen, Add to calendar, manage link
-    Q->>E: Send confirmation (shifts, details, manage link)
+    W-->>P: Saved
+    P-->>V: Confirmation, Add to calendar (.ics and Google)
+    W->>E: Confirmation email listing the shifts (best effort)
     E-->>V: Email arrives
-    Q->>Q: Schedule reminder 24 hours before each shift
+    Note over W,E: Reminders before each shift (COM-6) are planned
 ```
 
 ---
 
-## 6. Signing in by email
+## 6. Signing in
 
-*Proposed back end.* Passwordless sign-in (VOL-1, NFR-4). The email has both a **link** and a
-**6-digit code**: on iPhone, an app added to the home screen doesn't share sign-in with Safari, so
-the code lets people finish signing in inside the installed app.
+Passwordless (VOL-1, NFR-4). The email has both a **link** and a **6-digit code**: on iPhone, an app
+added to the home screen doesn't share sign-in with Safari, so the code lets people finish signing
+in inside the installed app. The link carries its token after `#`, so it never reaches a server
+log. **Continue with Google** is the other way in, where the environment has it set up.
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor U as Person
-    participant W as Web app
+    participant P as signin.html
+    participant W as API (/api/v1/auth)
     participant DB as Database
-    participant E as Email
+    participant E as Email (Resend)
 
-    U->>W: Enter email on Sign in
-    W->>DB: Save token and code (hashed), expires in 15 min
-    W->>E: Send "Your Sevak sign-in link" (link + code)
-    W-->>U: "Check your email"
+    U->>P: Enter email
+    P->>W: POST /auth/request {email}
+    W->>DB: Count the try (rate limits), save token and code (hashed, 15 min)
+    W->>E: "123456 is your Sevak sign-in code" (code + link)
+    W-->>P: "Check your email"
 
-    alt Taps the link
-        U->>W: Open /signin/verify?token=…
+    alt Taps the link (signin.html#token=…)
+        P->>W: POST /auth/verify {token}
     else Types the code
-        U->>W: Enter 6-digit code
+        P->>W: POST /auth/verify {email, code}
     end
 
-    W->>DB: Check hash, not expired, not used, then mark used
-    W->>DB: Create session
-    W-->>U: Set session cookie → Available opportunities<br/>(or the page they were on)
+    W->>DB: Check hash, not expired, not used, tries left, then mark used
+    W->>DB: Create session (stored hashed)
+    W-->>P: __Host- session cookie
+    P-->>U: The page they were on, or opportunities<br/>(someone new: their profile first)
 
-    opt Platform admin
-        W-->>U: Ask for authenticator (TOTP) code
+    opt Sevak staff (planned)
+        W-->>U: Ask for an authenticator (TOTP) code
     end
 ```
 
@@ -408,23 +394,22 @@ sequenceDiagram
 
 ## 7. Joining an organization's team
 
-*Today (prototype) and planned.* The two ways onto a team (ORG-13). In the prototype, being added
-shows a one-time notice; in the live app it sends an invitation to accept.
+The two ways onto a team (ORG-13). Being added takes effect straight away; the email tells the
+person to sign in.
 
 ```mermaid
 flowchart TD
     S([Signed-in person opens a Manage page]) --> Q{On this<br/>organization's team?}
     Q -- Yes --> R{Role?}
-    R -- Admin --> PA[Full access:<br/>profile, team, delete]
-    R -- Coordinator --> PC[Run events, dashboard, documents.<br/>Profile is read-only, no delete]
+    R -- Admin --> PA[Full access:<br/>profile, team, volunteers,<br/>task leads, certificates, delete]
+    R -- Coordinator --> PC[Run events, dashboard, documents.<br/>Profile read-only; no volunteers list]
     Q -- No --> N["'You're not on this team'<br/>with the two ways in"]
     N --> W1[Set up a new organization]
     W1 --> AD[You become its Admin]
     N --> W2[Ask an Admin to add you]
     W2 --> INV["Admin adds your email on the Team tab<br/>(as Admin or Coordinator)"]
-    INV --> EM["Invitation email (planned)"]
-    EM --> ACC[Accept]
-    ACC --> R
+    INV --> EM["Email: You're on the team of X"]
+    EM --> R
     AD --> R
 ```
 
@@ -432,25 +417,25 @@ flowchart TD
 
 ## 7a. Joining as a volunteer
 
-*Today (prototype) and planned.* A volunteer can sign up for an organization's shifts only once
-they're one of its volunteers: by invitation, or by asking to join and being approved (MEM-1 to
-MEM-8). In the prototype, emails go to the outbox page instead of being sent.
+A volunteer can sign up for an organization's shifts only once they're one of its volunteers: by
+invitation, by its invite code, or by asking to join and being approved (MEM-1 to MEM-5). Only
+the organization's Admins (and Sevak staff) see and decide requests.
 
 ```mermaid
 flowchart TD
     S([Person wants to volunteer]) --> H{How?}
-    H -- "Invite link or code" --> I[Join page: enter link or code]
-    H -- "Emailed invitation" --> E[Sign in or make a profile<br/>with the invited email]
-    H -- "Ask to join" --> Q[Join page: pick the organization,<br/>add a note]
+    H -- "Invite link or code" --> I[Join page: link or code<br/>checked by the server]
+    H -- "Emailed invitation" --> E[Sign in with the invited email]
+    H -- "Ask to join" --> Q[Join page: find the organization,<br/>add a note]
     I --> P{Has a profile?}
     Q --> P
     P -- No --> NP[Make a profile;<br/>the choice is kept]
     P -- Yes --> J
-    NP --> J{Invitation or<br/>auto-approve?}
+    NP --> J{Code, or the organization<br/>approves automatically?}
     E --> ACT
     J -- Yes --> ACT[Active volunteer<br/>+ welcome email]
-    J -- No --> REQ[Request waiting]
-    REQ --> D{Admin or Coordinator<br/>on the Volunteers page}
+    J -- No --> REQ[Request waiting<br/>+ email to the Admins]
+    REQ --> D{An Admin, on<br/>Manage → Volunteers}
     D -- Approve --> ACT
     D -- Decline --> DEC[Declined + email;<br/>can be approved later]
     ACT --> SU[Sign up for its shifts]
@@ -460,51 +445,44 @@ flowchart TD
 
 ## 8. How the system fits together
 
-*Today vs proposed.* Today everything runs in the browser. The proposal (from `ARCHITECTURE.md`,
-updated for the cheaper single-service setup on Railway that we discussed) adds one app server and
-one database.
-
-**Today: static prototype**
+One app service and one database per environment, on Google Cloud. Staging deploys on every merge
+into `staging`; production only from `main`, which only the owner updates
+([`ARCHITECTURE.md`](ARCHITECTURE.md) §1–§2, [`ENVIRONMENTS.md`](ENVIRONMENTS.md)).
 
 ```mermaid
 flowchart LR
-    B["Browser<br/>(phone or desktop)"] -- HTTPS --> GP["GitHub Pages<br/>sevak.theanbgroup.com"]
-    GP -. "HTML, CSS, JS" .-> B
-    B <--> LS[("localStorage<br/>this browser only")]
+    subgraph Device["Phone or desktop"]
+        B["The pages (app/)<br/>+ sync.js"]
+        LS[("localStorage<br/>a copy, cleared on sign-out")]
+    end
+
+    subgraph GCP["Google Cloud project (one per environment)"]
+        RUN["Cloud Run: sevak-web<br/>Next.js, /api/v1"]
+        JOB["Cloud Run job: sevak-tasks<br/>migrations before each deploy"]
+        SQL[("Cloud SQL<br/>PostgreSQL 18")]
+        GCS[("Cloud Storage<br/>uploaded files, private")]
+        SM["Secret Manager"]
+        MON["Uptime alert,<br/>Error Reporting, budget alert"]
+    end
+
+    RES["Resend (email)"]
+    GOO["Google sign-in"]
+    ZEF["Zeffy (event import)"]
+    GH["GitHub: CI, then deploy<br/>(Workload Identity, no stored keys)"]
+
+    B <--> LS
+    B -- HTTPS --> RUN
+    RUN --> SQL
+    RUN --> GCS
+    RUN --> SM
+    JOB --> SQL
+    RUN --> RES
+    RUN --> GOO
+    RUN --> ZEF
+    GH -- "image, migrations, new revision" --> RUN
+    GH --> JOB
+    SQL -. "nightly backups" .-> SQL
 ```
 
-**Proposed: pilot back end**
-
-```mermaid
-flowchart LR
-    subgraph Phone["Phone or desktop"]
-        PWA["Sevak web app (PWA)<br/>service worker, offline roster"]
-    end
-
-    subgraph CF["Cloudflare"]
-        DNS["DNS, TLS, cache"]
-        TS["Turnstile"]
-    end
-
-    subgraph RW["Railway project"]
-        APP["App server (Next.js)<br/>pages + /api/v1 + background jobs"]
-        PG[("Database<br/>(choice not made yet)")]
-    end
-
-    R2[("Cloudflare R2<br/>photos, documents, PDFs")]
-
-    SVC["Postmark (email)<br/>Sentry (errors)"]
-    GH["GitHub<br/>code + CI"]
-
-    PWA -- HTTPS --> DNS --> APP
-    PWA -. bot check .-> TS
-    APP --> PG
-    APP --> R2
-    APP --> SVC
-    GH -- "deploy on merge to main" --> APP
-    PG -. "nightly backup" .-> R2
-```
-
-**To discuss:** the stack, the database and the host (Railway) aren't confirmed yet.
-`ARCHITECTURE.md` still describes Render with a separate worker, and gets updated once this is
-agreed.
+`sevak.theanbgroup.com` still shows the last prototype published to GitHub Pages until production
+launches there.

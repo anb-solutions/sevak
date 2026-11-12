@@ -3,8 +3,10 @@
 ## Why
 
 ## How I checked it
-- [ ] `pnpm test` passes
-- [ ] Tried it on the preview, on a phone-sized screen
+- [ ] `pnpm typecheck` and `pnpm test` pass
+- [ ] `tests/run.sh` passes (the pages)
+- [ ] `pnpm build` and `tests/e2e/run.sh` pass on a fresh database
+- [ ] Changed pages checked at 390px wide
 
 ## Security and privacy
 - [ ] No secrets or real personal data in this change
