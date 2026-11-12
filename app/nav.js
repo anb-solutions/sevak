@@ -266,10 +266,12 @@
   function setupBanner() {
     var banner = document.querySelector("main .banner");
     if (!banner) return;
-    // With Sevak's server (sync.js), some data is saved there already.
-    if (window.SevakServer && /stays in this browser\.$/.test(banner.textContent.trim())) {
+    // With Sevak's server (sync.js), what the prototype notes say (data in
+    // this browser, emails in the outbox) isn't so: one line about the beta
+    // instead, and none in production.
+    if (window.SevakServer && /^Prototype\./.test(banner.textContent.trim())) {
       if (window.SevakServer.env === "production") { banner.remove(); return; }
-      banner.innerHTML = "<strong>Staging.</strong> This is Sevak's test site: everything is saved, and emails are sent for real, so use it only for testing.";
+      banner.innerHTML = "<strong>Sevak beta.</strong> Everything you enter is saved, and emails are sent for real.";
     }
     var dismissed = false;
     try { dismissed = localStorage.getItem(BANNER_KEY) === "true"; } catch (e) { /* ignore */ }

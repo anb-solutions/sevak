@@ -1562,7 +1562,7 @@
     document.title = $("confirm-title").textContent + " · Sevak";
     var who = signups[0].name + " (" + signups[0].email + ")";
     $("confirm-intro").textContent = justSignedUp
-      ? "Thanks, " + signups[0].name.split(" ")[0] + ". " + (org ? org.name : "The organizers") + " will see your name on their roster. In the live app, a confirmation email goes to " + signups[0].email + "." +
+      ? "Thanks, " + signups[0].name.split(" ")[0] + ". " + (org ? org.name : "The organizers") + " will see your name on their roster. " + (window.SevakServer ? "A confirmation email is on its way to " : "In the live app, a confirmation email goes to ") + signups[0].email + "." +
         (skipped ? " You were already signed up for " + (skipped === 1 ? "one of the shifts you picked" : skipped + " of the shifts you picked") + ", so we skipped " + (skipped > 1 ? "those" : "it") + "." : "")
       : "Signed up as " + who + ".";
     $("confirm-event").textContent = (ev.title || "Event") + " · " + E.rangeLabel(ev.startDate, ev.endDate) + (placeText(ev) ? " · " + placeText(ev) : "");
@@ -1596,6 +1596,7 @@
     $("manage-link").href = "signup.html?registration=" + encodeURIComponent(registrationId);
     $("manage-link").hidden = !justSignedUp;
     $("manage-hint").hidden = !justSignedUp;
+    if (window.SevakServer) $("manage-hint").textContent = "Your confirmation email links to My sign-ups, where you can change or cancel.";
     $("more-shifts").href = "signup.html?event=" + encodeURIComponent(ev.id);
     $("all-signups").hidden = !F.session.signedIn();
   }

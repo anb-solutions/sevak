@@ -12,7 +12,7 @@
   var server = window.SevakServer;
   if (server) {
     var banner = document.querySelector("main .banner");
-    if (banner) banner.innerHTML = "<strong>Sevak staff only.</strong> Approving or rejecting emails the organization (emails still go to the <a href=\"outbox.html\">outbox</a> for now).";
+    if (banner) banner.innerHTML = "<strong>Sevak staff only.</strong> Verifying or rejecting emails the organization's Admins.";
     if (!server.user || !server.user.isPlatformAdmin) {
       Array.prototype.forEach.call(document.querySelector("main").children, function (c) { c.hidden = true; });
       var note = document.createElement("section");
@@ -103,7 +103,7 @@
       approve.setAttribute("aria-label", "Verify " + o.name);
       approve.addEventListener("click", function () {
         V.approve(o.id);
-        after(o.name + " is verified. Its public events are now listed. (Email in the outbox.)");
+        after(o.name + " is verified. Its public events are now listed." + (server ? " Its Admins have been emailed." : " (Email in the outbox.)"));
       });
       var reject = el("button", "btn btn-secondary btn-small", "Reject…");
       reject.type = "button";
@@ -139,7 +139,7 @@
           return;
         }
         V.reject(o.id, reason.value);
-        after("Request from " + o.name + " rejected. (Email in the outbox.)");
+        after("Request from " + o.name + " rejected." + (server ? " Its Admins have been emailed." : " (Email in the outbox.)"));
       });
       reason.addEventListener("input", function () { err.textContent = ""; reason.removeAttribute("aria-invalid"); });
       var field = el("div", "field");
