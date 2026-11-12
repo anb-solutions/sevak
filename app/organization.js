@@ -697,7 +697,7 @@
       }
       verifyOpen = false;
       verifyNote = "";
-      renderVerify("Request sent. Sevak will email you when it's decided. (See the outbox.)");
+      renderVerify("Request sent. Sevak will email you when it's decided." + (window.SevakServer ? "" : " (See the outbox.)"));
       window.SevakNav.render();
       $("verify-title").focus();
     }));

@@ -8,6 +8,8 @@
   var O = window.SevakOrgs;
   var M = window.SevakMembers;
   var $ = function (id) { return document.getElementById(id); };
+  // With Sevak's server, emails are sent for real: no outbox to look at.
+  if (window.SevakServer) $("outbox-link").hidden = true;
 
   if (!window.SevakNav.guard()) return;
   var org = O.current();
@@ -274,7 +276,7 @@
           if (!cov.minutes) { $("vol-status").textContent = "There are no approved hours in that period yet. Approve their hours first."; return; }
           e.target.disabled = true;
           C.issue(c.id).then(function () {
-            afterIn("certreq-title", "Certificate issued to " + who + ": " + duration(cov.minutes) + ". Saved in their Documents and the event's Documents. (Email in the outbox.)");
+            afterIn("certreq-title", "Certificate issued to " + who + ": " + duration(cov.minutes) + ". Saved in their Documents and the event's Documents." + (window.SevakServer ? "" : " (Email in the outbox.)"));
           }, function () {
             e.target.disabled = false;
             $("vol-status").textContent = "Couldn't issue the certificate in this browser.";
@@ -331,7 +333,7 @@
         services ? "Can help with: " + services : "",
         "Asked " + when(m.requestedAt)
       ], [
-        { text: "Approve", cls: "btn-primary btn-small", onClick: function () { M.approve(m.id); after((m.name || m.email) + " is now a volunteer. (Approval email in the outbox.)"); } },
+        { text: "Approve", cls: "btn-primary btn-small", onClick: function () { M.approve(m.id); after((m.name || m.email) + " is now a volunteer." + (window.SevakServer ? "" : " (Approval email in the outbox.)")); } },
         { text: "Decline", cls: "btn-secondary btn-small", onClick: function () {
           if (!window.confirm("Decline " + (m.name || m.email) + "'s request?")) return;
           M.decline(m.id);
@@ -437,7 +439,7 @@
     var r = M.invite(org.id, emails);
     input.value = "";
     render();
-    $("vol-status").textContent = (r.sent.length ? "Invitation sent to " + r.sent.join(", ") + ". (See the outbox.)" : "") +
+    $("vol-status").textContent = (r.sent.length ? "Invitation sent to " + r.sent.join(", ") + "." + (window.SevakServer ? "" : " (See the outbox.)") : "") +
       (r.skipped.length ? " Already a volunteer or invited: " + r.skipped.join(", ") + "." : "");
   });
 

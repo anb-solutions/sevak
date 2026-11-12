@@ -72,13 +72,14 @@
   // "You" are the person in My profile. You're on an organization's team
   // when its Team tab lists your email (as Admin or Coordinator), you are
   // its primary contact (Admin), or you created it (Admin). Nobody can add
-  // themselves: an Admin adds you, or you create a new organization. In the
-  // live app, being added sends an invitation to accept.
+  // themselves: an Admin adds you, or you create a new organization. With
+  // Sevak's server, being added emails you, and you're on the team as soon as
+  // you sign in with that email, before your profile is saved.
 
   function profile() { return F.load(PROFILE_KEY) || {}; }
 
   function profileEmail() {
-    return String(profile().email || "").trim().toLowerCase();
+    return String((F.session.profile() || {}).email || "").trim().toLowerCase();
   }
 
   function same(a, b) {
