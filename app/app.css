@@ -344,6 +344,10 @@ input[type="time"], input[type="number"] {
 .event-item h3 a:hover { text-decoration: underline; }
 .event-meta { margin: 0; font-size: 0.88rem; color: var(--muted); }
 .badges { display: flex; flex-wrap: wrap; gap: 6px; }
+/* An event card's badges and its Edit button: stacked at the side, or one
+   row under the details on a phone. */
+.event-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.main-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .badge {
   display: inline-block;
   padding: 2px 10px;
@@ -1017,6 +1021,7 @@ input[type="time"], input[type="number"] {
   .grid .span-2 { grid-column: auto; }
   .row { grid-template-columns: 1fr; }
   .event-item { grid-template-columns: minmax(0, 1fr); }
+  .event-side { flex-direction: row; justify-content: space-between; align-items: center; margin-top: 4px; }
   .app-nav { gap: 2px 0; flex: 1 1 100%; min-width: 0; }
   .nav-group { gap: 0; }
   .nav-manage { flex: 1 1 100%; padding-left: 0; border-left: 0; }

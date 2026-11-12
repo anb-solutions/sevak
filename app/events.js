@@ -66,8 +66,17 @@
       add.href = "event.html?main=" + encodeURIComponent(main.id);
       add.textContent = "+ Sub-event";
       add.setAttribute("aria-label", "Add a sub-event to " + (main.title || "this main event"));
+      var edit = document.createElement("a");
+      edit.className = "btn btn-secondary btn-small";
+      edit.href = link.href;
+      edit.textContent = "Edit";
+      edit.setAttribute("aria-label", "Edit " + (main.title || "this main event"));
+      var actions = document.createElement("div");
+      actions.className = "main-actions";
+      actions.appendChild(edit);
+      actions.appendChild(add);
       head.appendChild(titleWrap);
-      head.appendChild(add);
+      head.appendChild(actions);
       group.appendChild(head);
 
       var list = document.createElement("ul");
