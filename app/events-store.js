@@ -143,8 +143,18 @@
     badges.appendChild(event.status === "published" ? badge("Published", "published") : badge("Draft", "draft"));
     badges.appendChild(badge(event.visibility === "private" ? "Private" : "Public"));
 
+    var edit = document.createElement("a");
+    edit.className = "btn btn-secondary btn-small event-edit";
+    edit.href = "event.html?id=" + encodeURIComponent(event.id);
+    edit.textContent = "Edit";
+    edit.setAttribute("aria-label", "Edit " + (event.title || "this event"));
+    var side = document.createElement("div");
+    side.className = "event-side";
+    side.appendChild(badges);
+    side.appendChild(edit);
+
     li.appendChild(info);
-    li.appendChild(badges);
+    li.appendChild(side);
     return li;
   }
 

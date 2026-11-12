@@ -23,6 +23,28 @@ const B = 'http://localhost:8765/app/'; const SP = process.argv[2];
   await p.goto(B + 'events.html');
   check((await p.textContent('#events')).includes('Riverside Park Clean-up (edited)'), 'edit shows in the list');
 
+  // Every event card has an Edit button (the name is a link too, but on a
+  // phone nothing shows that), drafts and sub-events included; main events too.
+  await p.setViewportSize({ width: 390, height: 844 });
+  const cards = await p.$$eval('#events .event-item', li => li.map(x => !!x.querySelector('a.event-edit[href^="event.html?id="]')));
+  check(cards.length > 3 && cards.every(Boolean), 'Events: an Edit button on every event card (' + cards.length + ')');
+  check(await p.isVisible('[data-event-id="demo-ev-dress"] a.event-edit'), 'Edit shows on a phone, on a draft sub-event too');
+  check(!(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth)), 'Events: fits at 390px');
+  await p.screenshot({ path: SP + '/edit-buttons-events.png' });
+  await p.click('.main-group[data-main-id="demo-main-arudra"] .main-actions a:has-text("Edit")');
+  await p.waitForURL(/main-event\.html\?id=demo-main-arudra/);
+  check(await p.isVisible('#main-form'), 'a main event\'s Edit opens it');
+  const draft = await p.evaluate(() => JSON.parse(localStorage.getItem('sevak.events.v1')).find(e => e.mainEventId === 'demo-main-arudra' && e.status === 'draft'));
+  check(!!draft, 'the festival has a draft sub-event: ' + (draft && draft.title));
+  const draftEdit = '[data-event-id="' + draft.id + '"] a.event-edit';
+  check(await p.isVisible(draftEdit) && (await p.getAttribute(draftEdit, 'aria-label')) === 'Edit ' + draft.title, 'the draft sub-event has an Edit button, named for it');
+  check(!(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth)), 'main event: fits at 390px');
+  await p.screenshot({ path: SP + '/edit-buttons-main.png', fullPage: true });
+  await p.click(draftEdit);
+  await p.waitForURL(new RegExp('event\\.html\\?id=' + draft.id));
+  check((await p.inputValue('#title')) === draft.title && (await p.textContent('#save-draft')) === 'Save draft', 'Edit opens the draft in the editor');
+  await p.setViewportSize({ width: 1000, height: 900 });
+
   // From the volunteer view: an Edit link for the team
   await p.goto(B + 'signup.html?event=demo-ev-park');
   check(await p.isVisible('#team-edit-hint') && (await p.textContent('#team-edit-hint')).includes("You're an Admin here"), 'admin: edit hint on the volunteer view');
