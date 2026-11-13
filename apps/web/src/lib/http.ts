@@ -30,7 +30,9 @@ function platformAdmins(): string[] {
 }
 
 export async function viewerFor(req: Request): Promise<Viewer | null> {
-  return sessionViewer(await getDb(), readCookie(req, SESSION_COOKIE), new Date(), platformAdmins());
+  return sessionViewer(await getDb(), readCookie(req, SESSION_COOKIE), new Date(), platformAdmins(), {
+    staffNeedsGoogle: process.env.SEVAK_STAFF_GOOGLE_ONLY === "true",
+  });
 }
 
 // Requests that change something must come from Sevak's own pages, so

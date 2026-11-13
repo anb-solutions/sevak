@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   try {
     const email = await finishGoogleSignIn(googleConfig(req), pending, { code: q.get("code") ?? "", state: q.get("state") ?? "" });
     const db = await getDb();
-    const { sessionToken, viewer } = await startSession(db, email);
+    const { sessionToken, viewer } = await startSession(db, email, new Date(), "google");
     const page = pending.next || ((await readProfile(db, viewer)) ? "signup.html" : "profile.html");
     return redirect(req, `/app/${page}`, [clear, sessionCookie(sessionToken)]);
   } catch (e) {

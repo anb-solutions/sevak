@@ -25,6 +25,7 @@ Two things live in this repo: the **clickable prototype** and the **real app** t
 - `Dockerfile`, `infra/gcp/`, `.github/workflows/deploy.yml`: deployment to Google Cloud Run with
   Cloud SQL PostgreSQL. Guide: `infra/gcp/README.md`; every variable and secret an environment
   needs (for production, or another): `docs/ENVIRONMENTS.md`. Keep it up to date when you add one.
+  When something goes wrong (rollback, restore, deletion requests, the audit log): `docs/RUNBOOK.md`.
 - `docs/`: requirements, architecture, UML diagrams.
 
 ## Commands

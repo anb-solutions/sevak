@@ -88,6 +88,11 @@ describe("API", () => {
     expect((await takeover.json()).value[0].name).toBe("Temple Volunteers");
     const removal = await save(req(`/api/v1/sync/${ORGS}`, { body: { delete: ["org-temple"] }, cookie: mei }), params(ORGS));
     expect(removal.status).toBe(403);
+    // The audit log has who created it, and nothing from the refused changes.
+    const { historyOf } = await import("@sevak/core");
+    const { getDb } = await import("@/lib/db");
+    const history = await historyOf(await getDb(), "organizations", "org-temple");
+    expect(history.map((h) => [h.action, h.actorEmail])).toEqual([["created", "asha@example.com"]]);
   });
 
   it("lets people join with an invite code, and keeps the code itself private", async () => {
@@ -154,6 +159,15 @@ describe("API", () => {
     expect((await save(req("/api/v1/sync/sevak.other.v1", { body: { value: 1 }, cookie: asha }), params("sevak.other.v1"))).status).toBe(404);
     expect((await save(req(`/api/v1/sync/${PROFILE}`, { body: {}, cookie: asha }), params(PROFILE))).status).toBe(400);
     expect((await save(req(`/api/v1/sync/${ORGS}`, { body: { upsert: "nope" }, cookie: asha }), params(ORGS))).status).toBe(400);
+  });
+
+  it("signs out everywhere: every session of that person, and nobody else's", async () => {
+    const second = await signIn("asha@example.com");
+    const meis = await signIn("mei@example.com");
+    await signOutRoute(req("/api/v1/auth/signout", { body: { everywhere: true }, cookie: second }));
+    for (const gone of [second, asha]) expect((await (await load(req("/api/v1/sync", { method: "GET", cookie: gone }))).json()).user).toBeNull();
+    expect((await (await load(req("/api/v1/sync", { method: "GET", cookie: meis }))).json()).user).toMatchObject({ email: "mei@example.com" });
+    asha = await signIn("asha@example.com");
   });
 
   it("signs out", async () => {

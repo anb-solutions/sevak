@@ -229,6 +229,7 @@ These are not secrets.
 | `SEVAK_PLATFORM_ADMINS` | Sevak staff emails, comma-separated | To verify organizations (step 7) |
 | `EMAIL_FROM` | A different sender than the default | Optional |
 | `SEVAK_PROXY_HOPS` | Only with a proxy (Firebase Hosting, a load balancer) in front of Cloud Run | Optional (step 4) |
+| `SEVAK_STAFF_GOOGLE_ONLY` | `true`: Sevak staff act as staff only when they signed in with **Continue with Google**, so their Google account's two-step verification protects staff powers. Signed in with an emailed code, they're like anyone else. Turn it on once Continue with Google works (step 6) and every staff Google account has two-step verification. | Recommended (step 7) |
 
 ### GitHub environment secrets
 
@@ -272,7 +273,7 @@ sense:
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | The variable and the secret, when both are set |
 | `SEVAK_FILES_BUCKET` | `GCP_FILES_BUCKET` |
 | `SEVAK_SECRETS_KEY` | Secret `app-secrets-key` |
-| `SEVAK_PLATFORM_ADMINS`, `EMAIL_FROM`, `SEVAK_PROXY_HOPS` | The variables of the same name |
+| `SEVAK_PLATFORM_ADMINS`, `EMAIL_FROM`, `SEVAK_PROXY_HOPS`, `SEVAK_STAFF_GOOGLE_ONLY` | The variables of the same name |
 
 The container image sets `SEVAK_MIGRATIONS_DIR` itself (`Dockerfile`). `pnpm db:migrate` and
 `pnpm db:seed` use `DATABASE_URL_UNPOOLED` instead of `DATABASE_URL` when it's set, for a host

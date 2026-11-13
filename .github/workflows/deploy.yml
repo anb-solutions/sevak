@@ -47,6 +47,7 @@ jobs:
       GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }} # "Continue with Google"; optional, with the GOOGLE_CLIENT_SECRET secret
       FILES_BUCKET: ${{ vars.GCP_FILES_BUCKET }} # private bucket for documents (infra/gcp/setup.sh); optional
       PROXY_HOPS: ${{ vars.SEVAK_PROXY_HOPS }} # only with a proxy in front of Cloud Run (docs/ENVIRONMENTS.md); optional
+      STAFF_GOOGLE_ONLY: ${{ vars.SEVAK_STAFF_GOOGLE_ONLY }} # "true": staff act as staff only when signed in with Google; optional
       IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/sevak/web:${{ github.sha }}
     steps:
       - uses: actions/checkout@v7
@@ -153,6 +154,7 @@ jobs:
           if [ -n "$EMAIL_FROM" ]; then env_vars+="|EMAIL_FROM=$EMAIL_FROM"; fi
           if [ -n "$FILES_BUCKET" ]; then env_vars+="|SEVAK_FILES_BUCKET=$FILES_BUCKET"; fi
           if [ -n "$PROXY_HOPS" ]; then env_vars+="|SEVAK_PROXY_HOPS=$PROXY_HOPS"; fi
+          if [ "$STAFF_GOOGLE_ONLY" = "true" ]; then env_vars+="|SEVAK_STAFF_GOOGLE_ONLY=true"; fi
           has_key() { [ -n "$(gcloud secrets versions list "$1" --project "$PROJECT" --filter state=ENABLED --format 'value(name)' --limit 1 2>/dev/null)" ]; }
           if has_key resend-api-key; then
             env_vars+="|EMAIL_MODE=resend"

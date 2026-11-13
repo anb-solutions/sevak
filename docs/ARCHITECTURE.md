@@ -187,7 +187,14 @@ No row back means the shift is full, and the whole form is rolled back. A databa
   from a secure random source; the server refuses shorter new ones.
 - **Session:** a random id in a `__Host-` cookie (`Secure; HttpOnly; SameSite=Lax`), stored hashed
   in the database so it can be revoked. It ends 24 hours after it was last used, and 30 days after
-  signing in at most.
+  signing in at most. **Sign out on all devices** (My profile) ends every session of that person.
+  Each session records how the person signed in (`code` or `google`).
+- **Sevak staff** (`SEVAK_PLATFORM_ADMINS`): with `SEVAK_STAFF_GOOGLE_ONLY=true`, staff act as staff
+  only when they signed in with Continue with Google, so their Google account's two-step
+  verification protects what staff can do; signed in by code, they're like anyone else.
+- **After sign-in** you go back to the page you were opening: a page of this app, with at most one
+  simple parameter (`roster.html?event=…`), checked the same way on the page and the server
+  (`safeNext`); never another site.
 - **Requests that change something** must come from Sevak's own pages (`Sec-Fetch-Site` or
   `Origin`), so another site can't act for a signed-in browser.
 - **Continue with Google** (optional, per environment): OpenID Connect with the authorization
@@ -371,10 +378,16 @@ volunteer's calendar entry and a cancellation removes it.
   (DPDP Act 2023).
 - Data is encrypted at rest and in transit (the database accepts only encrypted connections).
 - Both databases have nightly backups and deletion protection (set by `infra/gcp/setup.sh`).
-  A monthly test restore is *planned*.
-- An audit log of sensitive actions (who changed roles, approved hours, exported a roster) is
-  *planned*.
-- Data export and deletion on request (VOL-6). The privacy policy is updated before the pilot.
+  How to restore, and the monthly test restore, are in [`RUNBOOK.md`](RUNBOOK.md).
+- **Audit log** (`audit_log`, `packages/core/src/audit.ts`): every record changed through the API,
+  with who, when, created/changed/deleted, the fields that changed, and decisions (statuses, hours,
+  a team's roles); not names, notes or phone numbers. For staff, in the database; the runbook has
+  the queries.
+- Data export and deletion on request (VOL-6): by email to the privacy address, done by staff as
+  the runbook says. The Privacy Policy and Terms describe the live beta.
+- **Reporting a problem:** `/.well-known/security.txt` (RFC 9116) gives the security contact.
+- What to do when something goes wrong (a bad release, lost data, a stolen account, a leaked key,
+  a security report): [`RUNBOOK.md`](RUNBOOK.md).
 
 ---
 

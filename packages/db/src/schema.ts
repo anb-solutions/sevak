@@ -208,6 +208,10 @@ export const sessions = pgTable(
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: createdAt(),
+    // How the person signed in: "code" (an emailed code or link) or
+    // "google". Sevak staff can be required to use Google
+    // (SEVAK_STAFF_GOOGLE_ONLY), for its two-step verification.
+    method: text("method").notNull().default("code"),
   },
   (t) => [index("sessions_user_idx").on(t.userId)],
 );
@@ -269,4 +273,28 @@ export const rateLimits = pgTable(
     count: integer("count").notNull().default(0),
   },
   (t) => [primaryKey({ columns: [t.key, t.windowStart] }), index("rate_limits_window_idx").on(t.windowStart)],
+);
+
+// ---------- Audit log ----------
+
+// Who changed what, and when: one row for each record changed through the
+// API (an organization, its team, an event, a sign-up's hours, a membership
+// decision, a certificate, a document). Kept for Sevak staff to answer
+// "who did this?" (disputes, mistakes, a stolen account). It names the
+// fields that changed and a few decisions (statuses), never other details.
+// See packages/core/src/audit.ts.
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+    actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
+    actorEmail: text("actor_email").notNull(),
+    action: text("action").notNull(), // "created", "changed", "deleted"
+    collection: text("collection").notNull(),
+    recordId: text("record_id").notNull(),
+    orgId: text("org_id"),
+    detail: jsonb("detail").$type<Record<string, unknown>>().notNull().default({}),
+  },
+  (t) => [index("audit_log_record_idx").on(t.collection, t.recordId), index("audit_log_org_idx").on(t.orgId, t.at), index("audit_log_actor_idx").on(t.actorEmail, t.at)],
 );
