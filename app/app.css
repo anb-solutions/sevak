@@ -1004,6 +1004,8 @@ input[type="time"], input[type="number"] {
   border-top: 1px solid var(--border);
 }
 .status { margin: 0; font-size: 0.92rem; color: var(--primary); font-weight: 600; }
+.status.is-error { color: var(--danger); }
+.profile-delete { margin: 24px 0 0; text-align: right; }
 
 /* Shift rows need about 760px for one line; stack them below that. */
 @media (max-width: 760px) {

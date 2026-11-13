@@ -202,10 +202,10 @@
 
           <!-- Availability -->
           <fieldset class="section">
-            <legend>When are you usually available?</legend>
+            <legend>When are you usually available? <span class="optional">(optional)</span></legend>
             <p class="section-help">We'll use this to suggest shifts. You can still sign up for any shift.</p>
             <div class="choices">
-              <label class="choice"><input type="radio" name="availability" value="weekends" required><span><strong>Weekends only</strong><small>Saturdays and Sundays</small></span></label>
+              <label class="choice"><input type="radio" name="availability" value="weekends"><span><strong>Weekends only</strong><small>Saturdays and Sundays</small></span></label>
               <label class="choice"><input type="radio" name="availability" value="weekdays"><span><strong>Weekdays</strong><small>Monday to Friday, daytime</small></span></label>
               <label class="choice"><input type="radio" name="availability" value="evenings"><span><strong>Evenings only</strong><small>After 5 PM, any day</small></span></label>
               <label class="choice"><input type="radio" name="availability" value="anytime"><span><strong>Anytime</strong><small>I'm flexible</small></span></label>
@@ -272,10 +272,10 @@
       <div class="save-bar" id="save-bar">
         <p class="status" id="status" role="status" aria-live="polite"></p>
         <div class="inline-row inline-row-wide">
-          <button type="button" class="btn btn-danger-link" id="delete-profile">Delete my profile</button>
           <button type="submit" class="btn btn-primary" id="save">Save profile</button>
         </div>
       </div>
+      <p class="profile-delete"><button type="button" class="btn btn-danger-link" id="delete-profile">Delete my profile</button></p>
     </form>
 
     <section class="section tab-panel is-hidden" role="tabpanel" id="panel-documents" aria-labelledby="tab-documents"></section>

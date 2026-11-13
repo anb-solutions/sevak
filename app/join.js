@@ -187,6 +187,9 @@
   $("create-org").addEventListener("click", function (e) {
     e.preventDefault();
     if (signedIn) { location.href = "organization.html?new=1"; return; }
+    // With Sevak's server: sign in, then straight to the new organization
+    // (your profile can wait).
+    if (window.SevakServer) { location.href = "signin.html?next=" + encodeURIComponent("organization.html?new=1"); return; }
     F.store(INTENT_KEY, { way: "create" });
     location.href = "profile.html?join=1";
   });
