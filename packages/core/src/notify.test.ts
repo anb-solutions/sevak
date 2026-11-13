@@ -75,7 +75,7 @@ describe("emails", () => {
     await joinWithCode(db, mei, "SEVA4242", "");
     const r = await writeSignups(db, mei, { upsert: ["s1", "s2"].map((s) => ({ id: "su-" + s, eventId: "ev-1", shiftId: s, email: "mei@example.com", status: "confirmed" })) });
     expect(to(r.emails)).toEqual(["mei@example.com: You're signed up: Seva"]);
-    expect(r.emails[0]!.text).toContain("Thu, Jan 10, 09:00–12:00 · Setup; Fri, Jan 11, 09:00–12:00 · Setup");
+    expect(r.emails[0]!.text).toContain("- Thu, Jan 10, 9:00 AM–12:00 PM · Setup\n- Fri, Jan 11, 9:00 AM–12:00 PM · Setup");
   });
 
   it("tells Admins about a certificate request, and the volunteer when it's declined", async () => {
@@ -85,5 +85,22 @@ describe("emails", () => {
     const declined = await writeCertificates(db, asha, { upsert: [{ ...req, status: "declined", reason: "No hours yet" }] });
     expect(to(declined.emails)).toEqual(["mei@example.com: Your certificate request to Temple"]);
     expect(declined.emails[0]!.text).toContain("No hours yet");
+  });
+});
+
+describe("the sign-up confirmation", () => {
+  it("gives each shift in 12-hour time in the event's time zone, and where to go", async () => {
+    await writeEvents(db, asha, {
+      upsert: [{ id: "ev-c", organizationId: "org-temple", organizationName: "Temple", title: "Flute evening", status: "published", visibility: "public", timezone: "America/Chicago",
+        location: { type: "in-person", venue: "Main hall", line1: "1 Temple Rd", city: "Houston", state: "TX" },
+        roles: [{ id: "r", name: "Door", shifts: [{ id: "s", date: "2030-01-10", start: "17:00", end: "20:30", capacity: 5 }] }] }],
+    });
+    await joinWithCode(db, mei, "SEVA4242", "");
+    const r = await writeSignups(db, mei, { upsert: [{ id: "su-c", registrationId: "r", eventId: "ev-c", shiftId: "s", name: "Mei", email: "mei@example.com", status: "confirmed" }] });
+    const mail = r.emails.find((m) => m.to === "mei@example.com")!;
+    expect(mail.subject).toBe("You're signed up: Flute evening");
+    expect(mail.text).toContain("- Thu, Jan 10, 5:00 PM–8:30 PM CST · Door");
+    expect(mail.text).toContain("Where: Main hall, 1 Temple Rd, Houston, TX");
+    expect(mail.link).toBe("signup.html?view=mine");
   });
 });

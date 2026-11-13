@@ -1,6 +1,6 @@
 # Sevak: MVP Requirements
 
-**Version:** 2.54 (security operations: an audit log, sign out on all devices, staff sign-in with Google, security.txt, a runbook) · **Updated:** 2026-11-13 · **Status:** Draft for review
+**Version:** 2.55 (the sign-up confirmation says when, in the event's time zone, and where) · **Updated:** 2026-11-13 · **Status:** Draft for review
 
 This replaces the original SRS outline, which covered a full volunteer management system:
 background checks, GPS clock-in, CRM integrations and so on. This version narrows the scope to an
@@ -277,7 +277,7 @@ Sign-ups appear on the host dashboard right away. | Must |
 
 | ID | Requirement | Priority |
 |---|---|---|
-| COM-1 | Every sign-up triggers an automatic **confirmation email** listing the volunteer's shifts, task details, location, the organization's contact details, and the manage link. | Must |
+| COM-1 | Every sign-up triggers an automatic **confirmation email** listing the volunteer's shifts (one a line, in 12-hour time with the event's time zone, and the task), the location (venue and address, *Online*, or the organization's note when it's shared later), and a link to *My sign-ups* to see, change or cancel them. Someone the event's team adds to a shift with their email gets it too (ATT-4). Not yet: the organization's contact details. | Must |
 | COM-2 | A host can send a **confirmation or final-details email** to all or selected volunteers, for example *"You're confirmed. Here's parking info."* | Must |
 | COM-3 | A host can send an **event update** to everyone on an event, or only to certain days, tasks or shifts. The update goes out by email and also appears in an *Updates* feed that signed-up volunteers can see. | Must |
 | COM-4 | The app keeps a **message history** for each event and each volunteer: what was sent, to whom, and when. | Must |

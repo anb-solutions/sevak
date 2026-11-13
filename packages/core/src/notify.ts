@@ -137,17 +137,50 @@ export function verificationDecided(org: Json, verified: boolean, reason: string
 // ---------- Sign-ups ----------
 
 export function signedUp(event: Json, to: string, shiftLabels: string[]): Mail {
+  const where = placeLine(event);
   return {
     to,
     subject: `You're signed up: ${clean(event.title) || "Volunteer shift"}`,
-    text: `Thanks for signing up${event.organizationName ? ` with ${clean(event.organizationName)}` : ""}. Your shift${shiftLabels.length > 1 ? "s" : ""}: ${shiftLabels.join("; ")}.`,
+    text:
+      `Thanks for signing up${event.organizationName ? ` with ${clean(event.organizationName)}` : ""} for ${clean(event.title) || "a volunteer event"}.\n\n` +
+      `Your shift${shiftLabels.length > 1 ? "s" : ""}:\n${shiftLabels.map((l) => `- ${l}`).join("\n")}\n\n` +
+      (where ? `Where: ${where}\n\n` : "") +
+      "See, change or cancel your shifts on My sign-ups.",
     link: "signup.html?view=mine",
     linkText: "My sign-ups",
     ...(event.organizationId ? { orgId: String(event.organizationId) } : {}),
   };
 }
 
-// "Sat, Jan 10, 9:00–12:00 · Setup"
+// Where the event is, for the people signed up: the venue and address, or
+// that it's online, or that the organization will share it.
+function placeLine(event: Json): string {
+  const loc = (event.location ?? {}) as Json;
+  if (loc.type === "online") return "Online (the link is on the event's page)";
+  if (loc.type === "later") return clean(loc.note, 200) || "The organization will tell you where.";
+  return [loc.venue, loc.line1, loc.city, loc.state, loc.postalCode].map((v) => clean(v)).filter(Boolean).join(", ");
+}
+
+// "9:00 AM" from "09:00".
+function twelveHour(time: unknown): string {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(time ?? ""));
+  if (!m) return clean(time, 8);
+  const h = Number(m[1]);
+  return `${h % 12 || 12}:${m[2]} ${h < 12 ? "AM" : "PM"}`;
+}
+
+// The time zone's short name on that day ("CST", "EDT", "GMT+5:30").
+function zoneName(timeZone: unknown, day: string): string {
+  if (typeof timeZone !== "string" || !timeZone) return "";
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "short" }).formatToParts(new Date(`${day}T12:00:00Z`));
+    return parts.find((p) => p.type === "timeZoneName")?.value ?? "";
+  } catch {
+    return "";
+  }
+}
+
+// "Sat, Jan 10, 9:00 AM–12:00 PM CST · Setup", in the event's time zone.
 export function shiftLabel(event: Json, shiftId: unknown): string {
   for (const role of (event.roles as Json[] | undefined) ?? []) {
     for (const s of (role?.shifts as Json[] | undefined) ?? []) {
@@ -159,7 +192,8 @@ export function shiftLabel(event: Json, shiftId: unknown): string {
       } catch {
         /* keep the plain date */
       }
-      return `${clean(date, 20)}, ${clean(s.start, 8)}–${clean(s.end, 8)}${role.name ? ` · ${clean(role.name)}` : ""}`;
+      const zone = zoneName(event.timezone, day);
+      return `${clean(date, 20)}, ${twelveHour(s.start)}–${twelveHour(s.end)}${zone ? ` ${clean(zone, 12)}` : ""}${role.name ? ` · ${clean(role.name)}` : ""}`;
     }
   }
   return "your shift";
