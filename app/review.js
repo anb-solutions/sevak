@@ -17,7 +17,7 @@
       Array.prototype.forEach.call(document.querySelector("main").children, function (c) { c.hidden = true; });
       var note = document.createElement("section");
       note.className = "section";
-      note.innerHTML = "<h1 class=\"page-title\">Verification requests</h1><p class=\"page-intro\">Only Sevak's staff can review verification requests. If you asked for your organization to be verified, you'll hear back by email.</p><p><a class=\"btn btn-secondary btn-small\" href=\"organization.html\">Back to your organization</a></p>";
+      note.innerHTML = "<h1 class=\"page-title\">Verification requests</h1><p class=\"page-intro\">Only Sevak's staff can review verification requests. If you asked for your organization to be verified, you'll hear back by email.</p><p class=\"hint\">Sevak staff: if you signed in with an emailed code, sign out and sign in again with Continue with Google.</p><p><a class=\"btn btn-secondary btn-small\" href=\"organization.html\">Back to your organization</a></p>";
       document.querySelector("main").appendChild(note);
       return;
     }

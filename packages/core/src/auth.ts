@@ -120,7 +120,7 @@ export async function verifySignIn(
 
 // Signs in someone whose email is already proven (by an emailed code or
 // link, or by Google), creating their account the first time.
-export async function startSession(db: Db, rawEmail: string, now = new Date()): Promise<{ sessionToken: string; viewer: Viewer; isNew: boolean }> {
+export async function startSession(db: Db, rawEmail: string, now = new Date(), method: "code" | "google" = "code"): Promise<{ sessionToken: string; viewer: Viewer; isNew: boolean }> {
   const email = emailSchema.parse(rawEmail);
   let [user] = await db.select().from(users).where(eq(users.email, email));
   const isNew = !user;
@@ -136,18 +136,29 @@ export async function startSession(db: Db, rawEmail: string, now = new Date()): 
     userId: user.id,
     expiresAt: new Date(now.getTime() + minutes(SESSION_IDLE_HOURS * 60)),
     createdAt: now,
+    method,
   });
   return { sessionToken, viewer: { id: user.id, email: user.email, isPlatformAdmin: user.isPlatformAdmin }, isNew };
 }
 
 // The person a session cookie belongs to, or null if it's unknown or expired.
-// `platformAdmins` adds Sevak staff by email (SEVAK_PLATFORM_ADMINS).
-export async function sessionViewer(db: Db, sessionToken: string | undefined, now = new Date(), platformAdmins: string[] = []): Promise<Viewer | null> {
+// `platformAdmins` adds Sevak staff by email (SEVAK_PLATFORM_ADMINS). With
+// `staffNeedsGoogle` (SEVAK_STAFF_GOOGLE_ONLY), staff act as staff only
+// when they signed in with Google, so their Google account's two-step
+// verification protects what staff can do; signed in with an emailed code,
+// they're like anyone else.
+export async function sessionViewer(
+  db: Db,
+  sessionToken: string | undefined,
+  now = new Date(),
+  platformAdmins: string[] = [],
+  { staffNeedsGoogle = false }: { staffNeedsGoogle?: boolean } = {},
+): Promise<Viewer | null> {
   if (!sessionToken || sessionToken.length > 100) return null;
   const idHash = hashToken(sessionToken);
   const oldest = new Date(now.getTime() - minutes(SESSION_DAYS * 24 * 60));
   const [row] = await db
-    .select({ id: users.id, email: users.email, isPlatformAdmin: users.isPlatformAdmin, expiresAt: sessions.expiresAt, createdAt: sessions.createdAt })
+    .select({ id: users.id, email: users.email, isPlatformAdmin: users.isPlatformAdmin, expiresAt: sessions.expiresAt, createdAt: sessions.createdAt, method: sessions.method })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
     .where(and(eq(sessions.idHash, idHash), gt(sessions.expiresAt, now), gt(sessions.createdAt, oldest)));
@@ -158,10 +169,21 @@ export async function sessionViewer(db: Db, sessionToken: string | undefined, no
   if (renewed.getTime() - row.expiresAt.getTime() > minutes(15)) {
     await db.update(sessions).set({ expiresAt: renewed }).where(eq(sessions.idHash, idHash));
   }
-  return { id: row.id, email: row.email, isPlatformAdmin: row.isPlatformAdmin || platformAdmins.includes(row.email) };
+  const staff = (row.isPlatformAdmin || platformAdmins.includes(row.email)) && (!staffNeedsGoogle || row.method === "google");
+  return { id: row.id, email: row.email, isPlatformAdmin: staff };
 }
 
-export async function signOut(db: Db, sessionToken: string | undefined) {
+// Ends this session; with `everywhere`, every session of the same person
+// (a lost phone, a shared computer).
+export async function signOut(db: Db, sessionToken: string | undefined, { everywhere = false } = {}) {
   if (!sessionToken) return;
-  await db.delete(sessions).where(eq(sessions.idHash, hashToken(sessionToken)));
+  const idHash = hashToken(sessionToken);
+  if (everywhere) {
+    const [row] = await db.select({ userId: sessions.userId }).from(sessions).where(eq(sessions.idHash, idHash));
+    if (row) {
+      await db.delete(sessions).where(eq(sessions.userId, row.userId));
+      return;
+    }
+  }
+  await db.delete(sessions).where(eq(sessions.idHash, idHash));
 }

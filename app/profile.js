@@ -268,6 +268,14 @@
     F.session.signOut();
     window.location.href = "../";
   });
+  // A lost phone, or a computer you used somewhere else: end every session.
+  $("sign-out-all-wrap").hidden = !(server && server.call);
+  $("sign-out-all").addEventListener("click", function () {
+    if (!window.confirm("Sign out of Sevak on every device, this one included?")) return;
+    server.call("POST", "/api/v1/auth/signout", { everywhere: true });
+    F.session.signOut();
+    window.location.href = "../";
+  });
 
   function leaveTeam(org) {
     var name = org.name || "this organization";

@@ -86,5 +86,22 @@ const { BASE, start, person, signIn, email } = require("./helpers");
   check(!(await admin.isVisible("#load-demo")) && !(await admin.isVisible("#add-samples")), "no demo or sample buttons");
   await admin.goto(BASE + "/app/join.html");
   check(!(await admin.isVisible("#demo-offer")), "no demo offer on Join");
+
+  // How to report a security problem.
+  const txt = await admin.request.get(BASE + "/.well-known/security.txt");
+  const body = await txt.text();
+  check(txt.status() === 200 && /^Contact: mailto:/m.test(body) && /^Expires: 20\d\d-/m.test(body), "security.txt: " + txt.status());
+
+  // Sign out on all devices: another browser signed in as the same person
+  // is signed out too.
+  const laptop = await (await require("./helpers").context(t)).newPage();
+  await signIn(laptop, admin.address);
+  const signedIn = async (pg) => (await (await pg.request.get(BASE + "/api/v1/sync")).json()).user;
+  check(!!(await signedIn(laptop)), "signed in on a second device");
+  await admin.goto(BASE + "/app/profile.html");
+  admin.once("dialog", (d) => d.accept());
+  await admin.click("#sign-out-all");
+  await admin.waitForURL((u) => !/profile\.html/.test(String(u)));
+  check(!(await signedIn(laptop)) && !(await signedIn(admin)), "Sign out on all devices signs out both");
   await t.done();
 })();

@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { type Db, loginTokens, users } from "@sevak/db";
 import { createMemoryDb } from "@sevak/db/memory";
-import { AuthError, MAX_CODE_ATTEMPTS, MAX_CODE_TRIES_PER_DAY, MAX_REQUESTS_PER_HOUR, requestSignIn, sessionViewer, signOut, verifySignIn } from "./auth";
+import { AuthError, MAX_CODE_ATTEMPTS, MAX_CODE_TRIES_PER_DAY, MAX_REQUESTS_PER_HOUR, requestSignIn, sessionViewer, signOut, startSession, verifySignIn } from "./auth";
 
 let db: Db;
 const NOW = new Date("2026-11-08T12:00:00Z");
@@ -136,5 +136,17 @@ describe("sessions", () => {
     const { sessionToken } = await verifySignIn(db, { email: "staff@example.com", code }, NOW);
     expect((await sessionViewer(db, sessionToken, NOW))!.isPlatformAdmin).toBe(false);
     expect((await sessionViewer(db, sessionToken, NOW, ["staff@example.com"]))!.isPlatformAdmin).toBe(true);
+  });
+
+  it("with SEVAK_STAFF_GOOGLE_ONLY, treats staff as staff only when they signed in with Google", async () => {
+    const { code } = await requestSignIn(db, "staff@example.com", NOW);
+    const byCode = (await verifySignIn(db, { email: "staff@example.com", code }, NOW)).sessionToken;
+    const byGoogle = (await startSession(db, "staff@example.com", NOW, "google")).sessionToken;
+    const only = { staffNeedsGoogle: true };
+    expect((await sessionViewer(db, byCode, NOW, ["staff@example.com"], only))!).toMatchObject({ email: "staff@example.com", isPlatformAdmin: false });
+    expect((await sessionViewer(db, byGoogle, NOW, ["staff@example.com"], only))!.isPlatformAdmin).toBe(true);
+    // Someone who isn't staff isn't made staff by Google.
+    const other = (await startSession(db, "mei@example.com", NOW, "google")).sessionToken;
+    expect((await sessionViewer(db, other, NOW, ["staff@example.com"], only))!.isPlatformAdmin).toBe(false);
   });
 });

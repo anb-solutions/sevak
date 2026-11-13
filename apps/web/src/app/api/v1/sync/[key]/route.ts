@@ -1,5 +1,7 @@
 import {
   CERTIFICATES_KEY,
+  recordChanges,
+  snapshot,
   DAY,
   HOUR,
   hit,
@@ -30,6 +32,25 @@ import { sendMails } from "@/lib/mail";
 
 export const dynamic = "force-dynamic";
 
+// The kinds of record whose changes go in the audit log, by key.
+const AUDITED: Record<string, string> = {
+  [ORGANIZATIONS_KEY]: "organizations",
+  [MEMBERSHIPS_KEY]: "memberships",
+  [EVENTS_KEY]: "events",
+  [MAIN_EVENTS_KEY]: "mainEvents",
+  [SIGNUPS_KEY]: "signups",
+  [CERTIFICATES_KEY]: "certificates",
+  [DOCUMENTS_KEY]: "documents",
+};
+
+// The ids a list change names ({upsert: [{id}], delete: [id]}).
+function idsIn(body: unknown): string[] {
+  const b = (body ?? {}) as { upsert?: unknown; delete?: unknown };
+  const up = Array.isArray(b.upsert) ? b.upsert.map((x) => (x && typeof x === "object" ? (x as { id?: unknown }).id : undefined)) : [];
+  const del = Array.isArray(b.delete) ? b.delete : [];
+  return [...up, ...del].filter((id): id is string => typeof id === "string" && id.length > 0 && id.length <= 200).slice(0, 500);
+}
+
 // POST /api/v1/sync/{key}: saves a page's change to one kind of data.
 //   sevak.profile.v1        {value: profile or null}
 //   sevak.organizations.v1  {upsert: [organization], delete: [id]}
@@ -56,6 +77,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
   if (!viewer.isPlatformAdmin && !((await hit(db, `user:writes:${viewer.id}`, 600, HOUR)) && (await hit(db, `user:bytes:${viewer.id}`, 50_000_000, DAY, size)))) {
     return json({ error: "rate_limited" }, 429);
   }
+  // Who changed what (packages/core/src/audit.ts): the records this asks to
+  // change, before and after.
+  const audited = AUDITED[key];
+  const ids = audited ? idsIn(body) : [];
+  const before = audited ? await snapshot(db, audited, ids) : new Map();
+  const logged = async () => {
+    if (audited) await recordChanges(db, viewer, audited, before, ids).catch((e) => console.error("Couldn't write the audit log", e));
+  };
   try {
     if (key === PROFILE_KEY) {
       const { value } = z.object({ value: z.union([z.record(z.string(), z.unknown()), z.null()]) }).parse(body);
@@ -63,6 +92,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
     }
     if (key === DOCUMENTS_KEY) {
       const { refused, value, deletedFiles } = await writeDocuments(db, viewer, body);
+      await logged();
       const store = fileStore();
       if (store) await Promise.all(deletedFiles.map((id) => store.remove(id).catch((e) => console.error("Couldn't delete file", id, e))));
       return json({ refused, value }, refused ? 403 : 200);
@@ -73,6 +103,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
     }
     if (key === ORGANIZATIONS_KEY) {
       const { emails, ...result } = await writeOrganizations(db, viewer, body);
+      await logged();
       await sendMails(publicUrl(req), viewer, emails);
       return json(result, result.refused ? 403 : 200);
     }
@@ -86,6 +117,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
     const writer = writers[key as keyof typeof writers];
     if (writer) {
       const { emails, ...result } = { emails: [], ...(await writer(db, viewer, body)) };
+      await logged();
       await sendMails(publicUrl(req), viewer, emails);
       return json(result, result.refused ? 403 : 200);
     }

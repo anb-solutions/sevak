@@ -17,6 +17,8 @@ mkdirSync(out, { recursive: true });
 for (const file of ["index.html", "privacy.html", "terms.html"]) cpSync(join(root, file), join(out, file));
 cpSync(join(root, "app"), join(out, "app"), { recursive: true });
 cpSync(join(web, "prototype", "sync.js"), join(out, "app", "sync.js"));
+// How to report a security problem (RFC 9116), at /.well-known/security.txt.
+cpSync(join(web, "prototype", "well-known"), join(out, ".well-known"), { recursive: true });
 
 // Before any other script, so pages start from the server's data.
 const tag = '<script src="/app/sync.js"></script>';
