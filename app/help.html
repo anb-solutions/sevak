@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Help · Sevak</title>
+  <meta name="description" content="How to use Sevak: joining an organization, signing up for shifts, logging hours, running events, and who can do what.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f766e'/%3E%3Cg transform='translate%2815 15%29 scale%28.7%29'%3E%3Cg fill='none' stroke-width='13' stroke-linecap='round'%3E%3Cpath d='M67.32,20 A20,20 0 1 0 50,50' stroke='%23fff'/%3E%3Cpath d='M50,50 A20,20 0 1 1 32.68,80' stroke='%23fbbf24'/%3E%3C/g%3E%3Ccircle cx='68.5' cy='37.5' r='7.5' fill='%23fff'/%3E%3Ccircle cx='31.5' cy='62.5' r='7.5' fill='%23fbbf24'/%3E%3C/g%3E%3C/svg%3E">
+  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="help.css">
+  <script src="forms.js" defer></script>
+  <script src="orgs-store.js" defer></script>
+  <script src="events-store.js" defer></script>
+  <script src="signups-store.js" defer></script>
+  <script src="members-store.js" defer></script>
+  <script src="certificates.js" defer></script>
+  <script src="nav.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-row">
+      <a class="brand" href="../">
+        <svg viewBox="0 0 100 100" aria-hidden="true">
+          <rect width="100" height="100" rx="22" fill="#0f766e"/>
+          <g transform="translate(15 15) scale(.7)"><g fill="none" stroke-width="13" stroke-linecap="round"><path d="M67.32,20 A20,20 0 1 0 50,50" stroke="#fff"/><path d="M50,50 A20,20 0 1 1 32.68,80" stroke="#fbbf24"/></g><circle cx="68.5" cy="37.5" r="7.5" fill="#fff"/><circle cx="31.5" cy="62.5" r="7.5" fill="#fbbf24"/></g>
+        </svg>
+        <span class="brand-text"><span class="brand-name">Sevak</span><span class="brand-subtitle">Volunteer Management System</span><span class="brand-tagline">A Service of The ANB Group</span></span>
+      </a>
+      <nav class="app-nav" id="app-nav" aria-label="Main"></nav>
+    </div>
+  </header>
+
+  <main class="container help">
+    <h1 class="page-title">Help</h1>
+    <p class="page-intro">How Sevak works, in short steps. The words in bold are the buttons and links you'll see.</p>
+
+    <nav class="section help-toc" aria-labelledby="toc-title">
+      <h2 class="section-title" id="toc-title">On this page</h2>
+      <ul>
+        <li><a href="#volunteers">For volunteers</a>
+          <ul>
+            <li><a href="#join">Joining an organization</a></li>
+            <li><a href="#sign-up">Signing up for shifts</a></li>
+            <li><a href="#change">Changing or cancelling</a></li>
+            <li><a href="#calendar">Adding to your calendar</a></li>
+            <li><a href="#hours">Logging your hours</a></li>
+            <li><a href="#certificate">Asking for a certificate</a></li>
+            <li><a href="#your-privacy">Your privacy</a></li>
+          </ul>
+        </li>
+        <li><a href="#organizations">For organizations</a>
+          <ul>
+            <li><a href="#getting-started">Getting started</a></li>
+            <li><a href="#create-event">Creating an event</a></li>
+            <li><a href="#verification">Before you're verified</a></li>
+            <li><a href="#task-leads">Task leads</a></li>
+            <li><a href="#approve-hours">Approving hours</a></li>
+            <li><a href="#certificates">Issuing certificates</a></li>
+            <li><a href="#zeffy">Importing from Zeffy</a></li>
+          </ul>
+        </li>
+        <li><a href="#event-day">On the day of your event</a></li>
+        <li><a href="#roles">Roles: who can do what</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ul>
+    </nav>
+
+    <!-- For volunteers -->
+    <section class="section help-section" id="volunteers" aria-labelledby="volunteers-title">
+      <h2 class="section-title" id="volunteers-title">For volunteers</h2>
+
+      <h3 id="join">Joining an organization</h3>
+      <p>You sign up for an organization's shifts once you're a member of it. There's no password: you sign in with a 6-digit code we email you, or with <strong>Continue with Google</strong>.</p>
+      <ul>
+        <li><strong>With an invite link:</strong> open it. The page says <strong>Join</strong> and the organization's name. Sign in, fill in your profile and <strong>Save profile</strong>, and you're in.</li>
+        <li><strong>With a code:</strong> tap <strong>Sign up</strong> on the home page (or <strong>Join</strong> in the menu), then <strong>Have an invitation code?</strong>. Enter the code and tap <strong>Join</strong>.</li>
+        <li><strong>Invited by email:</strong> sign in with the email address the invitation went to.</li>
+        <li><strong>No invitation?</strong> On <strong>Join Sevak</strong>, search <strong>Find your organization</strong> by name or city, pick it, add a note if you like, and tap <strong>Ask to join</strong>. You can sign up once they approve you; Sevak tells you when they do.</li>
+      </ul>
+      <p>Already signed in? Use <strong>Join an organization</strong> on <a href="profile.html">My profile</a>.</p>
+
+      <h3 id="sign-up">Signing up for shifts</h3>
+      <ol>
+        <li>Open <a href="signup.html">Opportunities</a>. <strong>My organizations</strong> shows events of the organizations you belong to.</li>
+        <li>Tap an event, then tick one or more shifts. For events over several days, pick a day at the top.</li>
+        <li>Tap <strong>Continue</strong>, check your shifts, then <strong>Confirm sign-up</strong>.</li>
+      </ol>
+      <p>You'll get a confirmation email. If two shifts you picked overlap, Sevak warns you.</p>
+
+      <h3 id="change">Changing or cancelling</h3>
+      <p>Open <a href="signup.html?view=mine">My sign-ups</a>, then <strong>Manage or cancel</strong> on the event. Tap <strong>Cancel</strong> next to a shift to give up your spot, or <strong>Sign up for more shifts</strong> to add one. The organizers see the spot is open again.</p>
+
+      <h3 id="calendar">Adding to your calendar</h3>
+      <p>After you sign up (and on <strong>Manage or cancel</strong>), <strong>Add to your calendar</strong> offers two ways: <strong>Download .ics file</strong> works with Apple Calendar, Outlook and most other calendar apps; <strong>Google Calendar</strong> adds one shift at a time. Times are in the event's time zone.</p>
+
+      <h3 id="hours">Logging your hours</h3>
+      <ul>
+        <li><strong>On the day:</strong> from an hour before your shift, open <a href="signup.html?view=mine">My sign-ups</a> and tap <strong>Check in</strong>. Tap <strong>Check out</strong> when you're done; Sevak works out your hours.</li>
+        <li><strong>Afterwards:</strong> tap <strong>Log hours</strong> and enter the times (<strong>From and to</strong>) or <strong>How long</strong>, then <strong>Save hours</strong>.</li>
+      </ul>
+      <p>Your hours say <strong>Waiting for approval</strong> until the event's organizers approve them. If they're <strong>Not approved</strong>, you'll see why, and you can edit them to send them again.</p>
+
+      <h3 id="certificate">Asking for a certificate</h3>
+      <ol>
+        <li>On <a href="signup.html?view=mine">My sign-ups</a>, go to <strong>Certificates</strong> and tap <strong>Request a certificate</strong>.</li>
+        <li>Choose the organization and the period (or <strong>All my hours</strong>, <strong>This year</strong>, <strong>Last year</strong>, <strong>Last 12 months</strong>), then <strong>Send request</strong>.</li>
+      </ol>
+      <p>It covers your approved hours only. When an Admin issues it, you get an email, and it's saved in your <a href="profile.html#documents">Documents</a>.</p>
+
+      <h3 id="your-privacy">Your privacy</h3>
+      <ul>
+        <li>Other volunteers and the public never see your name or details, only how many spots are left.</li>
+        <li>The Admins of an organization you belong to see your details. The people running an event, and a task's lead, see the name, phone and email you gave when you signed up for it.</li>
+        <li>Organizations never see your street address. Your Documents are seen only by you.</li>
+      </ul>
+      <p>More in our <a href="../privacy.html">Privacy Policy</a>.</p>
+    </section>
+
+    <!-- For organizations -->
+    <section class="section help-section" id="organizations" aria-labelledby="organizations-title">
+      <h2 class="section-title" id="organizations-title">For organizations</h2>
+
+      <h3 id="getting-started">Getting started</h3>
+      <ol>
+        <li><strong>Sign in</strong> and fill in your profile. New to Sevak? On <strong>Join Sevak</strong>, choose <strong>Setting up a new organization? Start here</strong>.</li>
+        <li>On <a href="profile.html">My profile</a>, tap <strong>Set up your organization</strong>. Fill in its tabs (About, Address, Status, Contact) and <strong>Save profile</strong>. You're its Admin.</li>
+        <li><strong>Invite your team:</strong> on the Organization page's <strong>Team</strong> tab, tap <strong>+ Add a team member</strong>, enter their name and email, choose <strong>Admin</strong> or <strong>Coordinator</strong>, and <strong>Save profile</strong>. They get access when they sign in with that email.</li>
+        <li><strong>Invite volunteers:</strong> on <a href="volunteers.html">Volunteers</a>, under <strong>Invite volunteers</strong>, <strong>Copy</strong> the invite link (it has a short code too) and share it, or <strong>Invite by email</strong> and <strong>Send invitations</strong>. People who ask to join appear under <strong>Requests to join</strong> with <strong>Approve</strong> and <strong>Decline</strong>, unless you tick <strong>Approve requests automatically</strong>.</li>
+      </ol>
+
+      <h3 id="create-event">Creating an event</h3>
+      <p>On <a href="events.html">Events</a>, tap <strong>+ Event</strong>. The editor has four steps; <strong>Next</strong> moves on, and you can <strong>Save draft</strong> at any step.</p>
+      <ol>
+        <li><strong>Details:</strong> the name, a description, and its main event if it has one.</li>
+        <li><strong>When &amp; where:</strong> the dates (up to 31 days), the time zone, and the place: <strong>In person</strong>, <strong>Online</strong> or <strong>Shared later</strong>.</li>
+        <li><strong>Tasks:</strong> each job volunteers will do, with its shifts (day, start, end, how many volunteers). <strong>Or start from a common task</strong> fills one in for you.</li>
+        <li><strong>Review:</strong> check everything, choose who can see it and who approves hours (the event admin), then <strong>Publish</strong>.</li>
+      </ol>
+      <ul>
+        <li><strong>Main events</strong> group related events, such as a festival and its rehearsals. Tap <strong>+ Main event</strong>, save it, then add each event with <strong>+ Sub-event</strong>. A one-off event doesn't need one.</li>
+        <li><strong>Location shared later</strong> is for private venues, or when you email the address to people who sign up. No address is shown; volunteers see your note, or "Contact your event admin for location details."</li>
+      </ul>
+
+      <h3 id="verification">Before Sevak verifies your organization</h3>
+      <p>Only verified organizations list public events, so people can't find a new organization's events by browsing. Until Sevak verifies you, every event stays private, even one set to Public. To ask, an Admin taps <strong>Request verification</strong> at the top of the Organization page, then <strong>Send request</strong>. Sevak emails you when it's decided.</p>
+      <p>Meanwhile, share your events yourself:</p>
+      <ul>
+        <li>In the event editor, <strong>Open the volunteer sign-up page</strong> and share its link by WhatsApp, text or email.</li>
+        <li>Members who joined through your invite link or code can see the event and sign up.</li>
+        <li>People who haven't joined see a message asking them to join first, so send your invite link along with the event.</li>
+      </ul>
+
+      <h3 id="task-leads">Task leads</h3>
+      <p>Each task can have a <strong>Task lead</strong> who runs it on the day. An Admin chooses one in the <strong>Tasks</strong> step, from your team and your active volunteers. The lead sees who signed up for that task's shifts, with their phone and email, under <strong>Tasks you lead</strong> on My sign-ups, and nothing else.</p>
+
+      <h3 id="approve-hours">Approving hours</h3>
+      <p>On <a href="volunteers.html">Volunteers</a>, <strong>Hours to approve</strong> lists the hours volunteers logged. For each: <strong>Approve</strong>, <strong>Adjust…</strong> (approve a different amount) or <strong>Don't approve…</strong> with a reason the volunteer sees. <strong>Approve all</strong> does a batch. The event admin approves an event's hours, and Admins can approve any. Nobody approves their own hours: an Admin's need a different Admin.</p>
+
+      <h3 id="certificates">Issuing certificates</h3>
+      <p>Volunteers ask for certificates; they're never issued automatically. On <a href="volunteers.html">Volunteers</a>, under <strong>Certificate requests</strong>, an Admin can <strong>Preview</strong> a certificate, then <strong>Issue</strong> it or <strong>Decline…</strong> with a reason. It's signed with your name, title and signature: set them once on My profile under <strong>Certificates you sign</strong>. Issuing emails the volunteer and saves the certificate in their Documents and each event's Documents.</p>
+
+      <h3 id="zeffy">Importing from Zeffy</h3>
+      <ol>
+        <li>On <a href="events.html">Events</a>, tap <strong>From Zeffy</strong>.</li>
+        <li>An Admin pastes your organization's Zeffy API key (in Zeffy: Settings → Integrations → API) and taps <strong>Connect Zeffy</strong>.</li>
+        <li>Pick a Zeffy event and tap <strong>Start from this</strong>. Sevak starts a draft with its title, description, dates and link. Add the place, check the time zone, and add tasks and shifts.</li>
+      </ol>
+      <p>If the event changes on Zeffy, use <strong>Refresh from Zeffy</strong> in the editor. Sevak only reads your events from Zeffy, never donors or payments, and an Admin can <strong>Disconnect</strong> at any time.</p>
+    </section>
+
+    <!-- On the day -->
+    <section class="section help-section" id="event-day" aria-labelledby="event-day-title">
+      <h2 class="section-title" id="event-day-title">On the day of your event</h2>
+      <p>A checklist for hosts, all from your phone:</p>
+      <ol class="help-checklist">
+        <li>Open the event's roster: on <a href="events.html">Events</a>, tap <strong>Roster</strong> on the event.</li>
+        <li>Check people in as they arrive.</li>
+        <li>Add walk-ins who turn up without signing up.</li>
+        <li>Remind volunteers to <strong>Check out</strong>, or to <strong>Log hours</strong> on My sign-ups afterwards.</li>
+        <li>Afterwards, approve their hours on <a href="volunteers.html">Volunteers</a> under <strong>Hours to approve</strong>.</li>
+      </ol>
+    </section>
+
+    <!-- Roles -->
+    <section class="section help-section" id="roles" aria-labelledby="roles-title">
+      <h2 class="section-title" id="roles-title">Roles: who can do what</h2>
+      <p>One person can have several roles: for example a volunteer with one organization and an Admin of another.</p>
+      <div class="table-wrap">
+        <table class="data-table help-roles">
+          <caption class="sr-only">Sevak roles and what each can do</caption>
+          <thead><tr><th scope="col">Role</th><th scope="col">What they can do</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Volunteer</th><td>Joins organizations, signs up for their shifts, records hours and asks for certificates. Sees only their own details, history and certificates.</td></tr>
+            <tr><th scope="row">Coordinator</th><td>On an organization's team. Runs its events and dashboard and adds documents. Can open the organization's profile but not change it or its team, and doesn't see its volunteer list. As an event's event admin, sees its roster and approves its hours.</td></tr>
+            <tr><th scope="row">Admin</th><td>Everything for the organization: its profile, team and verification, events, volunteers and requests to join. Approves hours for any of its events and issues its certificates. Only Admins delete events.</td></tr>
+            <tr><th scope="row">Task lead</th><td>A duty, not a role: leads one task on the day. Sees who signed up for that task's shifts and how to reach them, and nothing else.</td></tr>
+            <tr><th scope="row">Event admin</th><td>A duty, not a role: chosen for each event from the people who run the organization (any Admin if nobody is chosen). Approves that event's hours, and sees its roster.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Contact -->
+    <section class="section help-section" id="contact" aria-labelledby="contact-title">
+      <h2 class="section-title" id="contact-title">Contact</h2>
+      <p>Stuck, or found something wrong? Email <a href="mailto:support@theanbgroup.com">support@theanbgroup.com</a><!-- OWNER: confirm these addresses exist -->. For a question about an event, contact the organization that runs it.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <span>© 2026 The ANB Group. All rights reserved.</span>
+      <span><a href="help.html" aria-current="page">Help</a> · <a href="../terms.html">Terms of Service</a> · <a href="../privacy.html">Privacy Policy</a></span>
+    </div>
+  </footer>
+</body>
+</html>
