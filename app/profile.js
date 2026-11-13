@@ -436,9 +436,11 @@
         history.replaceState(null, "", location.search + "#" + key);
       }
       $("status").textContent = "Please check the highlighted fields.";
+      $("status").classList.add("is-error");
       firstInvalid.focus();
       return;
     }
+    $("status").classList.remove("is-error");
     var stored = F.store(STORAGE_KEY, readForm());
     // Saving your profile signs you in (see SevakForms.session).
     if (stored) F.session.signIn();

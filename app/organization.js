@@ -716,6 +716,15 @@
   var orgId = creating ? null : O.currentId();
   var existing = orgId ? O.get(orgId) : null;
   if (existing) fill(existing);
+  else {
+    // A new organization's primary contact starts as you, the person setting
+    // it up (who becomes its Admin); change it if someone else is.
+    var me = F.session.profile() || {};
+    var myName = [me.firstName, me.lastName].filter(Boolean).join(" ");
+    if (myName && !$("contactName").value) $("contactName").value = myName;
+    if (me.email && !$("contactEmail").value) $("contactEmail").value = me.email;
+    if (me.phone && !$("contactPhone").value) F.setPhone($("contactPhone"), me.phone);
+  }
   // Coordinators can look but not change the profile or its team, so nobody
   // can make themselves an Admin.
   var readOnly = !!existing && F.session.signedIn() && O.roleFor(existing) === "coordinator";
