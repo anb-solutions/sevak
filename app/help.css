@@ -1,0 +1,17 @@
+/* The Help page (help.html): the contents, short sections and the roles table. */
+.help-section, .help h3 { scroll-margin-top: 16px; }
+.help-section h3 { margin: 24px 0 6px; font-size: 1rem; letter-spacing: -0.01em; }
+.help-section > .section-title + h3 { margin-top: 12px; }
+.help-section p { margin: 0 0 10px; }
+.help-section ol, .help-section ul { margin: 0 0 10px; padding-left: 1.25rem; }
+.help-section li + li { margin-top: 6px; }
+
+.help-toc ul { margin: 0; padding-left: 1.25rem; }
+.help-toc > ul { padding-left: 0; list-style: none; display: grid; gap: 10px; }
+.help-toc > ul > li > a { font-weight: 600; }
+.help-toc ul ul { margin-top: 4px; font-size: 0.92rem; }
+.help-toc li li + li { margin-top: 2px; }
+.help-toc a { display: inline-block; padding-block: 2px; }
+
+.help-roles th, .help-roles td { vertical-align: top; }
+.help-roles tbody th { white-space: nowrap; }

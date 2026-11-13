@@ -1,6 +1,6 @@
 # Sevak: MVP Requirements
 
-**Version:** 2.50 (the event roster: check-in and check-out, and adding someone to a shift) · **Updated:** 2026-11-13 · **Status:** Draft for review
+**Version:** 2.51 (a Help page, NFR-18; the Privacy Policy and Terms rewritten for the live beta) · **Updated:** 2026-11-13 · **Status:** Draft for review
 
 This replaces the original SRS outline, which covered a full volunteer management system:
 background checks, GPS clock-in, CRM integrations and so on. This version narrows the scope to an
@@ -365,6 +365,7 @@ it yet.
 | P8 | My volunteering | Private log, hours and certificates | `signup.html` (*My sign-ups*: check in, log hours, certificates, tasks you lead) |
 | P9 | Certificate verification | Public, shows minimal data | `verify.html`, `certificate.html` |
 | P10 | Join and profile | Join with an invitation or ask to join; your details, organizations and documents | `join.html`, `profile.html` |
+| P11 | Help | How to use Sevak, for volunteers and organizations (NFR-18) | `help.html` |
 
 **Host**
 
@@ -414,6 +415,7 @@ it yet.
 | NFR-14 | Global use | Sevak is built for use **in any country**, and nothing assumes the US. Addresses have a country and use country-neutral fields ("State, province or region", "Postal code"), with postal-code formats checked for some countries and a lenient check elsewhere. Country names show in the visitor's language, and the country defaults from their browser settings. The interface is English-only for the MVP, with dates and times formatted for the user's locale. |
 | NFR-16 | Phone numbers and WhatsApp | Every phone number is entered with a **country code** (a country picker plus the number, or a number typed with a leading +). It is stored in international **E.164** form (for example +14155550100 or +447911123456), dropping a national leading 0 or a US/Canada leading 1. Each number can be marked **"on WhatsApp"**, which gives it a `wa.me` link so hosts and volunteers can message it directly. |
 | NFR-17 | Saving | **Saving leaves the form.** After a successful Save the person is taken back to where the form belongs, so they don't press Save again: an **event** (Save draft, Publish, Save changes, Unpublish) or **main event** goes back to the **Events** list with the saved item highlighted, and a **sub-event** to its main event's page; the **organization profile** goes on to its Events; **My profile** goes back to the page the person came from (or Opportunities), and when joining, on to the organization's opportunities (or to set up a new organization). The next page shows a one-time message at the top saying what was saved (*"Published “Book swap”."*), with a link to open it again, and keyboard focus moves to it so screen readers announce it. A save that fails (errors, or the server refusing it) stays on the form with the error. Small in-place saves inside a page (a document, a signature) show their result where they are. *(Prototype: `SevakNav.flashAndGo` in `app/nav.js`.)* |
+| NFR-18 | Help | A **Help** page (`app/help.html`), linked from the footer of every page and from the welcome page next to *Sign in* and *Sign up*, explains Sevak in short steps that use the buttons' own words, with contents at the top: **For volunteers** (joining with an invite link or code or by asking, signing up for shifts, changing or cancelling on *My sign-ups*, adding to a calendar, logging hours, asking for a certificate, who sees your details), **For organizations** (setting up, inviting the team and volunteers, the four steps of the event editor, main events, *Shared later*, sharing events before verification, task leads, approving hours, issuing certificates, Zeffy), **On the day of your event** (a checklist for hosts), **Roles** (Volunteer, Coordinator, Admin, Task lead, Event admin) and **Contact**. It fits a phone at 390px. Change it with the pages it describes. |
 | NFR-15 | Email deliverability | Sending from an authenticated domain, with bounce and complaint handling and suppression of bounced addresses. |
 
 ---

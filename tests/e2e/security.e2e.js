@@ -72,7 +72,7 @@ const { BASE, start, person, signIn, email } = require("./helpers");
   const admin0 = await person(t, "pages");
   admin0.on("console", (m) => { if (/Content Security Policy|Refused to (apply|execute|load)/i.test(m.text())) blocked.push(admin0.url() + ": " + m.text().slice(0, 140)); });
   const pages = ["../index.html", "../privacy.html", "../terms.html", "signup.html", "signup.html?view=mine", "profile.html", "join.html", "verify.html",
-    "organization.html?new=1", "events.html", "event.html", "main-event.html", "volunteers.html", "dashboard.html", "certificate.html", "outbox.html", "roster.html"];
+    "organization.html?new=1", "events.html", "event.html", "main-event.html", "volunteers.html", "dashboard.html", "certificate.html", "outbox.html", "roster.html", "help.html"];
   for (const pg of pages) await admin0.goto(BASE + "/app/" + pg, { waitUntil: "networkidle" });
   const out = await (await t.browser.newContext()).newPage();
   out.on("console", (m) => { if (/Content Security Policy|Refused to (apply|execute|load)/i.test(m.text())) blocked.push("signed out " + out.url() + ": " + m.text().slice(0, 140)); });

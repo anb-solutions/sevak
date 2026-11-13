@@ -1,7 +1,7 @@
 const { chromium } = require('playwright');
 (async () => {
   const b = await chromium.launch(); const errs = [];
-  const pages = ['index.html','terms.html','privacy.html','app/signin.html','app/profile.html','app/organization.html','app/events.html','app/event.html','app/main-event.html','app/dashboard.html','app/signup.html'];
+  const pages = ['index.html','terms.html','privacy.html','app/signin.html','app/profile.html','app/organization.html','app/events.html','app/event.html','app/main-event.html','app/dashboard.html','app/signup.html','app/help.html'];
   for (const w of [320, 375, 1100]) for (const f of pages) {
     const p = await b.newPage({ viewport: { width: w, height: 700 } });
     p.on('pageerror', e => errs.push(f + ' ' + e.message));
