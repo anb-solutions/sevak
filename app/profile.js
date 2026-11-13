@@ -152,12 +152,21 @@
     box.hidden = false;
   }
 
+  function joinedAlready(orgId) {
+    var M = window.SevakMembers;
+    return !!M && M.mine().some(function (m) { return m.orgId === orgId && m.status === "active"; });
+  }
+
   function renderJoinNotice() {
     var i = intent();
     var org = i && i.orgId ? window.SevakOrgs.get(i.orgId) : null;
     if (F.session.signedIn() && !i) { $("join-notice").hidden = true; return; }
     if (i && i.way === "create") {
       showJoinNotice(["Create your profile first. Then you'll set up your organization and be its Admin."]);
+    } else if (i && org && joinedAlready(org.id)) {
+      // Signing in with the invited email already accepted the invitation.
+      showJoinNotice(["You're a volunteer with ", (function () { var b = document.createElement("strong"); b.textContent = org.name; return b; })(),
+        ". Save your profile so they know who you are, then pick your shifts."]);
     } else if (i && org) {
       showJoinNotice([i.way === "invite" ? "You're joining " : "You're asking to join ", (function () { var b = document.createElement("strong"); b.textContent = org.name; return b; })(),
         ". Save your profile to " + (i.way === "invite" ? "accept the invitation." : "send your request."), " ", noticeLink("join.html", "Change")]);

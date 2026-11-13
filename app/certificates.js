@@ -318,6 +318,14 @@
     };
   }
 
+  // The calendar day of a moment where the certificate is issued (not in
+  // UTC, which is already tomorrow on a US evening).
+  function localDay(iso) {
+    var d = new Date(iso);
+    if (isNaN(d)) return String(iso || "").slice(0, 10);
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+
   function longDate(date) { return E.dayLabel(date, { weekday: undefined, year: "numeric", month: "long" }); }
   function shortDate(date) { return E.dayLabel(date, { year: "numeric" }); }
   function plainDate(date) { return E.dayLabel(date, { weekday: undefined, year: "numeric" }); }
@@ -548,7 +556,7 @@
       ctx.textAlign = "right";
       font(ctx, 20, SANS);
       ctx.fillStyle = C.muted;
-      ctx.fillText(opts.preview ? "Not issued yet" : "Issued " + longDate((d.issuedAt || now()).slice(0, 10)), W - M, sy + 120);
+      ctx.fillText(opts.preview ? "Not issued yet" : "Issued " + longDate(localDay(d.issuedAt || now())), W - M, sy + 120);
       font(ctx, 22, SANS, 700);
       ctx.fillStyle = C.text;
       ctx.fillText(opts.preview ? "Certificate no. —" : "Certificate no. " + (d.code || ""), W - M, sy + 154);

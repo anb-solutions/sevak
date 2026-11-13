@@ -176,9 +176,9 @@
     row.dataset.id = (value && value.id) || E.newId("shift");
     wireIds(row, "shift");
 
-    // A new shift starts as a copy of the role's last shift, to save typing.
+    // A new shift follows on from the role's last shift, to save typing.
     var last = list.lastElementChild;
-    var base = value || (last ? readShift(last) : { date: eventDays()[0] || "", start: "09:00", end: "12:00", capacity: 5 });
+    var base = value || (last ? followOn(readShift(last)) : { date: eventDays()[0] || "", start: "09:00", end: "12:00", capacity: 5 });
     fillDaySelect(row.querySelector('[data-key="date"]'), base.date);
     row.querySelector('[data-key="start"]').value = base.start || "";
     row.querySelector('[data-key="end"]').value = base.end || "";
@@ -194,6 +194,20 @@
     card.querySelector(".shifts-error").textContent = "";
     updateSummary();
     return row;
+  }
+
+  // A new shift follows on from the last one: it starts when that one ends
+  // and is as long, the same day (or a copy, if that would pass midnight).
+  function followOn(prev) {
+    var mins = function (t) { var p = String(t || "").split(":").map(Number); return p.length === 2 && !p.some(isNaN) ? p[0] * 60 + p[1] : null; };
+    var hhmm = function (m) { return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); };
+    var a = mins(prev.start), b = mins(prev.end);
+    var next = { date: prev.date, start: prev.start, end: prev.end, capacity: prev.capacity };
+    if (a !== null && b !== null && b > a && b + (b - a) < 24 * 60) {
+      next.start = hhmm(b);
+      next.end = hhmm(b + (b - a));
+    }
+    return next;
   }
 
   function readShift(row) {
@@ -442,8 +456,8 @@
     var pending = org && org.verificationStatus === "pending";
     $("unverified-note").hidden = visibility() !== "public" || verified;
     $("unverified-text").textContent = pending
-      ? "Your organization's verification is waiting for Sevak's review, so this event stays private until then. You can still share its link."
-      : "Your organization isn't verified yet, so this event will stay private until it is. You can still share its link.";
+      ? "Your organization's verification is waiting for Sevak's review. Until then, only people who have joined your organization can see this event and open its link: invite volunteers on Volunteers first, then share the link."
+      : "Your organization isn't verified yet. Until it is, only people who have joined your organization can see this event and open its link: invite volunteers on Volunteers first, then share the link.";
     $("unverified-link").textContent = pending ? "See the request" : "Get verified";
   }
   form.querySelectorAll('input[name="visibility"]').forEach(function (r) { r.addEventListener("change", applyVisibility); });
@@ -463,6 +477,13 @@
     var basic = F.basicMessage(input);
     if (basic) return basic;
 
+    // A new event can't start in the past (one already published can still
+    // be edited afterwards, to record what happened).
+    if (input.id === "startDate" && v && !(existing && existing.status === "published")) {
+      var d = new Date();
+      var today = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+      if (v < today) return "This date has passed. Choose today or a later date.";
+    }
     if (input.id === "endDate" && v && $("startDate").value) {
       if (v < $("startDate").value) return "The end date can't be before the start date.";
       if (E.days($("startDate").value, v).length > MAX_DAYS) return "Events can be up to " + MAX_DAYS + " days long.";
@@ -704,7 +725,11 @@
     $("volunteer-link-row").hidden = !eventId || !active;
     if (eventId) {
       $("volunteer-link").href = "signup.html?event=" + encodeURIComponent(eventId);
-      $("volunteer-link-hint").textContent = published ? "Share this link with volunteers." : "Preview only until you publish.";
+      var open = org && org.verificationStatus === "verified" && visibility() === "public";
+      $("volunteer-link-hint").textContent = !published ? "Preview only until you publish."
+        : open ? "Share this link with volunteers."
+        : "Only people who have joined your organization can open this link.";
+      $("copy-volunteer-link").hidden = !published;
     }
     $("publish").textContent = published ? "Save changes" : "Publish";
     $("save-draft").textContent = published ? "Unpublish" : "Save draft";
@@ -851,6 +876,15 @@
     save(true);
   });
   $("save-draft").addEventListener("click", function () { save(false); });
+  // Copy the sign-up link, to paste into WhatsApp or an email.
+  $("copy-volunteer-link").addEventListener("click", function () {
+    var link = $("volunteer-link").href;
+    var hint = $("volunteer-link-hint");
+    var before = hint.textContent;
+    var done = function () { hint.textContent = "Copied. " + before; };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(done, function () { hint.textContent = link; });
+    else hint.textContent = link;
+  });
 
   function setActive(on) {
     var saved = E.setActive(eventId, on);
