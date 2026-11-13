@@ -55,10 +55,21 @@ async function start() {
   return { browser, check, errors, done };
 }
 
+// Each test file signs in from its own address (in a range kept for
+// documentation, RFC 5737), so the per-address sign-in limit (100 an hour)
+// counts each file on its own, as it would different people on the real
+// site, instead of the whole suite from one machine.
+const ADDRESS = `203.0.113.${1 + Math.floor(Math.random() * 254)}`;
+
+// A browser of one's own, 390px wide.
+function context(t, options = {}) {
+  return t.browser.newContext({ viewport: { width: 390, height: 844 }, extraHTTPHeaders: { "X-Forwarded-For": ADDRESS }, ...options });
+}
+
 // A person in their own browser (390px wide), signed in by emailed code,
 // with a profile saved.
 async function person(t, name, { profile = true } = {}) {
-  const ctx = await t.browser.newContext({ viewport: { width: 390, height: 844 } });
+  const ctx = await context(t);
   const page = await ctx.newPage();
   page.on("pageerror", (e) => t.errors.push(name + ": " + e.message));
   const address = email(name);
@@ -109,4 +120,4 @@ async function joinWithCode(page, code) {
   await page.waitForSelector("#join-done:not([hidden])");
 }
 
-module.exports = { RUN, BASE, STAFF_EMAIL, mailsTo, email, codeFor, start, person, signIn, synced, organization, joinWithCode };
+module.exports = { RUN, BASE, STAFF_EMAIL, mailsTo, email, codeFor, start, context, person, signIn, synced, organization, joinWithCode };

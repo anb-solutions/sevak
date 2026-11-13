@@ -347,7 +347,7 @@ input[type="time"], input[type="number"] {
 /* An event card's badges and its Edit button: stacked at the side, or one
    row under the details on a phone. */
 .event-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
-.main-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.main-actions, .event-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 .badge {
   display: inline-block;
   padding: 2px 10px;
@@ -1021,7 +1021,7 @@ input[type="time"], input[type="number"] {
   .grid .span-2 { grid-column: auto; }
   .row { grid-template-columns: 1fr; }
   .event-item { grid-template-columns: minmax(0, 1fr); }
-  .event-side { flex-direction: row; justify-content: space-between; align-items: center; margin-top: 4px; }
+  .event-side { flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-top: 4px; }
   .app-nav { gap: 2px 0; flex: 1 1 100%; min-width: 0; }
   .nav-group { gap: 0; }
   .nav-manage { flex: 1 1 100%; padding-left: 0; border-left: 0; }
@@ -1208,3 +1208,27 @@ input[type="time"], input[type="number"] {
 .mt-32 { margin-top: 32px; }
 .inline-row { display: flex; gap: 12px 16px; align-items: center; flex-wrap: wrap; }
 .inline-row-wide { gap: 16px; }
+
+/* The roster of an event (roster.html): shifts by day, each person with
+   their contact details and check-in buttons, big enough to tap on the day. */
+.roster-totals { margin: 0 0 12px; font-weight: 600; }
+.roster-day { display: grid; gap: 12px; }
+.roster-day .section-title { margin-bottom: 0; }
+.roster-shift { padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; display: grid; gap: 10px; }
+.roster-shift-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.roster-shift-head h3 { margin: 0; font-size: 1rem; }
+.roster-count { color: var(--muted); font-size: 0.9rem; white-space: nowrap; }
+.roster-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.roster-person { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 12px; padding: 10px 0; border-top: 1px solid var(--border); }
+.roster-person:first-child { border-top: 0; padding-top: 0; }
+.roster-who { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.roster-name { font-weight: 600; }
+.roster-contact { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 0.9rem; }
+.roster-contact a { min-height: 32px; display: inline-flex; align-items: center; }
+.roster-state { font-size: 0.85rem; color: var(--muted); }
+.roster-state.is-in { color: var(--primary); font-weight: 600; }
+.roster-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.roster-actions .btn-small { min-height: 44px; min-width: 96px; }
+.roster-actions .btn-link, .roster-actions .btn-danger-link { min-height: 44px; }
+.roster-add { display: grid; gap: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.roster-add-btn { justify-self: start; }

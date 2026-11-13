@@ -31,7 +31,8 @@
   var SIGNED_OUT_KEY = "sevak.signedOut.v1";
   var PRIVATE_PAGES = {
     "events.html": true, "event.html": true, "main-event.html": true, "volunteers.html": true,
-    "dashboard.html": true, "organization.html": true, "review.html": true, "outbox.html": true
+    "dashboard.html": true, "organization.html": true, "review.html": true, "outbox.html": true,
+    "roster.html": true
   };
 
   var storage = window.localStorage;
@@ -168,7 +169,11 @@
     // Pages for running organizations, and Sevak's own, need you signed in:
     // straight to sign-in (and back here afterwards) instead of a preview.
     var here = location.pathname.split("/").pop();
-    if (!server.user && PRIVATE_PAGES[here]) location.replace("signin.html?next=" + here);
+    if (!server.user && PRIVATE_PAGES[here]) {
+      // Back to this page afterwards, with its one parameter (roster.html?event=…).
+      var back = here + (/^\?[a-z]+=[A-Za-z0-9_-]{1,80}$/.test(location.search) ? location.search : "");
+      location.replace("signin.html?next=" + encodeURIComponent(back));
+    }
   } else {
     notice("Can't reach Sevak right now. Changes won't be saved until it's back. Try reloading in a minute.");
   }

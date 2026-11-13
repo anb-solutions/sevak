@@ -27,7 +27,7 @@
   var SEEN_CERTS_KEY = "sevak.seenCertificates.v1";
   var M = window.SevakMembers;
   var BANNER_KEY = "sevak.bannerDismissed.v1";
-  var MANAGE = { "events.html": "events", "event.html": "events", "main-event.html": "events", "volunteers.html": "volunteers", "dashboard.html": "dashboard", "organization.html": "organization" };
+  var MANAGE = { "events.html": "events", "event.html": "events", "main-event.html": "events", "roster.html": "events", "volunteers.html": "volunteers", "dashboard.html": "dashboard", "organization.html": "organization" };
 
   var ICONS = {
     opportunities: '<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.5"/>',

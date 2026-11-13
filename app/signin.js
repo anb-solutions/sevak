@@ -43,7 +43,7 @@
   // profile if it's not filled in yet, else volunteer opportunities.
   function nextPage(hasProfile) {
     var next = new URLSearchParams(location.search).get("next") || "";
-    if (/^[a-z-]+\.html$/.test(next)) return next;
+    if (/^[a-z-]+\.html(\?[a-z]+=[A-Za-z0-9_-]{1,80})?$/.test(next)) return next;
     return hasProfile ? "signup.html" : "profile.html";
   }
 
@@ -78,7 +78,7 @@
   if (server.signIn && server.signIn.google) {
     $("google-signin").hidden = false;
     var next = params.get("next");
-    $("google-button").href = "/api/v1/auth/google/start" + (next && /^[a-z-]+\.html$/.test(next) ? "?next=" + encodeURIComponent(next) : "");
+    $("google-button").href = "/api/v1/auth/google/start" + (next && /^[a-z-]+\.html(\?[a-z]+=[A-Za-z0-9_-]{1,80})?$/.test(next) ? "?next=" + encodeURIComponent(next) : "");
   }
   var GOOGLE_ERRORS = {
     google_use_email: "That Google account doesn't use a Gmail or Google Workspace address, so sign in with a code sent to your email instead.",

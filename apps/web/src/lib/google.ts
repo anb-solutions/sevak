@@ -41,8 +41,10 @@ export function readPending(req: Request): PendingGoogle | null {
 }
 
 // A page of this app to go to afterwards, such as "event.html", or "".
+// A page of this app to go to after signing in, optionally with one simple
+// parameter (roster.html?event=…); never another site.
 export function safeNext(next: unknown): string {
-  return typeof next === "string" && /^[a-z-]+\.html$/.test(next) ? next : "";
+  return typeof next === "string" && /^[a-z-]+\.html(\?[a-z]+=[A-Za-z0-9_-]{1,80})?$/.test(next) ? next : "";
 }
 
 // Sends the browser to one of the app's pages, setting cookies on the way.
