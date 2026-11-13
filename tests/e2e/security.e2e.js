@@ -10,7 +10,7 @@ const { BASE, start, person, signIn, email } = require("./helpers");
   // Signed out: Manage and staff pages send you to sign in, then back.
   const ctx = await t.browser.newContext({ viewport: { width: 390, height: 844 } });
   const visitor = await ctx.newPage();
-  for (const pg of ["events.html", "volunteers.html", "dashboard.html", "organization.html", "review.html", "outbox.html"]) {
+  for (const pg of ["events.html", "volunteers.html", "dashboard.html", "organization.html", "review.html", "outbox.html", "roster.html"]) {
     await visitor.goto(BASE + "/app/" + pg);
     await visitor.waitForURL(/signin\.html/);
     check(visitor.url().endsWith("signin.html?next=" + pg), "signed out: " + pg + " asks you to sign in");
@@ -72,7 +72,7 @@ const { BASE, start, person, signIn, email } = require("./helpers");
   const admin0 = await person(t, "pages");
   admin0.on("console", (m) => { if (/Content Security Policy|Refused to (apply|execute|load)/i.test(m.text())) blocked.push(admin0.url() + ": " + m.text().slice(0, 140)); });
   const pages = ["../index.html", "../privacy.html", "../terms.html", "signup.html", "signup.html?view=mine", "profile.html", "join.html", "verify.html",
-    "organization.html?new=1", "events.html", "event.html", "main-event.html", "volunteers.html", "dashboard.html", "certificate.html", "outbox.html"];
+    "organization.html?new=1", "events.html", "event.html", "main-event.html", "volunteers.html", "dashboard.html", "certificate.html", "outbox.html", "roster.html"];
   for (const pg of pages) await admin0.goto(BASE + "/app/" + pg, { waitUntil: "networkidle" });
   const out = await (await t.browser.newContext()).newPage();
   out.on("console", (m) => { if (/Content Security Policy|Refused to (apply|execute|load)/i.test(m.text())) blocked.push("signed out " + out.url() + ": " + m.text().slice(0, 140)); });

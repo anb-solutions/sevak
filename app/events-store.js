@@ -103,6 +103,21 @@
     return span;
   }
 
+  // Whether you run an event: an Admin of its organization, its event admin
+  // (a Coordinator), or Sevak staff. The server decides; this only hides
+  // buttons that wouldn't work.
+  function runsEvent(event) {
+    var O = window.SevakOrgs;
+    var server = window.SevakServer;
+    if (server && server.user && server.user.isPlatformAdmin) return true;
+    if (!O) return false;
+    var org = O.get(event.organizationId);
+    var role = O.roleFor(org);
+    if (role === "admin") return true;
+    var me = String(((window.SevakForms.session.profile() || {}).email) || "").trim().toLowerCase();
+    return role === "coordinator" && !!me && String(event.eventAdmin || "").trim().toLowerCase() === me;
+  }
+
   // A list item linking to an event, with its dates, place, size and badges.
   function eventItem(event) {
     var t = totals(event);
@@ -148,10 +163,22 @@
     edit.href = "event.html?id=" + encodeURIComponent(event.id);
     edit.textContent = "Edit";
     edit.setAttribute("aria-label", "Edit " + (event.title || "this event"));
+    var actions = document.createElement("div");
+    actions.className = "event-actions";
+    // The roster, for those who run the event (its Admins and event admin).
+    if (t.shifts && runsEvent(event)) {
+      var roster = document.createElement("a");
+      roster.className = "btn btn-secondary btn-small event-roster";
+      roster.href = "roster.html?event=" + encodeURIComponent(event.id);
+      roster.textContent = "Roster";
+      roster.setAttribute("aria-label", "Roster of " + (event.title || "this event"));
+      actions.appendChild(roster);
+    }
+    actions.appendChild(edit);
     var side = document.createElement("div");
     side.className = "event-side";
     side.appendChild(badges);
-    side.appendChild(edit);
+    side.appendChild(actions);
 
     li.appendChild(info);
     li.appendChild(side);
@@ -242,6 +269,7 @@
     forOrg: forOrg,
     mainForOrg: mainForOrg,
     eventItem: eventItem,
+    runsEvent: runsEvent,
     badge: badge,
     save: save,
     remove: remove,
