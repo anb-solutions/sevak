@@ -113,3 +113,16 @@ describe("what a page loads", () => {
     expect((await readSynced(db, null))["sevak.memberships.v1"]).toEqual([]);
   });
 });
+
+describe("what the organization sees of a volunteer", () => {
+  it("follows their profile: named once they save one, cleared when they delete it", async () => {
+    await joinWithCode(db, sam, "SEVA4242", "");
+    expect((await readMemberships(db, asha)).find((m) => m.email === sam.email)).toMatchObject({ name: "sam@example.com" });
+    await writeProfile(db, sam, { firstName: "Sam", lastName: "Rao", photo: "data:image/png;base64,BBBB", services: ["Cooking"], aboutMe: "Hi", address: { line1: "1 Main St" } });
+    const named = (await readMemberships(db, asha)).find((m) => m.email === sam.email)!;
+    expect(named).toMatchObject({ name: "Sam Rao", photo: "data:image/png;base64,BBBB", services: ["Cooking"], aboutMe: "Hi", status: "active" });
+    expect(named).not.toHaveProperty("address");
+    await writeProfile(db, sam, null);
+    expect((await readMemberships(db, asha)).find((m) => m.email === sam.email)).toMatchObject({ name: "sam@example.com", photo: "", services: [], aboutMe: "", status: "active" });
+  });
+});

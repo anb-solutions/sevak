@@ -22,6 +22,28 @@
     return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
   }
 
+  // "YYYY-MM-DD HH:MM" now, in a time zone (the event's), to compare with
+  // shift dates and times written in it.
+  function nowIn(tz) {
+    try {
+      var parts = {};
+      new Intl.DateTimeFormat("en-CA", { timeZone: tz || undefined, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+        .formatToParts(new Date()).forEach(function (p) { parts[p.type] = p.value; });
+      return parts.year + "-" + parts.month + "-" + parts.day + " " + parts.hour + ":" + parts.minute;
+    } catch (e) {
+      return todayString() + " 00:00";
+    }
+  }
+
+  // Whether a shift is over: its end has passed in the event's time zone (a
+  // shift ending at or before its start ends the next day). The server
+  // refuses sign-ups for it too.
+  function shiftOver(ev, s) {
+    if (!s.date) return false;
+    if (!s.end || !s.start || s.end <= s.start) return s.date < nowIn(ev.timezone).slice(0, 10);
+    return s.date + " " + s.end <= nowIn(ev.timezone);
+  }
+
   function countryName(code) {
     var c = F.countries.filter(function (x) { return x.code === code; })[0];
     return c ? c.name : "";
@@ -1084,7 +1106,7 @@
       var closed = [];
       byDay[date].forEach(function (s) {
         var left = Math.max(0, s.capacity - (counts[s.id] || 0));
-        var past = s.date < today;
+        var past = shiftOver(event, s);
         if (left === 0 || past) closed.push(shiftRow(s, left, past, selected));
         else open.appendChild(shiftRow(s, left, past, selected));
       });
@@ -1387,9 +1409,21 @@
       return;
     }
     if (!event) {
+      // Events of an organization not yet verified, and private ones, are
+      // only for people who have joined it; others land here.
+      if (!F.session.signedIn()) {
+        var signin = el("a", null, "Sign in");
+        signin.href = "signin.html?next=" + encodeURIComponent("signup.html?event=" + id);
+        showNotice([el("p", null, "This event may be only for members of its organization. "), signin,
+          el("p", null, "If the organization sent you an invite link or code, open it first to join; then this link works.")]);
+        return;
+      }
+      var join = el("a", null, "Join an organization");
+      join.href = "join.html";
       var back = el("a", null, "See all volunteer opportunities");
       back.href = "signup.html";
-      showNotice([el("p", null, "We couldn't find that event. It may have been removed. "), back]);
+      showNotice([el("p", null, "We couldn't find that event. It may have been removed, or it's only for members of an organization you haven't joined yet. If the organization sent you an invite link or code, open it to join, then try this link again. "),
+        join, document.createTextNode(" · "), back]);
       return;
     }
     showOnly("event-view");

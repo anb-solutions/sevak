@@ -19,6 +19,13 @@
   }
 
   function day(date) { return E.dayLabel(date, { weekday: undefined, year: "numeric" }); }
+  // The calendar day of a moment where you are (not in UTC, which is
+  // already tomorrow on a US evening).
+  function localDay(iso) {
+    var d = new Date(iso);
+    if (isNaN(d)) return String(iso || "").slice(0, 10);
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
   function stop(message) {
     $("cert-intro").textContent = message;
     $("cert-tools").hidden = true;
@@ -103,7 +110,7 @@
     var d = rec.data;
     document.title = "Certificate · " + d.volunteer + " · Sevak";
     $("cert-title").textContent = "Certificate of Volunteer Service";
-    $("cert-intro").textContent = "Issued to " + d.volunteer + " by " + d.org.name + " on " + day(rec.issuedAt.slice(0, 10)) + ". No. " + rec.code + ". " +
+    $("cert-intro").textContent = "Issued to " + d.volunteer + " by " + d.org.name + " on " + day(localDay(rec.issuedAt)) + ". No. " + rec.code + ". " +
       (isVolunteer ? "It's also saved in your Documents." : "It's also saved in the volunteer's Documents and the event's Documents.");
     $("cert-tools").hidden = false;
     show(d);

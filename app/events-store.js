@@ -156,7 +156,11 @@
       badges.appendChild(badge("Inactive", "inactive"));
     }
     badges.appendChild(event.status === "published" ? badge("Published", "published") : badge("Draft", "draft"));
-    badges.appendChild(badge(event.visibility === "private" ? "Private" : "Public"));
+    // Public events of an organization Sevak hasn't verified are seen only
+    // by its members until it is (EVT-16), so the badge says so.
+    var orgOf = window.SevakOrgs && window.SevakOrgs.get(event.organizationId);
+    var listed = !orgOf || orgOf.verificationStatus === "verified";
+    badges.appendChild(badge(event.visibility === "private" ? "Private" : listed ? "Public" : "Members only"));
 
     var edit = document.createElement("a");
     edit.className = "btn btn-secondary btn-small event-edit";

@@ -9,3 +9,11 @@
     if (p && p.email && !signedOut) location.replace("app/signup.html");
   } catch (e) { /* storage blocked: show the welcome page */ }
 })();
+
+// The reviewers' shortcuts are for the prototype only: on Sevak's server
+// (sync.js) they'd point at pages that aren't for everyone.
+document.addEventListener("DOMContentLoaded", function () {
+  if (!window.SevakServer) return;
+  var box = document.querySelector(".shortcuts");
+  if (box) box.remove();
+});

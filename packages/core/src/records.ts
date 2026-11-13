@@ -81,6 +81,7 @@ export async function readProfile(db: Db, viewer: Viewer): Promise<Json | null> 
 export async function writeProfile(db: Db, viewer: Viewer, value: unknown): Promise<Json | null> {
   if (value === null) {
     await db.update(users).set({ profile: null, firstName: "", lastName: "", phone: null }).where(eq(users.id, viewer.id));
+    await refreshMemberships(db, viewer, {});
     return null;
   }
   const profile = objectSchema.parse(value);
@@ -96,7 +97,30 @@ export async function writeProfile(db: Db, viewer: Viewer, value: unknown): Prom
       phone: typeof phone === "string" && /^\+[1-9]\d{6,14}$/.test(phone) ? phone : null,
     })
     .where(eq(users.id, viewer.id));
+  await refreshMemberships(db, viewer, saved);
   return saved;
+}
+
+// The organizations you volunteer with (or asked to) see a copy of part of
+// your profile: your name, photo, services and "About me"
+// (memberships.ts). It follows your profile, so someone who joined before
+// saving one shows by name once they do, and deleting your profile removes
+// those details there too.
+async function refreshMemberships(db: Db, viewer: Viewer, p: Json) {
+  const name = [str(p.firstName), str(p.lastName)].filter(Boolean).join(" ");
+  const details = {
+    name: name || viewer.email,
+    photo: typeof p.photo === "string" ? p.photo : "",
+    services: Array.isArray(p.services) ? p.services : [],
+    aboutMe: typeof p.aboutMe === "string" ? p.aboutMe : "",
+  };
+  const rows = await db.select().from(records).where(and(eq(records.collection, "memberships"), emailIs(viewer.email)));
+  for (const r of rows) {
+    await db
+      .update(records)
+      .set({ data: { ...r.data, ...details }, updatedAt: new Date() })
+      .where(and(eq(records.collection, "memberships"), eq(records.id, r.id)));
+  }
 }
 
 export class RecordError extends Error {

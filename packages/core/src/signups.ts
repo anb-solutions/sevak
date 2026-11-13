@@ -28,6 +28,7 @@ import { type Db, records } from "@sevak/db";
 import type { Viewer } from "./auth";
 import { readEventsAndMain } from "./events";
 import { type Mail, shiftLabel, signedUp } from "./notify";
+import { zonedTimeToUtc } from "./time";
 import { emailIs, idSchema, inOrgs, type Json, lower, objectSchema, organizationsById, orgRole, type ReadContext, readContext, runsEvent, taskLeadOf, tooBig } from "./records";
 
 const COLLECTION = "signups";
@@ -96,6 +97,29 @@ function shiftOf(event: Json, shiftId: unknown): Json | null {
     }
   }
   return null;
+}
+
+// Whether a shift is over: its end, in the event's time zone, has passed (a
+// shift ending at or before its start ends the next day). Shifts without a
+// date or times never are.
+export function shiftEnded(event: Json, shift: Json | null, at: Date = new Date()): boolean {
+  const date = typeof shift?.date === "string" ? shift.date : "";
+  const start = typeof shift?.start === "string" ? shift.start : "";
+  const end = typeof shift?.end === "string" ? shift.end : "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(end)) return false;
+  const tz = typeof event.timezone === "string" && event.timezone ? event.timezone : "UTC";
+  let ends: Date;
+  try {
+    ends = zonedTimeToUtc(date, end, tz);
+  } catch {
+    try {
+      ends = zonedTimeToUtc(date, end, "UTC");
+    } catch {
+      return false;
+    }
+  }
+  if (/^\d{2}:\d{2}$/.test(start) && end <= start) ends = new Date(ends.getTime() + 24 * 60 * 60_000);
+  return ends.getTime() <= at.getTime();
 }
 
 async function activeMember(tx: Tx, orgId: string, email: string) {
@@ -183,6 +207,12 @@ export async function writeSignups(db: Db, viewer: Viewer, ops: unknown): Promis
           const live = event.status === "published" && event.active !== false;
           if (!live || !(await activeMember(tx, String(org.id), viewer.email))) {
             refuse("not_member");
+            continue;
+          }
+          // Volunteers can't sign up for a shift that's over (the event's
+          // team still can, to record who came).
+          if (shiftEnded(event, shiftOf(event, raw.shiftId))) {
+            refuse("ended");
             continue;
           }
           next = { ...raw, email: viewer.email, status: "confirmed", hours: undefined, checkInAt: undefined, checkOutAt: undefined };

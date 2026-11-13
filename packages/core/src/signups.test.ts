@@ -5,7 +5,7 @@ import type { Viewer } from "./auth";
 import { writeEvents } from "./events";
 import { joinWithCode } from "./memberships";
 import { readOrganizations, writeOrganizations } from "./records";
-import { readSignups, writeSignups } from "./signups";
+import { readSignups, shiftEnded, writeSignups } from "./signups";
 
 let db: Db;
 let asha: Viewer; // Admin
@@ -216,5 +216,27 @@ describe("who sees volunteers' sign-ups", () => {
     await writeEvents(db, asha, { upsert: [{ id: "ev-1", organizationId: "org-temple", title: "Seva", status: "published", visibility: "public", eventAdmin: "cora@example.com", roles: [{ id: "r1", name: "Setup", shifts: [{ id: "s1", capacity: 2 }, { id: "s2", capacity: 1 }] }] }] });
     expect(await seen(cora)).toMatchObject({ name: "mei", email: "mei@example.com", phone: "+17135550100" });
     expect((await writeSignups(db, cora, { upsert: [{ ...(await seen(cora)), checkInAt: "2030-01-10T09:00:00Z" }] })).refused).toBe(0);
+  });
+});
+
+describe("shifts that are over", () => {
+  const event = { timezone: "America/Chicago" };
+  it("are over once their end has passed in the event's time zone", () => {
+    const shift = { date: "2030-01-10", start: "09:00", end: "12:00" };
+    expect(shiftEnded(event, shift, new Date("2030-01-10T17:59:00Z"))).toBe(false); // 11:59 in Chicago
+    expect(shiftEnded(event, shift, new Date("2030-01-10T18:00:00Z"))).toBe(true);
+    expect(shiftEnded(event, { date: "2030-01-10", start: "20:00", end: "02:00" }, new Date("2030-01-11T07:00:00Z"))).toBe(false); // overnight
+    expect(shiftEnded(event, { capacity: 3 }, new Date("2100-01-01"))).toBe(false);
+  });
+
+  it("can't be signed up for, but the event's team can still add someone", async () => {
+    await writeEvents(db, asha, {
+      upsert: [{ id: "ev-past", organizationId: "org-temple", title: "Last year", status: "published", visibility: "public", timezone: "UTC",
+        roles: [{ id: "r", name: "Setup", shifts: [{ id: "sp", date: "2020-01-10", start: "09:00", end: "12:00", capacity: 5 }] }] }],
+    });
+    const late = { ...signup("su-late", "mei@example.com"), eventId: "ev-past", shiftId: "sp" };
+    expect(await writeSignups(db, mei, { upsert: [late] })).toMatchObject({ refused: 1, reason: "ended" });
+    const walkIn = { ...signup("su-walkin", "ravi@example.com"), eventId: "ev-past", shiftId: "sp" };
+    expect((await writeSignups(db, asha, { upsert: [walkIn] })).refused).toBe(0);
   });
 });
