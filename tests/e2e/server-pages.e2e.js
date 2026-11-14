@@ -1,7 +1,8 @@
 // The prototype's pages on the server say what's true there: a team member
 // added by an Admin can run its events before saving a profile; the banner
 // is about the beta; nothing points at the prototype outbox, because emails
-// are sent for real; and the sign-up confirmation says the email is on its way.
+// are sent for real; the sign-up confirmation says the email is on its way;
+// and the header shows who's signed in.
 const { BASE, start, person, organization, joinWithCode, email } = require("./helpers");
 const ORG = "Food Bank " + require("./helpers").RUN;
 
@@ -24,6 +25,14 @@ const ORG = "Food Bank " + require("./helpers").RUN;
   const carlos = await person(t, "carlos", { profile: false });
   await carlos.goto(BASE + "/app/events.html");
   check(!(await carlos.isVisible(".way-in")) && (await carlos.textContent("main")).includes(ORG), "a new Coordinator sees the organization's Events before saving a profile");
+
+  // ----- Who's signed in: the header's circle -----
+  check((await carlos.textContent("#account-chip")) === "C" && (await carlos.getAttribute("#account-chip", "aria-label")).includes(email("carlos")), "no profile yet: the circle shows the signed-in email's first letter");
+  await asha.goto(BASE + "/app/signup.html");
+  check((await asha.textContent("#account-chip")) === "AT" && (await asha.getAttribute("#account-chip", "aria-label")) === "Signed in as Asha Test. My profile", "with a profile: initials and name");
+  const visitor = await (await t.browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
+  await visitor.goto(BASE + "/app/join.html");
+  check(!(await visitor.$("#account-chip")), "signed out: no circle");
   await carlos.goto(BASE + "/app/organization.html");
   check((await carlos.textContent("main")).includes("You're a Coordinator here"), "and its profile, as a Coordinator");
 

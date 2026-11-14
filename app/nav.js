@@ -12,6 +12,9 @@
 // a bar at the bottom of the screen (like most apps), and the Manage links
 // stay at the top on the Manage pages.
 //
+// Signed in, the header's top right shows who: your photo, or your initials,
+// in a circle that opens My profile (where Sign out is).
+//
 // The Manage pages call SevakNav.guard() first. Someone signed in who isn't
 // on the right team sees how to get there instead: set up an organization
 // (and be its Admin), or ask an Admin to add them on the Team tab. Signed
@@ -207,6 +210,43 @@
     });
     if (showManage) bar.appendChild(moreMenu("tab-more", manageLinks(), waiting, !!MANAGE[here]));
     document.body.classList.add("has-tab-bar");
+
+    renderAccount(nav.parentNode, signedIn, item === "profile");
+  }
+
+  // ---------- Who's signed in: a circle at the header's top right ----------
+
+  // "Priya Raman" → "PR"; just an email → its first letter.
+  function initialsOf(p) {
+    var first = function (s) { return Array.from(String(s || "").trim())[0] || ""; };
+    var letters = first(p.firstName) + first(p.lastName);
+    return (letters || first(p.email) || "?").toUpperCase();
+  }
+
+  function renderAccount(row, signedIn, current) {
+    if (!row) return;
+    var old = document.getElementById("account-chip");
+    if (old) old.remove();
+    if (!signedIn) return;
+    var p = F.session.profile() || {};
+    var name = [p.firstName, p.lastName].filter(Boolean).join(" ").trim();
+    var who = name || p.email || "you";
+    var chip = link("profile.html", "", current);
+    chip.id = "account-chip";
+    chip.className = "account-chip";
+    chip.setAttribute("aria-label", "Signed in as " + who + ". My profile");
+    chip.title = "Signed in as " + who + (name && p.email ? " (" + p.email + ")" : "");
+    if (typeof p.photo === "string" && /^data:image\//.test(p.photo)) {
+      var img = el("img");
+      img.src = p.photo;
+      img.alt = "";
+      chip.appendChild(img);
+    } else {
+      var letters = el("span", "account-initials", initialsOf(p));
+      letters.setAttribute("aria-hidden", "true");
+      chip.appendChild(letters);
+    }
+    row.appendChild(chip);
   }
 
   function icon(name) {
