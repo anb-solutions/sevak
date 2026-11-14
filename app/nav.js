@@ -227,6 +227,7 @@
     if (!row) return;
     var old = document.getElementById("account-chip");
     if (old) old.remove();
+    row.classList.toggle("has-account", signedIn);
     if (!signedIn) return;
     var p = F.session.profile() || {};
     var name = [p.firstName, p.lastName].filter(Boolean).join(" ").trim();

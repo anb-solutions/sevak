@@ -1,7 +1,7 @@
 // Who's signed in: a circle at the header's top right, on every page with
 // the menu. Initials (or the profile photo), named for screen readers, and
-// it opens My profile. Nothing when signed out. Beside the name on a phone,
-// after the menu on a wide screen.
+// it opens My profile. Nothing when signed out. Level with the Sevak name at
+// the top right at every width, whatever wraps.
 const { chromium } = require('playwright');
 const B = 'http://localhost:8765/app/'; const SP = process.argv[2];
 const DOT = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
@@ -35,6 +35,7 @@ const DOT = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJA
   const chip2 = await box('#account-chip'), nav = await box('#app-nav'), brand2 = await box('.brand');
   check(Math.abs((chip2.y + chip2.h / 2) - (brand2.y + brand2.h / 2)) < 12 && nav.y > chip2.y + chip2.h - 4, 'Manage page: the circle by the name, the Manage links underneath');
   check(await fits(), 'Manage page fits at 390px');
+  check(await p.$eval('.nav-manage', m => m.scrollWidth <= m.clientWidth), 'the Manage links keep their full width (nothing cut off)');
   await p.screenshot({ path: SP + '/account-manage.png' });
 
   // ----- It opens My profile, by keyboard too -----
@@ -57,13 +58,20 @@ const DOT = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJA
   await p.goto(B + 'signup.html');
   check(!(await p.$('#account-chip')), 'after signing out: no circle');
 
-  // ----- A wide screen: at the right, after the menu -----
+  // ----- Wider screens: pinned to the top right; only the menu wraps -----
+  // (700px, or a wider font, is too narrow for the name, the menu and the
+  // circle on one row: the circle must not drop onto a row of its own.)
   await setProfile({ firstName: 'Bala', lastName: 'Anand', email: 'bala@example.com', phone: '+17135550100', roles: { volunteer: true } });
-  await p.setViewportSize({ width: 1280, height: 800 });
-  await p.goto(B + 'signup.html');
-  const wide = await box('#account-chip'), menu = await box('#app-nav');
-  check(wide.x >= menu.right && Math.abs((wide.y + wide.h / 2) - (menu.y + menu.h / 2)) < 12, 'wide: at the right, after the menu');
-  await p.screenshot({ path: SP + '/account-wide.png' });
+  for (const [w, font] of [[1280, ''], [700, ''], [1280, 'DejaVu Sans']]) {
+    await p.setViewportSize({ width: w, height: 800 });
+    await p.goto(B + 'signup.html');
+    if (font) await p.addStyleTag({ content: '* { font-family: "' + font + '", sans-serif !important; }' });
+    const c = await box('#account-chip'), menu = await box('#app-nav'), row = await box('.header-row'), name = await box('.brand');
+    const label = w + 'px' + (font ? ' in ' + font : '');
+    check(Math.abs(c.right - row.right) < 2 && Math.abs((c.y + c.h / 2) - (name.y + name.h / 2)) < 12, label + ': at the top right, level with the name');
+    check(menu.right <= c.x + 1 || menu.y >= c.y + c.h - 1, label + ': the menu doesn\'t run under it');
+    if (w === 1280 && !font) await p.screenshot({ path: SP + '/account-wide.png' });
+  }
 
   console.log(n + ' ok'); console.log(errs.length ? 'FAIL\n' + errs.join('\n') : 'ALL PASS'); await b.close();
 })();
