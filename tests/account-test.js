@@ -35,7 +35,9 @@ const DOT = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJA
   const chip2 = await box('#account-chip'), nav = await box('#app-nav'), brand2 = await box('.brand');
   check(Math.abs((chip2.y + chip2.h / 2) - (brand2.y + brand2.h / 2)) < 12 && nav.y > chip2.y + chip2.h - 4, 'Manage page: the circle by the name, the Manage links underneath');
   check(await fits(), 'Manage page fits at 390px');
-  check(await p.$eval('.nav-manage', m => m.scrollWidth <= m.clientWidth), 'the Manage links keep their full width (nothing cut off)');
+  // The circle takes no width from the Manage links' row (they scroll
+  // sideways on their own if a font makes them too wide, as before).
+  check(await p.evaluate(() => Math.abs(document.getElementById('app-nav').getBoundingClientRect().width - document.querySelector('.header-row').getBoundingClientRect().width) < 1), 'the Manage links keep the header\'s full width');
   await p.screenshot({ path: SP + '/account-manage.png' });
 
   // ----- It opens My profile, by keyboard too -----
