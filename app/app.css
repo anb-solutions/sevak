@@ -86,7 +86,14 @@ body {
 /* Header and footer */
 .site-header { padding-block: 20px; }
 .header-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
-.app-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.app-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-left: auto; }
+/* Who's signed in: a circle pinned to the header's top right, opening My
+   profile. Its space is kept free, so only the menu wraps when it's tight. */
+.header-row.has-account { position: relative; padding-right: 56px; }
+.account-chip { position: absolute; top: 4px; right: 0; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; overflow: hidden; background: var(--primary-soft); color: var(--primary); border: 2px solid var(--primary); font-weight: 700; font-size: 0.95rem; letter-spacing: 0.02em; text-decoration: none; }
+.account-chip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.account-chip:hover { background: var(--primary); color: var(--on-primary); }
+.account-chip:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); }
 .nav-group { display: flex; align-items: center; gap: 4px; }
 .nav-manage { padding-left: 12px; border-left: 1px solid var(--border); }
 .nav-label { margin-right: 2px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
@@ -1025,6 +1032,10 @@ input[type="time"], input[type="number"] {
   .event-item { grid-template-columns: minmax(0, 1fr); }
   .event-side { flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-top: 4px; }
   .app-nav { gap: 2px 0; flex: 1 1 100%; min-width: 0; }
+  /* On a phone the menu takes its own row; the circle stays beside the name. */
+  .header-row.has-account { padding-right: 0; }
+  .header-row.has-account .brand { max-width: calc(100% - 48px); }
+  .account-chip { top: 6px; width: 36px; height: 36px; font-size: 0.85rem; }
   .nav-group { gap: 0; }
   .nav-manage { flex: 1 1 100%; padding-left: 0; border-left: 0; }
   /* The bottom bar has the same links; these scroll if still too wide. */
